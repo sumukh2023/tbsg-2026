@@ -1,14 +1,18 @@
+import { useRef } from 'react';
+import { useInView } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
 import { TextEffect } from '@/components/motion/text-effect';
 import { Spotlight } from '@/components/motion/spotlight';
 import { Magnetic } from '@/components/motion/magnetic';
 
 export function Closing() {
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true, margin: '-120px' });
   return (
-    <section className="group relative overflow-hidden border-t-2 border-foreground bg-primary text-primary-foreground">
+    <section ref={ref} className="group relative overflow-hidden border-t-2 border-foreground bg-primary text-primary-foreground">
       <Spotlight className="from-sun/40 via-sun/10 to-transparent" size={420} />
       <div className="relative mx-auto max-w-3xl px-6 py-28 text-center">
-        <TextEffect as="h2" per="word" preset="fade-in-blur" className="font-display text-5xl font-bold tracking-tight sm:text-6xl">
+        <TextEffect as="h2" per="word" preset="fade-in-blur" trigger={inView} className="font-display text-5xl font-bold tracking-tight sm:text-6xl">
           Andiamo. Save your spot.
         </TextEffect>
         <p className="mx-auto mt-5 max-w-lg text-lg text-primary-foreground/85">
