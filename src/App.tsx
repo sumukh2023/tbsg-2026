@@ -1,31 +1,52 @@
-// ⚠️ FROM-SCRATCH SHELL — Webfinity 2026.
-// Do NOT reuse examples/landing-demo/ as a page skeleton (that is the old
-// template slop). Build the page for THIS brief from scratch, composing the
-// primitives in src/components/ + src/components/motion/ per CLAUDE.md's
-// mandatory design workflow. Remove this shell (and the sentinel below) once
-// you start building — the design-process gate activates when it's gone.
+import { MotionConfig } from 'framer-motion';
 import { RootLayout } from '@/layouts/RootLayout';
+import { SiteNav } from './festival/SiteNav';
+import { Hero } from './festival/Hero';
+import { Overture } from './festival/Overture';
+import { PiazzaBento } from './festival/PiazzaBento';
+import { Regions } from './festival/Regions';
+import { Programme } from './festival/Programme';
+import { Mercato } from './festival/Mercato';
+import { Voci } from './festival/Voci';
+import { Giorno } from './festival/Giorno';
+import { Domande } from './festival/Domande';
+import { Missione } from './festival/Missione';
+import { Finale } from './festival/Finale';
+import { SiteFooter } from './festival/SiteFooter';
 
+/**
+ * Flash @ Brigade 2026 · "Namma Mia Carpisa".
+ * One continuous story: a marble day in the piazza that ends, deliberately,
+ * in one evening chapter (the `.dark` wrapper) where the fundraising mission
+ * and the goodbye live. Design decisions are recorded in .design/brief.md.
+ */
 export default function App() {
   return (
-    <RootLayout chrome={false}>
-      <main className="grid min-h-screen place-items-center p-8">
-        <div className="max-w-md text-center">
-          <p className="font-heading text-sm font-semibold uppercase tracking-widest text-primary">
-            Webfinity 2026
-          </p>
-          <h1 className="mt-3 font-display text-3xl font-bold tracking-tight">
-            From-scratch shell
-          </h1>
-          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-            Build this page for the brief from scratch. Follow the mandatory
-            workflow in CLAUDE.md: query ui-ux-pro-max, set a direction with
-            taste-skill, compose from the primitives and the motion library,
-            run review-animations, then the impeccable detector.
-          </p>
+    <MotionConfig reducedMotion="user">
+      <RootLayout chrome={false}>
+        <a
+          href="#piazza"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-full focus:bg-primary focus:px-5 focus:py-2.5 focus:text-sm focus:text-primary-foreground"
+        >
+          Skip to content
+        </a>
+        <SiteNav />
+        <Hero />
+        <Overture />
+        <PiazzaBento />
+        <Regions />
+        <Programme />
+        <Mercato />
+        <Voci />
+        <Giorno />
+        <Domande />
+        {/* Dusk falls once: the page's single, deliberate theme shift. */}
+        <div id="sera" className="dark bg-background text-foreground">
+          <Missione />
+          <Finale />
+          <SiteFooter />
         </div>
-      </main>
-      {/* FROM-SCRATCH-SHELL */}
-    </RootLayout>
+      </RootLayout>
+    </MotionConfig>
   );
 }

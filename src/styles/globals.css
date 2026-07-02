@@ -3,68 +3,71 @@
 @tailwind utilities;
 
 /* ------------------------------------------------------------------ */
-/*  Design Tokens                                                      */
-/*  Switch the entire theme from here. Values are HSL channels so they */
-/*  compose with Tailwind's <alpha-value> (e.g. bg-primary/50).        */
+/*  Design Tokens — Flash @ Brigade 2026 · "Namma Mia Carpisa"         */
+/*  Palette from ui-ux-pro-max (see .design/brief.md): warm Italian    */
+/*  marble day + one deliberate deep-green evening chapter (.dark).    */
+/*  Values are HSL channels so they compose with <alpha-value>.        */
 /* ------------------------------------------------------------------ */
 @layer base {
   :root {
-    /* Neutral, unopinionated default. The real palette per brief comes from
-       ui-ux-pro-max (Golden rule 2); this is just a clean monochrome starting
-       point, not a brand colour. */
-    --background: 0 0% 100%;
-    --foreground: 240 10% 4%;
+    /* Marble day */
+    --background: 38 38% 94%;
+    --foreground: 32 21% 12%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 4%;
+    --card: 40 47% 97%;
+    --card-foreground: 32 21% 12%;
 
-    --primary: 240 6% 10%;
-    --primary-foreground: 0 0% 98%;
+    /* Terracotta */
+    --primary: 16 52% 43%;
+    --primary-foreground: 40 40% 96%;
 
-    --secondary: 240 5% 96%;
-    --secondary-foreground: 240 6% 10%;
+    /* Pale olive surface */
+    --secondary: 56 24% 88%;
+    --secondary-foreground: 70 20% 18%;
 
-    --accent: 240 4% 34%;
-    --accent-foreground: 0 0% 98%;
+    /* Aged gold */
+    --accent: 41 60% 36%;
+    --accent-foreground: 40 40% 96%;
 
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 4% 44%;
+    --muted: 40 26% 90%;
+    --muted-foreground: 30 10% 34%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 62% 44%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
-    --ring: 240 6% 10%;
+    --border: 38 20% 80%;
+    --input: 38 20% 80%;
+    --ring: 16 52% 43%;
 
-    --radius: 0.85rem;
+    --radius: 0.25rem;
   }
 
+  /* Evening piazza: applied once, to the closing fundraising chapter. */
   .dark {
-    --background: 240 10% 4%;
-    --foreground: 0 0% 98%;
+    --background: 160 22% 8%;
+    --foreground: 40 33% 93%;
 
-    --card: 240 8% 7%;
-    --card-foreground: 0 0% 98%;
+    --card: 160 18% 11%;
+    --card-foreground: 40 33% 93%;
 
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 6% 10%;
+    --primary: 42 52% 58%;
+    --primary-foreground: 160 25% 8%;
 
-    --secondary: 240 4% 14%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 158 14% 16%;
+    --secondary-foreground: 40 30% 90%;
 
-    --accent: 240 5% 66%;
-    --accent-foreground: 240 6% 10%;
+    --accent: 42 52% 58%;
+    --accent-foreground: 160 25% 8%;
 
-    --muted: 240 4% 14%;
-    --muted-foreground: 240 5% 64%;
+    --muted: 158 12% 14%;
+    --muted-foreground: 42 18% 70%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 62% 52%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 240 5% 18%;
-    --input: 240 5% 18%;
-    --ring: 0 0% 90%;
+    --border: 158 12% 20%;
+    --input: 158 12% 20%;
+    --ring: 42 52% 58%;
   }
 }
 
@@ -81,7 +84,7 @@
   }
 
   body {
-    @apply bg-background font-sans text-foreground antialiased;
+    @apply bg-background font-body text-foreground antialiased;
     font-feature-settings:
       'rlig' 1,
       'calt' 1;
@@ -100,7 +103,7 @@
   }
 
   ::selection {
-    @apply bg-primary/30 text-foreground;
+    @apply bg-primary/25 text-foreground;
   }
 
   /* Custom, minimal scrollbar */
@@ -133,19 +136,14 @@
     @apply text-primary;
   }
 
-  /* Frosted glass surface */
+  /* Frosted marble surface: warm, not the generic white glass card. */
   .glass {
-    @apply border border-white/10 bg-white/5 backdrop-blur-xl;
+    @apply border border-foreground/10 bg-background/70 backdrop-blur-xl;
   }
 
   /* Subtle film-grain noise overlay (set as a background) */
   .noise {
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  }
-
-  /* Animated conic/linear brand background */
-  .bg-aurora {
-    @apply animate-aurora bg-aurora bg-[length:200%_200%];
   }
 
   /* Mask edges to transparent — great for marquees */

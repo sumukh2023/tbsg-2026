@@ -52,10 +52,10 @@ const config: Config = {
         '2xl': 'calc(var(--radius) + 8px)',
       },
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        display: ['Sora', 'Inter', 'sans-serif'],
-        heading: ['Space Grotesk', 'Inter', 'sans-serif'],
-        body: ['Manrope', 'Inter', 'sans-serif'],
+        sans: ['Montserrat', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['"Cormorant Garamond"', 'Georgia', 'serif'],
+        heading: ['"Cormorant Garamond"', 'Georgia', 'serif'],
+        body: ['Montserrat', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       fontSize: {
         '2xs': ['0.6875rem', { lineHeight: '1rem' }],
@@ -70,7 +70,7 @@ const config: Config = {
         'gradient-conic':
           'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
         'aurora':
-          'linear-gradient(115deg, hsl(var(--primary)), hsl(var(--accent)), #22d3ee, hsl(var(--primary)))',
+          'linear-gradient(115deg, hsl(var(--primary)), hsl(var(--accent)), hsl(var(--secondary)), hsl(var(--primary)))',
       },
       boxShadow: {
         glow: '0 0 0 1px hsl(var(--border)), 0 8px 40px -8px hsl(var(--primary) / 0.35)',
