@@ -3,163 +3,99 @@
 @tailwind utilities;
 
 /* ------------------------------------------------------------------ */
-/*  Design Tokens                                                      */
-/*  Switch the entire theme from here. Values are HSL channels so they */
-/*  compose with Tailwind's <alpha-value> (e.g. bg-primary/50).        */
+/*  Design Tokens — Festa Italiana (Vibrant & Block-based)             */
+/*  Festa-red + Adriatic-teal duotone with a sun-yellow pop on bright  */
+/*  paper. Single locked LIGHT theme. HSL channels for <alpha-value>.  */
 /* ------------------------------------------------------------------ */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    --background: 44 33% 97%;
+    --foreground: 40 18% 8%;
 
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card-foreground: 40 18% 8%;
 
-    --primary: 244 84% 60%;
+    --primary: 3 74% 53%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
+    --secondary: 44 22% 91%;
+    --secondary-foreground: 40 18% 14%;
 
-    --accent: 280 84% 62%;
+    --accent: 182 82% 30%;
     --accent-foreground: 0 0% 100%;
 
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
+    --muted: 44 18% 91%;
+    --muted-foreground: 40 8% 34%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
+    --sun: 42 90% 52%;
+    --sun-foreground: 40 40% 10%;
 
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 244 84% 60%;
+    --destructive: 0 74% 48%;
+    --destructive-foreground: 0 0% 100%;
 
-    --radius: 0.85rem;
+    --border: 40 14% 85%;
+    --input: 40 14% 85%;
+    --ring: 3 74% 53%;
+
+    --radius: 0.9rem;
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-
-    --card: 240 8% 6%;
-    --card-foreground: 0 0% 98%;
-
-    --primary: 244 84% 67%;
+    --background: 40 18% 7%;
+    --foreground: 44 30% 95%;
+    --card: 40 16% 10%;
+    --card-foreground: 44 30% 95%;
+    --primary: 3 78% 60%;
     --primary-foreground: 0 0% 100%;
-
-    --secondary: 240 4% 12%;
-    --secondary-foreground: 0 0% 98%;
-
-    --accent: 280 84% 70%;
+    --secondary: 40 12% 16%;
+    --secondary-foreground: 44 30% 95%;
+    --accent: 182 70% 42%;
     --accent-foreground: 0 0% 100%;
-
-    --muted: 240 4% 12%;
-    --muted-foreground: 240 5% 64.9%;
-
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 98%;
-
-    --border: 240 6% 16%;
-    --input: 240 6% 18%;
-    --ring: 244 84% 67%;
+    --muted: 40 12% 16%;
+    --muted-foreground: 44 12% 64%;
+    --sun: 42 90% 56%;
+    --sun-foreground: 40 40% 10%;
+    --destructive: 0 74% 54%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 40 10% 22%;
+    --input: 40 10% 22%;
+    --ring: 3 78% 60%;
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-
+  * { @apply border-border; }
   html {
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
-
   body {
-    @apply bg-background font-sans text-foreground antialiased;
-    font-feature-settings:
-      'rlig' 1,
-      'calt' 1;
+    @apply bg-background font-body text-foreground antialiased;
   }
-
-  /* Respect users who prefer reduced motion. */
   @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
+    *, *::before, *::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
   }
-
-  ::selection {
-    @apply bg-primary/30 text-foreground;
-  }
-
-  /* Custom, minimal scrollbar */
-  ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    @apply rounded-full bg-border;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    @apply bg-muted-foreground/40;
-  }
+  ::selection { @apply bg-primary/25 text-foreground; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { @apply rounded-full bg-foreground/20; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-foreground/40; }
 }
 
-/* ------------------------------------------------------------------ */
-/*  Reusable utilities                                                 */
-/* ------------------------------------------------------------------ */
 @layer utilities {
-  /* Solid ink headings (no gradient-text tell). */
-  .text-gradient {
-    @apply text-foreground;
-  }
-
-  /* Accent words use the brand colour. */
-  .text-gradient-brand {
-    @apply text-primary;
-  }
-
-  /* Frosted glass surface */
-  .glass {
-    @apply border border-white/10 bg-white/5 backdrop-blur-xl;
-  }
-
-  /* Subtle film-grain noise overlay (set as a background) */
-  .noise {
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  }
-
-  /* Animated conic/linear brand background */
-  .bg-aurora {
-    @apply animate-aurora bg-aurora bg-[length:200%_200%];
-  }
-
-  /* Mask edges to transparent — great for marquees */
+  /* solid ink headings (no gradient-text tell) */
+  .text-gradient { @apply text-foreground; }
+  .text-gradient-brand { @apply text-primary; }
+  /* mask edges for marquees */
   .mask-fade-x {
-    -webkit-mask-image: linear-gradient(
-      to right,
-      transparent,
-      black 12%,
-      black 88%,
-      transparent
-    );
-    mask-image: linear-gradient(
-      to right,
-      transparent,
-      black 12%,
-      black 88%,
-      transparent
-    );
+    -webkit-mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+    mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
   }
 }

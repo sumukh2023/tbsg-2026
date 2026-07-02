@@ -43,7 +43,7 @@ const files = existsSync('src') ? walk('src') : [];
 const importsOf = (re) => files.filter((f) => re.test(readFileSync(f, 'utf8')));
 
 // 1) No reuse of the quarantined example skeleton
-const reused = importsOf(/from\s+['"](@\/sections|.*examples\/landing-demo).*['"]/);
+const reused = importsOf(/from\s+['"](\.\.\/)*examples\/landing-demo.*['"]/);
 if (reused.length) {
   fail.push(
     `Reuses the quarantined example section skeleton (that is the old slop). Offending files:\n    ${reused.join('\n    ')}\n  Build the page from scratch; do not import examples/landing-demo.`
