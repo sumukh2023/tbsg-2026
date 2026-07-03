@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { MotionConfig } from 'framer-motion';
 import { RootLayout } from '@/layouts/RootLayout';
+import { SiteNav } from './festival/SiteNav';
 import { Hero } from './festival/Hero';
 import { Overture } from './festival/Overture';
 import { PiazzaBento } from './festival/PiazzaBento';
@@ -45,6 +46,7 @@ function HomePage() {
       >
         Skip to content
       </a>
+      <SiteNav />
       <Hero />
       <Overture />
       <PiazzaBento />
