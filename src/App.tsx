@@ -1,6 +1,5 @@
 import { MotionConfig } from 'framer-motion';
 import { RootLayout } from '@/layouts/RootLayout';
-import { SiteNav } from './festival/SiteNav';
 import { Hero } from './festival/Hero';
 import { Overture } from './festival/Overture';
 import { PiazzaBento } from './festival/PiazzaBento';
@@ -30,7 +29,6 @@ export default function App() {
         >
           Skip to content
         </a>
-        <SiteNav />
         <Hero />
         <Overture />
         <PiazzaBento />

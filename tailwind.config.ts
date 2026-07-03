@@ -52,7 +52,7 @@ const config: Config = {
         '2xl': 'calc(var(--radius) + 8px)',
       },
       fontFamily: {
-        sans: ['Montserrat', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        sans: ['Inter', 'sans-serif'],
         display: ['"Cormorant Garamond"', 'Georgia', 'serif'],
         heading: ['"Cormorant Garamond"', 'Georgia', 'serif'],
         body: ['Montserrat', 'ui-sans-serif', 'system-ui', 'sans-serif'],
