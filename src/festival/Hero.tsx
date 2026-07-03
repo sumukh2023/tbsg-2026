@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 
 const VIDEO_SRC =
   'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260403_050628_c4e32401-fab4-4a27-b7a8-6e9291cd5959.mp4';
@@ -133,12 +134,12 @@ export function Hero() {
               </li>
             ))}
           </ul>
-          <a
-            href="#finale"
+          <Link
+            to="/get-passes"
             className="rounded-lg bg-white px-6 py-2 text-sm font-medium text-black transition-colors hover:bg-gray-100"
           >
             Get passes
-          </a>
+          </Link>
         </nav>
 
         {/* Hero content, pushed to the bottom of the viewport */}
@@ -168,12 +169,12 @@ export function Hero() {
 
               <FadeIn delay={1200} duration={1000}>
                 <div className="flex flex-wrap gap-4">
-                  <a
-                    href="#finale"
+                  <Link
+                    to="/get-passes"
                     className="rounded-lg bg-white px-8 py-3 font-medium text-black transition-colors hover:bg-gray-100"
                   >
                     Get passes
-                  </a>
+                  </Link>
                   <a
                     href="#piazza"
                     className="liquid-glass rounded-lg border border-white/20 px-8 py-3 font-medium text-white transition-colors hover:bg-white hover:text-black"

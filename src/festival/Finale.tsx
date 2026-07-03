@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, useInView } from 'framer-motion';
 import { TextEffect } from '@/components/motion/text-effect';
 import { Magnetic } from '@/components/motion/magnetic';
@@ -47,12 +48,12 @@ export function Finale() {
           className="mt-10"
         >
           <Magnetic intensity={0.2} range={90}>
-            <a
-              href="mailto:flash@thebrigadeschool.edu.in?subject=Passes%20for%20Flash%202026"
+            <Link
+              to="/get-passes"
               className="inline-flex items-center rounded-full bg-primary px-10 py-4 font-body text-sm font-medium text-primary-foreground transition-all duration-300 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
             >
               Get passes
-            </a>
+            </Link>
           </Magnetic>
         </motion.div>
       </div>
