@@ -41,19 +41,31 @@ function HeroContent({ progress }: { progress: MotionValue<number> }) {
   // final stretch belongs to the video before the next chapter arrives.
   const contentOpacity = useTransform(progress, [0.45, 0.8], [1, 0]);
   const contentY = useTransform(progress, [0.45, 0.8], [0, -80]);
+  // The marble veil thins once the title has left, letting the campus
+  // footage arrive in full colour; the colonnade dissolves over the final
+  // two seconds of the film so the ending feels composed, not cut.
+  const veilOpacity = useTransform(progress, [0.5, 0.9], [1, 0.35]);
+  const archOpacity = useTransform(progress, [0.74, 0.94], [1, 0]);
 
   return (
     <>
       {/* Marble veil: keeps the ink typography cleanly readable over film. */}
-      <div
+      <motion.div
         aria-hidden="true"
+        style={{ opacity: veilOpacity }}
         className="absolute inset-0 bg-[linear-gradient(180deg,hsl(var(--background)/0.92)_0%,hsl(var(--background)/0.72)_38%,hsl(var(--background)/0.62)_62%,hsl(var(--background)/0.85)_100%)]"
       />
       <div
         aria-hidden="true"
         className="absolute inset-0 bg-[radial-gradient(90%_60%_at_50%_-5%,hsl(var(--accent)/0.14),transparent_70%)]"
       />
-      <Colonnade />
+      <motion.div
+        aria-hidden="true"
+        style={{ opacity: archOpacity }}
+        className="absolute inset-0"
+      >
+        <Colonnade />
+      </motion.div>
       <Grain />
 
       <motion.div

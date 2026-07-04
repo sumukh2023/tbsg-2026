@@ -112,7 +112,7 @@ export default async function handler(request: Request): Promise<Response> {
   if (!supabaseUrl || !serviceKey) {
     return json(503, {
       error:
-        'The registration desk is not open yet. Please try again later or write to flash@thebrigadeschool.edu.in.',
+        'The registration desk is not open yet. Please try again later or write to bfcommunication@brigadeschools.edu.in.',
     });
   }
 

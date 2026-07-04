@@ -6,7 +6,7 @@ const voices = [
     quote:
       '“You forget it’s a school. For one day it genuinely is somewhere else.”',
     name: 'Meera Raghunath',
-    role: 'Parent volunteer since 2019',
+    role: 'Parent volunteer since the first Flash',
     align: 'md:col-span-8 md:col-start-1',
   },
   {
@@ -18,7 +18,7 @@ const voices = [
   },
   {
     quote:
-      '“My first Flash was 2011. I still plan my November around it.”',
+      '“My first Flash was Rangeelo Rajasthan. I have planned my November around it ever since.”',
     name: 'Sahana Iyer',
     role: 'Alumna, batch of 2013',
     align: 'md:col-span-8 md:col-start-2',

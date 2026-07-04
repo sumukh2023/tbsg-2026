@@ -40,7 +40,7 @@ const acts: Act[] = [
   {
     time: '15:00',
     title: 'Tarantella',
-    body: 'The junior school storms the main stage with the fastest dance in the south.',
+    body: 'The troupe that made Ghoomar unforgettable at the first Flash learns the fastest dance in the south.',
     surface: 'bg-primary',
     text: 'text-primary-foreground',
   },

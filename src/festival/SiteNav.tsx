@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { EASE } from '@/utils/motion';
+import { CarnivalMark } from './CarnivalMark';
 
 const links = [
   { label: 'La Piazza', href: '#piazza' },
@@ -55,9 +56,10 @@ export function SiteNav() {
       >
         <a
           href="#top"
-          className="font-body text-xs font-semibold uppercase tracking-[0.22em] text-foreground"
+          aria-label="Flash @ Brigade"
+          className="text-foreground transition-colors duration-300 hover:text-primary"
         >
-          Flash <span className="text-primary">@</span> Brigade
+          <CarnivalMark className="h-7 w-auto md:h-8" />
         </a>
 
         <ul className="hidden items-center gap-8 lg:flex">

@@ -69,10 +69,10 @@ export function Overture() {
               viewOptions={{ once: true, margin: '-15% 0px' }}
             >
               <p className="font-body text-base leading-relaxed text-muted-foreground">
-                Since 2008, Flash @ Brigade has been imagined, budgeted, built
-                and run entirely by students. Teachers advise. Students decide.
-                Eighteen editions on, it remains the school's largest act of
-                giving.
+                Flash began in November 2023, when Rangeelo Rajasthan turned
+                this campus into a swirl of Ghoomar, qawwali and a 120-strong
+                dance troupe. Every edition is imagined, budgeted and run
+                entirely by students. Teachers advise. Students decide.
               </p>
             </InView>
           </div>
@@ -86,10 +86,11 @@ export function Overture() {
               viewOptions={{ once: true, margin: '-15% 0px' }}
             >
               <p className="font-body text-base leading-relaxed text-muted-foreground">
-                This year the courtyards become piazzas, the corridors become
-                arcades, and every stall, stage and kitchen follows one map:
-                Italy. Every rupee raised goes to the education and healthcare
-                of underprivileged children.
+                The tradition continues; the destination changes. This year the
+                courtyards become piazzas, the corridors become arcades, and
+                every stall, stage and kitchen follows one map: Italy. Every
+                rupee raised goes to the education and healthcare of
+                underprivileged children.
               </p>
             </InView>
           </div>

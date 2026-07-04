@@ -5,6 +5,7 @@ import { ArrowLeft } from 'lucide-react';
 import { TextEffect } from '@/components/motion/text-effect';
 import { EASE } from '@/utils/motion';
 import { Grain } from '../materials';
+import { CarnivalMark } from '../CarnivalMark';
 import {
   FloatingInput,
   FloatingTextarea,
@@ -311,27 +312,31 @@ export default function GetPassesPage() {
     <div className="dark relative min-h-[100dvh] overflow-hidden bg-background text-foreground">
       <EveningBackdrop />
 
-      <div className="relative z-10 mx-auto flex min-h-[100dvh] max-w-3xl flex-col px-6 pt-6 md:px-8">
-        {/* Chrome */}
-        <motion.nav
-          initial={{ y: -12, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.7, ease: EASE.out }}
-          className="liquid-glass flex items-center justify-between rounded-xl px-4 py-2"
-          aria-label="Registration"
+      {/* Chrome: the same bar as the homepage nav, carried into the evening. */}
+      <motion.nav
+        initial={{ y: -16, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.8, delay: 0.2, ease: EASE.out }}
+        className="fixed inset-x-0 top-0 z-50 flex h-16 items-center justify-between border-b border-border/70 bg-background/80 px-6 backdrop-blur-xl md:px-10"
+        aria-label="Registration"
+      >
+        <Link
+          to="/"
+          aria-label="Flash @ Brigade home"
+          className="text-foreground transition-colors duration-300 hover:text-primary"
         >
-          <Link to="/" className="text-lg font-semibold tracking-tight">
-            Flash @ Brigade
-          </Link>
-          <Link
-            to="/"
-            className="group inline-flex items-center gap-2 font-body text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4 transition-transform duration-300 group-hover:-translate-x-0.5" />
-            Back to the piazza
-          </Link>
-        </motion.nav>
+          <CarnivalMark className="h-7 w-auto md:h-8" />
+        </Link>
+        <Link
+          to="/"
+          className="group inline-flex items-center gap-2 font-body text-sm text-muted-foreground transition-colors duration-300 hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4 transition-transform duration-300 group-hover:-translate-x-0.5" />
+          Back to the piazza
+        </Link>
+      </motion.nav>
 
+      <div className="relative z-10 mx-auto flex min-h-[100dvh] max-w-3xl flex-col px-6 pt-16 md:px-8">
         {/* Hero */}
         <header className="pb-10 pt-14 md:pb-14 md:pt-20">
           <TextEffect

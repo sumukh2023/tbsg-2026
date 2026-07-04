@@ -6,10 +6,10 @@ import { EASE } from '@/utils/motion';
 import { Grain } from './materials';
 
 const measures = [
-  { value: 18, label: 'editions, every one student-run' },
-  { value: 74, prefix: '₹', suffix: ' lakh', label: 'raised since 2008' },
-  { value: 3160, label: 'children supported so far' },
+  { value: 4, label: 'editions, every one student-run' },
+  { value: 120, label: 'dancers in the inaugural troupe' },
   { value: 240, label: 'student organisers this year' },
+  { value: 6, label: 'regions of Italy on campus' },
 ];
 
 function Measure({
@@ -103,8 +103,9 @@ export function Missione() {
           >
             When the lights go down over the piazza, the surplus goes to work:
             school fees, textbooks, uniforms and medical care for children in
-            Malleswaram and beyond, through the school's Reach Out programme.
-            The students who run Flash sit on the committee that spends it.
+            Malleswaram and beyond. It is the promise Flash has kept since
+            Rangeelo Rajasthan in 2023, and the students who run the carnival
+            sit on the committee that spends what it raises.
           </motion.p>
         </div>
 
