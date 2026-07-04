@@ -6,10 +6,10 @@ import { EASE } from '@/utils/motion';
 import { Grain } from './materials';
 
 const measures = [
-  { value: 4, label: 'editions, every one student-run' },
-  { value: 120, label: 'dancers in the inaugural troupe' },
+  { value: 18, label: 'editions, every one student-run' },
+  { value: 74, prefix: '₹', suffix: ' lakh', label: 'raised since 2008' },
+  { value: 3160, label: 'children supported so far' },
   { value: 240, label: 'student organisers this year' },
-  { value: 6, label: 'regions of Italy on campus' },
 ];
 
 function Measure({

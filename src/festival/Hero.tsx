@@ -41,10 +41,11 @@ function HeroContent({ progress }: { progress: MotionValue<number> }) {
   // final stretch belongs to the video before the next chapter arrives.
   const contentOpacity = useTransform(progress, [0.45, 0.8], [1, 0]);
   const contentY = useTransform(progress, [0.45, 0.8], [0, -80]);
-  // The marble veil thins once the title has left, letting the campus
-  // footage arrive in full colour; the colonnade dissolves over the final
-  // two seconds of the film so the ending feels composed, not cut.
-  const veilOpacity = useTransform(progress, [0.5, 0.9], [1, 0.35]);
+  // The full marble veil holds only for the film's first beats; as the
+  // drone crosses into the school grounds it eases down to the thin veil
+  // and the footage carries its own colour. The colonnade still dissolves
+  // over the final two seconds so the ending feels composed, not cut.
+  const veilOpacity = useTransform(progress, [0.18, 0.4], [1, 0.35]);
   const archOpacity = useTransform(progress, [0.74, 0.94], [1, 0]);
 
   return (
@@ -72,73 +73,81 @@ function HeroContent({ progress }: { progress: MotionValue<number> }) {
         style={{ opacity: contentOpacity, y: contentY }}
         className="relative z-10 flex h-full items-center justify-center"
       >
-        <div className="mx-auto max-w-4xl px-6 pt-16 text-center">
-          <TextEffect
-            as="p"
-            per="word"
-            preset="fade"
-            delay={0.3}
-            className="font-body text-xs font-medium uppercase tracking-[0.28em] text-muted-foreground"
-          >
-            The Brigade School @ Malleswaram · 14 November 2026
-          </TextEffect>
-
-          <h1 className="mt-8">
+        <div className="relative mx-auto max-w-4xl px-6 pt-16 text-center">
+          {/* Travels with the copy: keeps eyebrow, title and sub readable
+              over the thin veil without dulling the footage at the edges. */}
+          <div
+            aria-hidden="true"
+            className="absolute -inset-x-48 -inset-y-24 bg-[radial-gradient(60%_58%_at_50%_48%,hsl(var(--background)/0.9),hsl(var(--background)/0.55)_55%,transparent_80%)]"
+          />
+          <div className="relative">
             <TextEffect
-              as="span"
-              per="char"
-              preset="fade-in-blur"
-              delay={0.7}
-              speedReveal={1.4}
-              className="block font-display text-[17vw] font-medium leading-[0.95] tracking-tight text-foreground sm:text-7xl md:text-8xl lg:text-9xl"
+              as="p"
+              per="word"
+              preset="fade"
+              delay={0.3}
+              className="font-body text-xs font-medium uppercase tracking-[0.28em] text-muted-foreground"
             >
-              Namma Mia
+              The Brigade School @ Malleswaram · 14 November 2026
             </TextEffect>
-            <TextEffect
-              as="span"
-              per="char"
-              preset="fade-in-blur"
-              delay={1.3}
-              speedReveal={1.4}
-              className="block pb-2 font-display text-[17vw] font-medium italic leading-[1.1] tracking-tight text-primary sm:text-7xl md:text-8xl lg:text-9xl"
-            >
-              Carpisa
-            </TextEffect>
-          </h1>
 
-          <TextEffect
-            as="p"
-            per="line"
-            preset="fade-in-blur"
-            delay={2.0}
-            className="mx-auto mt-8 max-w-xl font-body text-base leading-relaxed text-muted-foreground md:text-lg"
-          >
-            Our campus becomes an Italian piazza for one day, raising funds for
-            children's education and healthcare.
-          </TextEffect>
-
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 2.5, ease: EASE.out }}
-            className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row"
-          >
-            <Magnetic intensity={0.2} range={80}>
-              <Link
-                to="/get-passes"
-                className="inline-flex items-center rounded-full bg-primary px-8 py-3.5 font-body text-sm font-medium text-primary-foreground transition-all duration-300 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
+            <h1 className="mt-8">
+              <TextEffect
+                as="span"
+                per="char"
+                preset="fade-in-blur"
+                delay={0.7}
+                speedReveal={1.4}
+                className="block font-display text-[17vw] font-medium leading-[0.95] tracking-tight text-foreground sm:text-7xl md:text-8xl lg:text-9xl"
               >
-                Get passes
-              </Link>
-            </Magnetic>
-            <a
-              href="#piazza"
-              className="group inline-flex items-center gap-2 rounded-full px-4 py-3.5 font-body text-sm font-medium text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                Namma Mia
+              </TextEffect>
+              <TextEffect
+                as="span"
+                per="char"
+                preset="fade-in-blur"
+                delay={1.3}
+                speedReveal={1.4}
+                className="block pb-2 font-display text-[17vw] font-medium italic leading-[1.1] tracking-tight text-primary sm:text-7xl md:text-8xl lg:text-9xl"
+              >
+                Carpisa
+              </TextEffect>
+            </h1>
+
+            <TextEffect
+              as="p"
+              per="line"
+              preset="fade-in-blur"
+              delay={2.0}
+              className="mx-auto mt-8 max-w-xl font-body text-base leading-relaxed text-muted-foreground md:text-lg"
             >
-              Walk the piazza
-              <ArrowDown className="h-4 w-4 transition-transform duration-300 group-hover:translate-y-0.5" />
-            </a>
-          </motion.div>
+              Our campus becomes an Italian piazza for one day, raising funds
+              for children's education and healthcare.
+            </TextEffect>
+
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 2.5, ease: EASE.out }}
+              className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row"
+            >
+              <Magnetic intensity={0.2} range={80}>
+                <Link
+                  to="/get-passes"
+                  className="inline-flex items-center rounded-full bg-primary px-8 py-3.5 font-body text-sm font-medium text-primary-foreground transition-all duration-300 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
+                >
+                  Get passes
+                </Link>
+              </Magnetic>
+              <a
+                href="#piazza"
+                className="group inline-flex items-center gap-2 rounded-full px-4 py-3.5 font-body text-sm font-medium text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Walk the piazza
+                <ArrowDown className="h-4 w-4 transition-transform duration-300 group-hover:translate-y-0.5" />
+              </a>
+            </motion.div>
+          </div>
         </div>
       </motion.div>
     </>

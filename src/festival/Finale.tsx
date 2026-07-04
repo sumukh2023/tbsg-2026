@@ -36,10 +36,12 @@ export function Finale() {
           initial={{ opacity: 0, y: 20 }}
           animate={inView ? { opacity: 1, y: 0 } : undefined}
           transition={{ duration: 0.8, delay: 0.9, ease: EASE.out }}
-          className="mx-auto mt-8 max-w-md font-body text-base leading-relaxed text-muted-foreground"
+          className="mx-auto mt-8 max-w-xl font-body text-base leading-relaxed text-muted-foreground"
         >
-          Saturday, 14 November 2026, 09:30 to 20:00. The Brigade School @
-          Malleswaram, Bengaluru.
+          <span className="block">Saturday, 14 November 2026, 09:30 to 20:00.</span>
+          <span className="block sm:whitespace-nowrap">
+            The Brigade School @ Malleswaram, Bengaluru.
+          </span>
         </motion.p>
         <motion.div
           initial={{ opacity: 0, y: 20 }}

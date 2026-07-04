@@ -27,8 +27,11 @@ const socials = [
 export function SiteFooter() {
   return (
     <footer className="border-t border-border bg-background text-foreground">
-      <div className="mx-auto grid max-w-6xl gap-12 px-6 py-16 md:grid-cols-12 md:px-10">
-        <div className="md:col-span-6">
+      <div
+        id="contact"
+        className="mx-auto grid max-w-6xl scroll-mt-20 gap-12 px-6 py-16 md:grid-cols-12 md:px-10"
+      >
+        <div className="md:col-span-5">
           <CarnivalMark className="h-9 w-auto text-foreground" />
           <p className="mt-4 font-body text-xs font-semibold uppercase tracking-[0.22em]">
             Flash <span className="text-primary">@</span> Brigade
@@ -51,7 +54,7 @@ export function SiteFooter() {
             Bangalore - 560055
           </address>
         </div>
-        <div className="md:col-span-3">
+        <div className="md:col-span-4">
           <h3 className="font-body text-sm font-semibold">Contact Us</h3>
           <p className="mt-3 font-body text-sm leading-relaxed text-muted-foreground">
             Landline: <a
@@ -68,12 +71,15 @@ export function SiteFooter() {
               +91 96866 69805
             </a>
             <br />
-            <a
-              href="mailto:bfcommunication@brigadeschools.edu.in"
-              className="break-all underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              bfcommunication@brigadeschools.edu.in
-            </a>
+            <span className="md:whitespace-nowrap">
+              Email:{' '}
+              <a
+                href="mailto:bfcommunication@brigadeschools.edu.in"
+                className="underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                bfcommunication@brigadeschools.edu.in
+              </a>
+            </span>
           </p>
         </div>
       </div>

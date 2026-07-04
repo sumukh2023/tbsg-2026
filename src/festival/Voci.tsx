@@ -5,22 +5,22 @@ const voices = [
   {
     quote:
       '“You forget it’s a school. For one day it genuinely is somewhere else.”',
-    name: 'Meera Raghunath',
-    role: 'Parent volunteer since the first Flash',
+    name: 'Sumukh Nayak',
+    role: 'Class XII A',
     align: 'md:col-span-8 md:col-start-1',
   },
   {
     quote:
       '“We budget it, we build it, we run it. That is the whole point of Flash.”',
-    name: 'Advik Rao',
-    role: 'Class XII, festival director 2026',
+    name: 'Ryan Saha',
+    role: 'Class XII A',
     align: 'md:col-span-8 md:col-start-5',
   },
   {
     quote:
-      '“My first Flash was Rangeelo Rajasthan. I have planned my November around it ever since.”',
-    name: 'Sahana Iyer',
-    role: 'Alumna, batch of 2013',
+      '“My first Flash was Rangeelo Rajasthan. Looking forward to the Italian themed Flash this year!”',
+    name: 'Pranav Chauhan',
+    role: 'Class XII A',
     align: 'md:col-span-8 md:col-start-2',
   },
 ];

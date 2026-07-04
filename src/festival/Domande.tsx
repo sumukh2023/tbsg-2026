@@ -54,8 +54,14 @@ export function Domande() {
               Domande
             </h2>
             <p className="mt-5 max-w-xs font-body text-base leading-relaxed text-muted-foreground">
-              The practical part. For anything else, the festival desk answers
-              at the main gate.
+              The practical part. For anything else, contact the{' '}
+              <a
+                href="#contact"
+                className="text-foreground underline decoration-accent/60 underline-offset-4 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                School Reception
+              </a>
+              .
             </p>
           </motion.div>
           <motion.div
