@@ -4,9 +4,36 @@ How the event-day systems work and what still needs credentials.
 
 ## Architecture
 
-Static Vite SPA + Vercel Edge functions (`api/`) + Supabase (Postgres,
-RLS, Realtime). All privileged access uses `SUPABASE_SERVICE_ROLE_KEY`
-inside the Edge functions only; the browser never sees it.
+Static Vite SPA + Vercel Functions (`api/`, **Node.js runtime**) +
+Supabase (Postgres, RLS, Realtime). All privileged access uses
+`SUPABASE_SERVICE_ROLE_KEY` inside the server functions only; the
+browser never sees it.
+
+> Runtime note: these functions deliberately do NOT use the Edge runtime.
+> On Edge, environment variables in a non-framework project are injected
+> at deploy time and `process.env` reads proved unreliable (the verify
+> endpoint 503'd before ever reaching Supabase). The Node runtime reads
+> them dynamically per request; everything used (fetch, WebCrypto,
+> TextEncoder) is global in Node 18+. If env vars are added or changed in
+> Vercel, **redeploy** so every runtime picks them up.
+
+### /api/verify status semantics
+
+| Status | Meaning |
+| --- | --- |
+| 200 | `valid` or `checked_in` (successful check-in) |
+| 401 | wrong volunteer access code |
+| 404 | token unknown → INVALID PASS |
+| 409 | already checked in (body carries original time/operator) |
+| 410 | cancelled pass |
+| 503 | configuration or database unavailable (never a verdict) |
+| 500 | unexpected failure |
+
+The volunteer UI renders network failure ("Network unavailable", fetch
+threw) and service failure ("Service unavailable", 5xx answered)
+distinctly, and neither is presented as an invalid pass. Missing env vars
+are logged to Vercel Logs by NAME only, e.g.
+`[verify] Missing required environment variable: SUPABASE_URL`.
 
 ### Registration and pass minting
 

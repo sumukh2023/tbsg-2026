@@ -5,14 +5,12 @@
  */
 import { json, supabaseEnv } from './_shared';
 
-export const config = { runtime: 'edge' };
-
 export default async function handler(request: Request): Promise<Response> {
   if (request.method !== 'GET') {
     return json(405, { error: 'Method not allowed.' });
   }
 
-  const env = supabaseEnv();
+  const env = supabaseEnv('updates');
   if (!env) {
     return json(503, { error: 'Updates are not configured yet.' });
   }

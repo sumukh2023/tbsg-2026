@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowUpRight, X } from 'lucide-react';
+import { InfiniteSlider } from '@/components/motion/infinite-slider';
 import { cn } from '@/utils/cn';
 import { EASE } from '@/utils/motion';
 
@@ -205,15 +206,80 @@ function UpdateItem({ update }: { update: LiveUpdate }) {
   );
 }
 
+/** Compact latest-update ticker that emanates from the Live Updates control. */
+function Ticker({
+  update,
+  onOpen,
+}: {
+  update: LiveUpdate;
+  onOpen: () => void;
+}) {
+  const reduce = useReducedMotion();
+  const text = `${update.title} · ${update.message}`;
+
+  return (
+    <motion.button
+      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 6, scale: 0.97 }}
+      transition={{ duration: 0.5, ease: EASE.out }}
+      onClick={onOpen}
+      aria-label={`Latest update: ${update.title}. Open live updates.`}
+      className="liquid-glass origin-bottom-right cursor-pointer rounded-full py-2 pl-4 pr-4 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <span className="flex max-w-[min(19rem,calc(100vw-5rem))] items-center gap-3 md:max-w-xs">
+        <span className="shrink-0 font-body text-2xs font-semibold uppercase tracking-[0.2em] text-accent">
+          Live
+        </span>
+        {reduce ? (
+          <span className="truncate font-body text-xs leading-relaxed">
+            {text}
+          </span>
+        ) : (
+          <span
+            className="block min-w-0 flex-1 overflow-hidden"
+            style={{
+              WebkitMaskImage:
+                'linear-gradient(to right, transparent, black 10%, black 82%, transparent)',
+              maskImage:
+                'linear-gradient(to right, transparent, black 10%, black 82%, transparent)',
+            }}
+          >
+            <InfiniteSlider gap={56} speed={28} speedOnHover={6}>
+              <span className="whitespace-nowrap font-body text-xs leading-relaxed">
+                {text}
+              </span>
+            </InfiniteSlider>
+          </span>
+        )}
+      </span>
+    </motion.button>
+  );
+}
+
 export function LiveUpdates() {
   const { updates, unread, markSeen, live } = useLiveUpdates();
   const [open, setOpen] = useState(false);
+  const [flash, setFlash] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const latest = updates[0];
 
   const openPanel = () => {
     setOpen(true);
     markSeen();
   };
+
+  // A new arrival nudges the control once, without interrupting anyone.
+  const prevLatestId = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const changed =
+      latest?.id && prevLatestId.current && latest.id !== prevLatestId.current;
+    prevLatestId.current = latest?.id;
+    if (!changed) return;
+    setFlash(true);
+    const timer = setTimeout(() => setFlash(false), 700);
+    return () => clearTimeout(timer);
+  }, [latest?.id]);
 
   useEffect(() => {
     if (!open) return;
@@ -227,35 +293,51 @@ export function LiveUpdates() {
 
   return (
     <>
-      <motion.button
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, delay: 3.0, ease: EASE.out }}
-        onClick={openPanel}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        className="liquid-glass fixed bottom-5 right-5 z-40 flex cursor-pointer items-center gap-2.5 rounded-full py-2.5 pl-4 pr-5 text-white transition-transform duration-300 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:bottom-8 md:right-8"
-      >
-        <span className="relative flex h-2 w-2" aria-hidden="true">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent/70" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
-        </span>
-        <span className="font-body text-sm font-medium">Live Updates</span>
-        <AnimatePresence>
-          {unread > 0 && (
-            <motion.span
-              initial={{ scale: 0.6, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.6, opacity: 0 }}
-              transition={{ duration: 0.3, ease: EASE.out }}
-              className="grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1.5 font-body text-2xs font-semibold tabular-nums text-primary-foreground"
-              aria-label={`${unread} unread updates`}
-            >
-              {unread > 9 ? '9+' : unread}
-            </motion.span>
-          )}
-        </AnimatePresence>
-      </motion.button>
+      {/* Plain fixed wrapper: .liquid-glass declares position:relative, so
+          the glass surfaces live INSIDE this anchor, never on it. */}
+      <div className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-5 z-40 md:bottom-[max(2rem,env(safe-area-inset-bottom))] md:right-8">
+        <motion.div
+          initial={{ opacity: 0, y: 18, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.9, delay: 4.0, ease: EASE.out }}
+          className="flex flex-col items-end gap-2.5"
+        >
+          <AnimatePresence mode="popLayout">
+            {latest && !open && (
+              <Ticker key={latest.id} update={latest} onOpen={openPanel} />
+            )}
+          </AnimatePresence>
+
+          <motion.button
+            animate={flash ? { scale: [1, 1.05, 1] } : { scale: 1 }}
+            transition={{ duration: 0.55, ease: EASE.inOut }}
+            onClick={openPanel}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            className="liquid-glass flex cursor-pointer items-center gap-2.5 rounded-full py-2.5 pl-4 pr-5 text-white transition-transform duration-300 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <span className="relative flex h-2 w-2" aria-hidden="true">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent/70" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+            </span>
+            <span className="font-body text-sm font-medium">Live Updates</span>
+            <AnimatePresence>
+              {unread > 0 && (
+                <motion.span
+                  initial={{ scale: 0.6, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.6, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: EASE.out }}
+                  className="grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1.5 font-body text-2xs font-semibold tabular-nums text-primary-foreground"
+                  aria-label={`${unread} unread updates`}
+                >
+                  {unread > 9 ? '9+' : unread}
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </motion.button>
+        </motion.div>
+      </div>
 
       <AnimatePresence>
         {open && (

@@ -4,15 +4,23 @@
  *
  * Body: { token, action: 'verify' | 'checkin', access_code, operator? }
  *
- * Requires VERIFIER_ACCESS_CODE (a shared event-day code handed to gate
- * volunteers; server-side env, never bundled into the client). Validity is
- * decided exclusively here against the database: the client only renders
- * what this endpoint returns. Duplicate check-ins are prevented with a
- * conditional update (status must still be 'valid' at write time).
+ * Runs on the Vercel Node.js runtime (NOT Edge): env vars are read
+ * dynamically at request time, which is what event-day configuration
+ * needs. Everything used here (fetch, WebCrypto, TextEncoder) is global
+ * in Node 18+.
+ *
+ * Status semantics:
+ *   200 valid / checked_in     · 401 wrong access code
+ *   404 unknown token          · 409 already checked in
+ *   410 cancelled              · 400 malformed request
+ *   503 configuration/database unavailable · 500 unexpected failure
+ *
+ * Validity is decided exclusively here against the database. Duplicate
+ * check-ins are prevented with a conditional update (status must still
+ * be 'valid' at write time). Requires VERIFIER_ACCESS_CODE (shared
+ * event-day code handed to gate volunteers; server-side env only).
  */
-import { findPassByToken, json, supabaseEnv, cleanText } from './_shared';
-
-export const config = { runtime: 'edge' };
+import { findPassByToken, json, supabaseEnv, cleanText, type PassRow } from './_shared';
 
 function timingSafeEqual(a: string, b: string): boolean {
   const enc = new TextEncoder();
@@ -24,6 +32,19 @@ function timingSafeEqual(a: string, b: string): boolean {
     diff |= (ab[i % ab.length] ?? 0) ^ (bb[i % bb.length] ?? 0);
   }
   return diff === 0;
+}
+
+function presentationOf(pass: PassRow) {
+  return {
+    reference: pass.pass_reference,
+    guest: {
+      name: pass.registrations?.full_name ?? '',
+      visitor_type: pass.registrations?.visitor_type ?? '',
+      number_of_passes: pass.registrations?.number_of_passes ?? 1,
+    },
+    checked_in_at: pass.checked_in_at,
+    checked_in_by: pass.checked_in_by,
+  };
 }
 
 export default async function handler(request: Request): Promise<Response> {
@@ -38,58 +59,50 @@ export default async function handler(request: Request): Promise<Response> {
     return json(400, { error: 'Request body must be JSON.' });
   }
 
-  const accessCode = process.env.VERIFIER_ACCESS_CODE;
+  const accessCode = process.env.VERIFIER_ACCESS_CODE?.trim();
   if (!accessCode) {
-    return json(503, { error: 'Verification is not configured yet.' });
+    console.error('[verify] Missing required environment variable: VERIFIER_ACCESS_CODE');
+    return json(503, { error: 'Verification service unavailable.' });
   }
-  const provided = typeof body.access_code === 'string' ? body.access_code : '';
+  const provided =
+    typeof body.access_code === 'string' ? body.access_code.trim() : '';
   if (!provided || !timingSafeEqual(provided, accessCode)) {
-    return json(401, { error: 'Wrong access code.' });
+    return json(401, { error: 'Access code incorrect.' });
+  }
+
+  const env = supabaseEnv('verify');
+  if (!env) {
+    return json(503, { error: 'Verification service unavailable.' });
   }
 
   const token = typeof body.token === 'string' ? body.token : '';
   if (!/^[A-Za-z0-9_-]{20,64}$/.test(token)) {
-    return json(200, { result: 'invalid' });
+    return json(404, { result: 'invalid', error: 'Pass not found.' });
   }
   const action = body.action === 'checkin' ? 'checkin' : 'verify';
-
-  const env = supabaseEnv();
-  if (!env) {
-    return json(503, { error: 'Verification is not configured yet.' });
-  }
 
   try {
     const pass = await findPassByToken(env, token);
     if (!pass) {
-      return json(200, { result: 'invalid' });
+      return json(404, { result: 'invalid', error: 'Pass not found.' });
     }
 
-    const presentation = {
-      reference: pass.pass_reference,
-      guest: {
-        name: pass.registrations?.full_name ?? '',
-        visitor_type: pass.registrations?.visitor_type ?? '',
-        number_of_passes: pass.registrations?.number_of_passes ?? 1,
-      },
-      checked_in_at: pass.checked_in_at,
-      checked_in_by: pass.checked_in_by,
-    };
+    const presentation = presentationOf(pass);
 
     if (action === 'verify') {
-      const result =
-        pass.status === 'valid'
-          ? 'valid'
-          : pass.status === 'checked_in'
-            ? 'already_checked_in'
-            : 'cancelled';
-      return json(200, { result, pass: presentation });
+      if (pass.status === 'valid') {
+        return json(200, { result: 'valid', pass: presentation });
+      }
+      if (pass.status === 'checked_in') {
+        return json(409, { result: 'already_checked_in', pass: presentation });
+      }
+      return json(410, { result: 'cancelled', pass: presentation });
     }
 
-    // Check-in: conditional update so a pass can only move valid -> checked_in
-    // exactly once, no matter how many volunteers scan it simultaneously.
+    // Check-in: conditional update so a pass moves valid -> checked_in
+    // exactly once, no matter how many volunteers scan simultaneously.
     const operator = cleanText(body.operator, 60) ?? 'gate volunteer';
-    const updateUrl =
-      `${env.url}/rest/v1/passes?id=eq.${pass.id}&status=eq.valid`;
+    const updateUrl = `${env.url}/rest/v1/passes?id=eq.${pass.id}&status=eq.valid`;
     const update = await fetch(updateUrl, {
       method: 'PATCH',
       headers: { ...env.headers, Prefer: 'return=representation' },
@@ -100,30 +113,39 @@ export default async function handler(request: Request): Promise<Response> {
         updated_at: new Date().toISOString(),
       }),
     });
-    if (!update.ok) throw new Error('check-in failed');
+    if (!update.ok) {
+      console.error(`[verify] stage=checkin supabase_status=${update.status}`);
+      return json(503, { error: 'Verification service unavailable.' });
+    }
     const updated = (await update.json()) as Array<{ checked_in_at: string }>;
 
     if (updated.length === 0) {
       // Someone got there first, or the pass was cancelled meanwhile.
       const fresh = await findPassByToken(env, token);
-      const result =
-        fresh?.status === 'checked_in' ? 'already_checked_in' : 'cancelled';
-      return json(200, {
-        result,
-        pass: {
-          ...presentation,
-          checked_in_at: fresh?.checked_in_at ?? null,
-          checked_in_by: fresh?.checked_in_by ?? null,
-        },
-      });
+      const freshPresentation = {
+        ...presentation,
+        checked_in_at: fresh?.checked_in_at ?? null,
+        checked_in_by: fresh?.checked_in_by ?? null,
+      };
+      if (fresh?.status === 'checked_in') {
+        return json(409, {
+          result: 'already_checked_in',
+          pass: freshPresentation,
+        });
+      }
+      return json(410, { result: 'cancelled', pass: freshPresentation });
     }
 
     return json(200, {
       result: 'checked_in',
       pass: { ...presentation, checked_in_at: updated[0].checked_in_at },
     });
-  } catch {
-    // Network/database failure must never read as "invalid pass".
-    return json(502, { error: 'Unable to verify: network unavailable.' });
+  } catch (error) {
+    // Dependency failure (Supabase unreachable, lookup threw). Never let
+    // this read as an invalid pass.
+    console.error(
+      `[verify] stage=lookup error=${error instanceof Error ? error.name : 'unknown'}`
+    );
+    return json(503, { error: 'Verification service unavailable.' });
   }
 }

@@ -5,8 +5,6 @@
  */
 import { findPassByToken, json, supabaseEnv } from './_shared';
 
-export const config = { runtime: 'edge' };
-
 export default async function handler(request: Request): Promise<Response> {
   if (request.method !== 'GET') {
     return json(405, { error: 'Method not allowed.' });
@@ -17,7 +15,7 @@ export default async function handler(request: Request): Promise<Response> {
     return json(422, { error: 'That pass link is not valid.' });
   }
 
-  const env = supabaseEnv();
+  const env = supabaseEnv('pass');
   if (!env) {
     return json(503, { error: 'The pass service is not configured yet.' });
   }

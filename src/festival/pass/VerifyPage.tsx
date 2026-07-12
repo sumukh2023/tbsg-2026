@@ -25,6 +25,9 @@ type VerifyState =
       checkedInAt?: string | null;
       checkedInBy?: string | null;
     }
+  // The service answered but cannot verify (config/database unavailable).
+  | { phase: 'service'; message: string }
+  // The browser could not reach the service at all.
   | { phase: 'network' };
 
 const visitorLabels: Record<string, string> = {
@@ -67,27 +70,37 @@ export default function VerifyPage() {
   const call = useCallback(
     async (action: 'verify' | 'checkin', accessCode: string) => {
       setState({ phase: 'checking' });
+
+      // Only a failed fetch is a network problem; everything else is an
+      // answer from the service and gets its own state.
+      let response: Response;
       try {
-        const response = await fetch('/api/verify', {
+        response = await fetch('/api/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token, action, access_code: accessCode }),
         });
-        if (response.status === 401) {
-          try {
-            sessionStorage.removeItem(CODE_KEY);
-          } catch {
-            /* ignore */
-          }
-          setCode('');
-          setState({ phase: 'code', message: 'Wrong access code.' });
-          return;
+      } catch {
+        setState({ phase: 'network' });
+        return;
+      }
+
+      if (response.status === 401 || response.status === 403) {
+        try {
+          sessionStorage.removeItem(CODE_KEY);
+        } catch {
+          /* ignore */
         }
-        if (!response.ok) {
-          setState({ phase: 'network' });
-          return;
-        }
-        const data = await response.json();
+        setCode('');
+        setState({ phase: 'code', message: 'Access code incorrect.' });
+        return;
+      }
+
+      const data = await response.json().catch(() => null);
+
+      // 200 valid/checked_in · 404 invalid · 409 already checked in ·
+      // 410 cancelled: all carry a `result` the volunteer can act on.
+      if (data?.result) {
         setState({
           phase: 'result',
           result: data.result,
@@ -96,9 +109,17 @@ export default function VerifyPage() {
           checkedInAt: data.pass?.checked_in_at,
           checkedInBy: data.pass?.checked_in_by,
         });
-      } catch {
-        setState({ phase: 'network' });
+        return;
       }
+
+      setState({
+        phase: 'service',
+        message:
+          data?.error ??
+          (response.status === 503
+            ? 'Verification service unavailable.'
+            : 'Unexpected server error.'),
+      });
     },
     [token]
   );
@@ -183,17 +204,20 @@ export default function VerifyPage() {
             </div>
           )}
 
-          {state.phase === 'network' && (
+          {(state.phase === 'network' || state.phase === 'service') && (
             <div className="rounded-xl border border-border bg-card p-6 text-center">
               <p className="font-body text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 Unable to verify
               </p>
               <p className="mt-3 font-display text-3xl font-medium text-foreground">
-                Network unavailable
+                {state.phase === 'network'
+                  ? 'Network unavailable'
+                  : 'Service unavailable'}
               </p>
               <p className="mx-auto mt-3 max-w-xs font-body text-sm leading-relaxed text-muted-foreground">
-                This is not a verdict on the pass. Reconnect and try again;
-                never wave a guest through on this screen.
+                {state.phase === 'network'
+                  ? 'Your device could not reach the verification service. This is not a verdict on the pass; reconnect and try again.'
+                  : `${state.message} This is not a verdict on the pass; alert the festival desk if it persists.`}
               </p>
               <button
                 onClick={() => code && void call('verify', code)}

@@ -22,8 +22,6 @@
  */
 import { json } from './_shared';
 
-export const config = { runtime: 'edge' };
-
 export default async function handler(): Promise<Response> {
   const configured =
     process.env.GOOGLE_WALLET_ISSUER_ID &&

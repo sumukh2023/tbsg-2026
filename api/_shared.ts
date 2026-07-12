@@ -22,10 +22,22 @@ export function cleanText(value: unknown, max: number): string | null {
   return cleaned.slice(0, max);
 }
 
-export function supabaseEnv(): { url: string; headers: Record<string, string> } | null {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return null;
+export function supabaseEnv(
+  scope = 'api'
+): { url: string; headers: Record<string, string> } | null {
+  const url = process.env.SUPABASE_URL?.trim();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!url || !key) {
+    // Names only, never values: these lines exist to make Vercel Logs
+    // reveal the exact missing configuration.
+    if (!url) {
+      console.error(`[${scope}] Missing required environment variable: SUPABASE_URL`);
+    }
+    if (!key) {
+      console.error(`[${scope}] Missing required environment variable: SUPABASE_SERVICE_ROLE_KEY`);
+    }
+    return null;
+  }
   return {
     url,
     headers: {

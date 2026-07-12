@@ -13,8 +13,6 @@ import {
   supabaseEnv,
 } from './_shared';
 
-export const config = { runtime: 'edge' };
-
 const VISITOR_TYPES = [
   'student',
   'parent',
@@ -122,7 +120,7 @@ export default async function handler(request: Request): Promise<Response> {
     return json(422, { error: payload });
   }
 
-  const env = supabaseEnv();
+  const env = supabaseEnv('register');
   if (!env) {
     return json(503, {
       error:

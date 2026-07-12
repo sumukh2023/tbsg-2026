@@ -6,8 +6,6 @@
  */
 import { cleanText, json, supabaseEnv, randomToken, sha256Hex } from './_shared';
 
-export const config = { runtime: 'edge' };
-
 const GENERIC =
   'If those details match a registration, the pass is shown here. Please check them and try again.';
 
@@ -29,7 +27,7 @@ export default async function handler(request: Request): Promise<Response> {
     return json(404, { error: GENERIC });
   }
 
-  const env = supabaseEnv();
+  const env = supabaseEnv('retrieve');
   if (!env) {
     return json(503, { error: 'The pass service is not configured yet.' });
   }
