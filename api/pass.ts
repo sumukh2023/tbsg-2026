@@ -3,29 +3,34 @@
  * the unguessable secret from the registration response; possession of it
  * is what authorises this read. Returns only what the pass itself shows.
  */
-import { findPassByToken, json, supabaseEnv } from './_shared';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { findPassByToken, send, supabaseEnv } from './_shared';
 
-export default async function handler(request: Request): Promise<Response> {
-  if (request.method !== 'GET') {
-    return json(405, { error: 'Method not allowed.' });
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+): Promise<void> {
+  if (req.method !== 'GET') {
+    return send(res, 405, { error: 'Method not allowed.' });
   }
 
-  const token = new URL(request.url).searchParams.get('token') ?? '';
+  const raw = req.query.token;
+  const token = typeof raw === 'string' ? raw : '';
   if (!/^[A-Za-z0-9_-]{20,64}$/.test(token)) {
-    return json(422, { error: 'That pass link is not valid.' });
+    return send(res, 422, { error: 'That pass link is not valid.' });
   }
 
   const env = supabaseEnv('pass');
   if (!env) {
-    return json(503, { error: 'The pass service is not configured yet.' });
+    return send(res, 503, { error: 'The pass service is not configured yet.' });
   }
 
   try {
     const pass = await findPassByToken(env, token);
     if (!pass) {
-      return json(404, { error: 'No pass matches this link.' });
+      return send(res, 404, { error: 'No pass matches this link.' });
     }
-    return json(200, {
+    return send(res, 200, {
       pass: {
         reference: pass.pass_reference,
         status: pass.status,
@@ -38,7 +43,12 @@ export default async function handler(request: Request): Promise<Response> {
         },
       },
     });
-  } catch {
-    return json(500, { error: 'The pass service is unreachable right now.' });
+  } catch (error) {
+    console.error(
+      `[pass] stage=lookup error=${error instanceof Error ? error.name : 'unknown'}`
+    );
+    return send(res, 500, {
+      error: 'The pass service is unreachable right now.',
+    });
   }
 }

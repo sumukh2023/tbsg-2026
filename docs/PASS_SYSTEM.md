@@ -14,8 +14,12 @@ browser never sees it.
 > at deploy time and `process.env` reads proved unreliable (the verify
 > endpoint 503'd before ever reaching Supabase). The Node runtime reads
 > them dynamically per request; everything used (fetch, WebCrypto,
-> TextEncoder) is global in Node 18+. If env vars are added or changed in
-> Vercel, **redeploy** so every runtime picks them up.
+> TextEncoder) is global in Node 18+. Handlers use the classic
+> `(VercelRequest, VercelResponse)` signature, which every @vercel/node
+> version invokes unambiguously (web-standard `Request` handlers are
+> version-dependent and broke registration when the runtime switched).
+> If env vars are added or changed in Vercel, **redeploy** so every
+> runtime picks them up.
 
 ### /api/verify status semantics
 

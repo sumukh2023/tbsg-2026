@@ -20,22 +20,26 @@
  * https://pay.google.com/gp/v/save/<jwt>. Store the object id in
  * passes.google_wallet_object_id.
  */
-import { json } from './_shared';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { send } from './_shared';
 
-export default async function handler(): Promise<Response> {
+export default async function handler(
+  _req: VercelRequest,
+  res: VercelResponse
+): Promise<void> {
   const configured =
     process.env.GOOGLE_WALLET_ISSUER_ID &&
     process.env.GOOGLE_WALLET_SA_EMAIL &&
     process.env.GOOGLE_WALLET_SA_PRIVATE_KEY_PEM;
 
   if (!configured) {
-    return json(501, {
+    return send(res, 501, {
       error: 'Google Wallet is not configured for this deployment.',
       docs: 'docs/PASS_SYSTEM.md',
     });
   }
 
-  return json(501, {
+  return send(res, 501, {
     error: 'Google Wallet signing is not implemented yet.',
     docs: 'docs/PASS_SYSTEM.md',
   });

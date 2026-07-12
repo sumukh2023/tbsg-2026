@@ -3,11 +3,24 @@
  * with an underscore are not exposed as routes by Vercel.
  */
 
-export function json(status: number, body: Record<string, unknown>): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+
+/** Send a JSON response on the classic Vercel Node.js (req, res) signature. */
+export function send(
+  res: VercelResponse,
+  status: number,
+  body: Record<string, unknown>
+): void {
+  res.status(status).json(body);
+}
+
+/** The parsed JSON body, or null when absent/malformed/not an object. */
+export function jsonBody(req: VercelRequest): Record<string, unknown> | null {
+  const body = req.body as unknown;
+  if (body && typeof body === 'object' && !Array.isArray(body)) {
+    return body as Record<string, unknown>;
+  }
+  return null;
 }
 
 /** Trim, collapse whitespace, strip control characters, cap length. */

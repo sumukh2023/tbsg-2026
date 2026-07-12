@@ -4,32 +4,41 @@
  * response is deliberately identical for "no match" and "bad details" so
  * registrations cannot be enumerated.
  */
-import { cleanText, json, supabaseEnv, randomToken, sha256Hex } from './_shared';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import {
+  cleanText,
+  jsonBody,
+  randomToken,
+  send,
+  sha256Hex,
+  supabaseEnv,
+} from './_shared';
 
 const GENERIC =
   'If those details match a registration, the pass is shown here. Please check them and try again.';
 
-export default async function handler(request: Request): Promise<Response> {
-  if (request.method !== 'POST') {
-    return json(405, { error: 'Method not allowed.' });
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+): Promise<void> {
+  if (req.method !== 'POST') {
+    return send(res, 405, { error: 'Method not allowed.' });
   }
 
-  let body: Record<string, unknown>;
-  try {
-    body = await request.json();
-  } catch {
-    return json(400, { error: 'Request body must be JSON.' });
+  const body = jsonBody(req);
+  if (!body) {
+    return send(res, 400, { error: 'Request body must be JSON.' });
   }
 
   const email = cleanText(body.email, 160)?.toLowerCase() ?? null;
   const phone = cleanText(body.phone, 16)?.replace(/[\s-]/g, '') ?? null;
   if (!email || !phone) {
-    return json(404, { error: GENERIC });
+    return send(res, 404, { error: GENERIC });
   }
 
   const env = supabaseEnv('retrieve');
   if (!env) {
-    return json(503, { error: 'The pass service is not configured yet.' });
+    return send(res, 503, { error: 'The pass service is not configured yet.' });
   }
 
   try {
@@ -41,7 +50,7 @@ export default async function handler(request: Request): Promise<Response> {
     const regResponse = await fetch(regUrl, { headers: env.headers });
     if (!regResponse.ok) throw new Error('lookup failed');
     const regs = (await regResponse.json()) as Array<{ id: string }>;
-    if (!regs.length) return json(404, { error: GENERIC });
+    if (!regs.length) return send(res, 404, { error: GENERIC });
 
     const passUrl =
       `${env.url}/rest/v1/passes?select=id,status` +
@@ -52,7 +61,7 @@ export default async function handler(request: Request): Promise<Response> {
       id: string;
       status: string;
     }>;
-    if (!passes.length) return json(404, { error: GENERIC });
+    if (!passes.length) return send(res, 404, { error: GENERIC });
 
     // Rotate the token on retrieval: the old link stops working and the
     // visitor gets a fresh, unguessable one.
@@ -70,8 +79,13 @@ export default async function handler(request: Request): Promise<Response> {
     );
     if (!rotate.ok) throw new Error('rotation failed');
 
-    return json(200, { token });
-  } catch {
-    return json(500, { error: 'The pass service is unreachable right now.' });
+    return send(res, 200, { token });
+  } catch (error) {
+    console.error(
+      `[retrieve] stage=lookup error=${error instanceof Error ? error.name : 'unknown'}`
+    );
+    return send(res, 500, {
+      error: 'The pass service is unreachable right now.',
+    });
   }
 }

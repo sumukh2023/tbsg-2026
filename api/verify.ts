@@ -4,10 +4,9 @@
  *
  * Body: { token, action: 'verify' | 'checkin', access_code, operator? }
  *
- * Runs on the Vercel Node.js runtime (NOT Edge): env vars are read
- * dynamically at request time, which is what event-day configuration
- * needs. Everything used here (fetch, WebCrypto, TextEncoder) is global
- * in Node 18+.
+ * Classic Vercel Node.js (req, res) signature; env vars are read
+ * dynamically at request time. Everything used here (fetch, WebCrypto,
+ * TextEncoder) is global in Node 18+.
  *
  * Status semantics:
  *   200 valid / checked_in     · 401 wrong access code
@@ -20,7 +19,15 @@
  * be 'valid' at write time). Requires VERIFIER_ACCESS_CODE (shared
  * event-day code handed to gate volunteers; server-side env only).
  */
-import { findPassByToken, json, supabaseEnv, cleanText, type PassRow } from './_shared';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import {
+  cleanText,
+  findPassByToken,
+  jsonBody,
+  send,
+  supabaseEnv,
+  type PassRow,
+} from './_shared';
 
 function timingSafeEqual(a: string, b: string): boolean {
   const enc = new TextEncoder();
@@ -47,56 +54,62 @@ function presentationOf(pass: PassRow) {
   };
 }
 
-export default async function handler(request: Request): Promise<Response> {
-  if (request.method !== 'POST') {
-    return json(405, { error: 'Method not allowed.' });
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+): Promise<void> {
+  if (req.method !== 'POST') {
+    return send(res, 405, { error: 'Method not allowed.' });
   }
 
-  let body: Record<string, unknown>;
-  try {
-    body = await request.json();
-  } catch {
-    return json(400, { error: 'Request body must be JSON.' });
+  const body = jsonBody(req);
+  if (!body) {
+    return send(res, 400, { error: 'Request body must be JSON.' });
   }
 
   const accessCode = process.env.VERIFIER_ACCESS_CODE?.trim();
   if (!accessCode) {
-    console.error('[verify] Missing required environment variable: VERIFIER_ACCESS_CODE');
-    return json(503, { error: 'Verification service unavailable.' });
+    console.error(
+      '[verify] Missing required environment variable: VERIFIER_ACCESS_CODE'
+    );
+    return send(res, 503, { error: 'Verification service unavailable.' });
   }
   const provided =
     typeof body.access_code === 'string' ? body.access_code.trim() : '';
   if (!provided || !timingSafeEqual(provided, accessCode)) {
-    return json(401, { error: 'Access code incorrect.' });
+    return send(res, 401, { error: 'Access code incorrect.' });
   }
 
   const env = supabaseEnv('verify');
   if (!env) {
-    return json(503, { error: 'Verification service unavailable.' });
+    return send(res, 503, { error: 'Verification service unavailable.' });
   }
 
   const token = typeof body.token === 'string' ? body.token : '';
   if (!/^[A-Za-z0-9_-]{20,64}$/.test(token)) {
-    return json(404, { result: 'invalid', error: 'Pass not found.' });
+    return send(res, 404, { result: 'invalid', error: 'Pass not found.' });
   }
   const action = body.action === 'checkin' ? 'checkin' : 'verify';
 
   try {
     const pass = await findPassByToken(env, token);
     if (!pass) {
-      return json(404, { result: 'invalid', error: 'Pass not found.' });
+      return send(res, 404, { result: 'invalid', error: 'Pass not found.' });
     }
 
     const presentation = presentationOf(pass);
 
     if (action === 'verify') {
       if (pass.status === 'valid') {
-        return json(200, { result: 'valid', pass: presentation });
+        return send(res, 200, { result: 'valid', pass: presentation });
       }
       if (pass.status === 'checked_in') {
-        return json(409, { result: 'already_checked_in', pass: presentation });
+        return send(res, 409, {
+          result: 'already_checked_in',
+          pass: presentation,
+        });
       }
-      return json(410, { result: 'cancelled', pass: presentation });
+      return send(res, 410, { result: 'cancelled', pass: presentation });
     }
 
     // Check-in: conditional update so a pass moves valid -> checked_in
@@ -115,7 +128,7 @@ export default async function handler(request: Request): Promise<Response> {
     });
     if (!update.ok) {
       console.error(`[verify] stage=checkin supabase_status=${update.status}`);
-      return json(503, { error: 'Verification service unavailable.' });
+      return send(res, 503, { error: 'Verification service unavailable.' });
     }
     const updated = (await update.json()) as Array<{ checked_in_at: string }>;
 
@@ -128,15 +141,15 @@ export default async function handler(request: Request): Promise<Response> {
         checked_in_by: fresh?.checked_in_by ?? null,
       };
       if (fresh?.status === 'checked_in') {
-        return json(409, {
+        return send(res, 409, {
           result: 'already_checked_in',
           pass: freshPresentation,
         });
       }
-      return json(410, { result: 'cancelled', pass: freshPresentation });
+      return send(res, 410, { result: 'cancelled', pass: freshPresentation });
     }
 
-    return json(200, {
+    return send(res, 200, {
       result: 'checked_in',
       pass: { ...presentation, checked_in_at: updated[0].checked_in_at },
     });
@@ -146,6 +159,6 @@ export default async function handler(request: Request): Promise<Response> {
     console.error(
       `[verify] stage=lookup error=${error instanceof Error ? error.name : 'unknown'}`
     );
-    return json(503, { error: 'Verification service unavailable.' });
+    return send(res, 503, { error: 'Verification service unavailable.' });
   }
 }

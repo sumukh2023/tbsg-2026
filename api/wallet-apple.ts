@@ -20,9 +20,13 @@
  * and return with Content-Type application/vnd.apple.pkpass. Store the
  * serial in passes.apple_wallet_serial.
  */
-import { json } from './_shared';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { send } from './_shared';
 
-export default async function handler(): Promise<Response> {
+export default async function handler(
+  _req: VercelRequest,
+  res: VercelResponse
+): Promise<void> {
   const configured =
     process.env.APPLE_TEAM_ID &&
     process.env.APPLE_PASS_TYPE_ID &&
@@ -30,7 +34,7 @@ export default async function handler(): Promise<Response> {
     process.env.APPLE_PASS_CERT_PASSWORD;
 
   if (!configured) {
-    return json(501, {
+    return send(res, 501, {
       error: 'Apple Wallet is not configured for this deployment.',
       docs: 'docs/PASS_SYSTEM.md',
     });
@@ -38,7 +42,7 @@ export default async function handler(): Promise<Response> {
 
   // Signing is intentionally not implemented until real credentials exist;
   // shipping an unsigned or mis-signed .pkpass would fail in Wallet.
-  return json(501, {
+  return send(res, 501, {
     error: 'Apple Wallet signing is not implemented yet.',
     docs: 'docs/PASS_SYSTEM.md',
   });

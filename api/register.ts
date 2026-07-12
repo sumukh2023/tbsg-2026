@@ -3,12 +3,17 @@
  * Supabase and mints its digital pass (opaque token in the QR; only the
  * SHA-256 hash is stored). Setup: supabase/schema.sql + SUPABASE_URL and
  * SUPABASE_SERVICE_ROLE_KEY in the Vercel project (see .env.example).
+ *
+ * Classic Vercel Node.js (req, res) signature: unambiguous on every
+ * @vercel/node version, unlike web handlers.
  */
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import {
   cleanText,
-  json,
+  jsonBody,
   passReference,
   randomToken,
+  send,
   sha256Hex,
   supabaseEnv,
 } from './_shared';
@@ -92,37 +97,39 @@ async function mintPass(
       const rows = (await response.json()) as Array<{ issued_at: string }>;
       return { token, reference, issued_at: rows[0]?.issued_at ?? '' };
     }
+    console.error(`[register] stage=mint supabase_status=${response.status}`);
     if (response.status !== 409) break;
   }
   return null;
 }
 
-export default async function handler(request: Request): Promise<Response> {
-  if (request.method !== 'POST') {
-    return json(405, { error: 'Method not allowed.' });
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+): Promise<void> {
+  if (req.method !== 'POST') {
+    return send(res, 405, { error: 'Method not allowed.' });
   }
 
-  let body: Record<string, unknown>;
-  try {
-    body = await request.json();
-  } catch {
-    return json(400, { error: 'Request body must be JSON.' });
+  const body = jsonBody(req);
+  if (!body) {
+    return send(res, 400, { error: 'Request body must be JSON.' });
   }
 
   // Honeypot: bots fill every field; humans never see this one. Pretend
   // success so automated scripts learn nothing.
   if (typeof body.website === 'string' && body.website.trim() !== '') {
-    return json(201, { ok: true });
+    return send(res, 201, { ok: true });
   }
 
   const payload = validate(body);
   if (typeof payload === 'string') {
-    return json(422, { error: payload });
+    return send(res, 422, { error: payload });
   }
 
   const env = supabaseEnv('register');
   if (!env) {
-    return json(503, {
+    return send(res, 503, {
       error:
         'The registration desk is not open yet. Please try again later or write to bfcommunication@brigadeschools.edu.in.',
     });
@@ -139,7 +146,7 @@ export default async function handler(request: Request): Promise<Response> {
     if (dupeResponse.ok) {
       const existing = (await dupeResponse.json()) as unknown[];
       if (existing.length > 0) {
-        return json(409, {
+        return send(res, 409, {
           error:
             'We already have a very recent registration for this email address. Your passes are safe; there is no need to submit twice.',
         });
@@ -153,7 +160,10 @@ export default async function handler(request: Request): Promise<Response> {
     });
 
     if (!insertResponse.ok) {
-      return json(502, {
+      console.error(
+        `[register] stage=insert supabase_status=${insertResponse.status}`
+      );
+      return send(res, 502, {
         error: 'The registration could not be saved. Please try again.',
       });
     }
@@ -165,9 +175,12 @@ export default async function handler(request: Request): Promise<Response> {
     // the visitor can retrieve a pass later via /pass.
     const pass = registrationId ? await mintPass(env, registrationId) : null;
 
-    return json(201, { ok: true, id: registrationId, pass });
-  } catch {
-    return json(500, {
+    return send(res, 201, { ok: true, id: registrationId, pass });
+  } catch (error) {
+    console.error(
+      `[register] stage=network error=${error instanceof Error ? error.name : 'unknown'}`
+    );
+    return send(res, 500, {
       error: 'The registration desk is unreachable right now. Please retry.',
     });
   }
