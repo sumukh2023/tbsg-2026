@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
@@ -6,6 +6,7 @@ import { TextEffect } from '@/components/motion/text-effect';
 import { EASE } from '@/utils/motion';
 import { Grain } from '../materials';
 import { CarnivalMark } from '../CarnivalMark';
+import { PassCard } from './PassCard';
 import {
   FloatingInput,
   FloatingTextarea,
@@ -78,12 +79,18 @@ function validateStep(step: number, form: FormState): Errors {
   return errors;
 }
 
+type MintedPass = {
+  token: string;
+  reference: string;
+  issued_at: string;
+} | null;
+
 type SubmitState =
   | { phase: 'idle' }
   | { phase: 'submitting' }
   | { phase: 'error'; message: string }
   | { phase: 'duplicate'; message: string }
-  | { phase: 'success' };
+  | { phase: 'success'; pass: MintedPass };
 
 /** Slow lantern glow: the page breathing, nothing more. */
 function EveningBackdrop() {
@@ -138,7 +145,13 @@ function ProgressRail({ step }: { step: number }) {
   );
 }
 
-function SuccessView() {
+function SuccessView({
+  pass,
+  form,
+}: {
+  pass: MintedPass;
+  form: FormState;
+}) {
   return (
     <div className="flex flex-col items-center py-8 text-center">
       <svg viewBox="0 0 96 96" className="h-24 w-24" aria-hidden="true">
@@ -179,16 +192,56 @@ function SuccessView() {
         transition={{ duration: 0.7, delay: 1.3, ease: EASE.out }}
         className="mt-4 max-w-md font-body text-base leading-relaxed text-muted-foreground"
       >
-        Your passes will be waiting at the main gate on 14 November. The
-        organising committee will write to you only if anything about your
-        booking needs attention.
+        {pass
+          ? 'Your digital pass is below. Show its code at the gate on 14 November; the organising committee will write only if anything needs attention.'
+          : 'Your passes will be waiting at the main gate on 14 November. The organising committee will write to you only if anything about your booking needs attention.'}
       </motion.p>
+
+      {pass && (
+        <motion.div
+          initial={{ opacity: 0, y: 32 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.9, delay: 1.6, ease: EASE.out }}
+          className="mt-10 w-full"
+        >
+          <PassCard
+            pass={{
+              token: pass.token,
+              reference: pass.reference,
+              status: 'valid',
+              guestName: form.fullName.trim(),
+              visitorType: form.visitorType,
+              numberOfPasses: form.passes,
+            }}
+          />
+          <p className="mx-auto mt-5 max-w-sm font-body text-xs leading-relaxed text-muted-foreground">
+            Keep your{' '}
+            <Link
+              to={`/pass/${pass.token}`}
+              className="text-foreground underline decoration-accent/60 underline-offset-4 transition-colors hover:text-primary"
+            >
+              pass link
+            </Link>{' '}
+            safe. If you lose it, you can retrieve the pass anytime with your
+            email and mobile number.
+          </p>
+        </motion.div>
+      )}
+
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, delay: 1.5, ease: EASE.out }}
-        className="mt-10"
+        transition={{ duration: 0.7, delay: pass ? 2.0 : 1.5, ease: EASE.out }}
+        className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center"
       >
+        {pass && (
+          <Link
+            to={`/pass/${pass.token}`}
+            className="inline-flex items-center rounded-full border border-border px-8 py-3.5 font-body text-sm font-medium text-foreground transition-colors duration-300 hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            View QR Pass
+          </Link>
+        )}
         <Link
           to="/"
           className="inline-flex items-center rounded-full bg-primary px-8 py-3.5 font-body text-sm font-medium text-primary-foreground transition-all duration-300 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
@@ -234,6 +287,11 @@ export default function GetPassesPage() {
   const [form, setForm] = useState<FormState>(initialForm);
   const [errors, setErrors] = useState<Errors>({});
   const [submit, setSubmit] = useState<SubmitState>({ phase: 'idle' });
+
+  // Bring the pass fully into view once it is minted.
+  useEffect(() => {
+    if (submit.phase === 'success') window.scrollTo({ top: 0 });
+  }, [submit.phase]);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((f) => ({ ...f, [key]: value }));
@@ -290,7 +348,8 @@ export default function GetPassesPage() {
           data?.error ?? 'The registration desk is unreachable right now.'
         );
       }
-      setSubmit({ phase: 'success' });
+      const data = await response.json().catch(() => null);
+      setSubmit({ phase: 'success', pass: data?.pass ?? null });
     } catch (error) {
       setSubmit({
         phase: 'error',
@@ -369,7 +428,7 @@ export default function GetPassesPage() {
           className="liquid-glass mb-16 rounded-xl border border-white/10 p-6 md:p-10"
         >
           {submit.phase === 'success' ? (
-            <SuccessView />
+            <SuccessView pass={submit.pass} form={form} />
           ) : (
             <>
               <ProgressRail step={step} />
@@ -591,6 +650,18 @@ export default function GetPassesPage() {
             </>
           )}
         </motion.section>
+
+        {submit.phase !== 'success' && (
+          <p className="-mt-10 mb-16 text-center font-body text-xs text-muted-foreground">
+            Already registered?{' '}
+            <Link
+              to="/pass"
+              className="text-foreground underline decoration-accent/60 underline-offset-4 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Retrieve your pass
+            </Link>
+          </p>
+        )}
       </div>
     </div>
   );

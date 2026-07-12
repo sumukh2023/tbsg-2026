@@ -27,3 +27,76 @@ alter table public.registrations enable row level security;
 -- Fast duplicate-window lookups by the API.
 create index if not exists registrations_email_created_idx
   on public.registrations (email, created_at desc);
+
+-- ---------------------------------------------------------------------
+-- Digital passes: one per registration, verified on event day by token.
+-- The QR encodes an opaque token; only its SHA-256 hash is stored here.
+-- ---------------------------------------------------------------------
+create table if not exists public.passes (
+  id uuid primary key default gen_random_uuid(),
+  registration_id uuid not null
+    references public.registrations (id) on delete cascade,
+  pass_reference text not null unique,
+  verification_token_hash text not null unique,
+  status text not null default 'valid'
+    check (status in ('valid', 'checked_in', 'cancelled')),
+  issued_at timestamptz not null default now(),
+  checked_in_at timestamptz,
+  checked_in_by text,
+  apple_wallet_serial text,
+  google_wallet_object_id text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- Server-only table: all reads/writes go through the Edge functions with
+-- the service-role key. RLS stays closed to anon clients.
+alter table public.passes enable row level security;
+
+create index if not exists passes_token_idx
+  on public.passes (verification_token_hash);
+create index if not exists passes_reference_idx
+  on public.passes (pass_reference);
+create index if not exists passes_registration_idx
+  on public.passes (registration_id);
+
+-- ---------------------------------------------------------------------
+-- Live carnival updates, published to the homepage in real time.
+-- ---------------------------------------------------------------------
+create table if not exists public.updates (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  message text not null,
+  category text not null default 'general'
+    check (category in ('general', 'performance', 'food', 'schedule', 'important', 'emergency')),
+  priority text not null default 'normal'
+    check (priority in ('normal', 'high')),
+  cta_label text,
+  cta_url text,
+  published boolean not null default false,
+  published_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.updates enable row level security;
+
+-- Visitors may read only published updates (browser uses the anon key).
+drop policy if exists "anon reads published updates" on public.updates;
+create policy "anon reads published updates"
+  on public.updates for select
+  to anon
+  using (published = true);
+
+create index if not exists updates_published_idx
+  on public.updates (published, published_at desc);
+
+-- Stream inserts/updates to browsers via Supabase Realtime.
+-- (Run once; errors harmlessly if the table is already in the publication.)
+alter publication supabase_realtime add table public.updates;
+
+-- Example event-day updates (publish by flipping `published`):
+-- insert into public.updates (title, message, category, published, published_at) values
+--   ('Welcome to Flash @ Brigade 2026', 'The piazza is open. Programmes at every gate.', 'general', true, now()),
+--   ('Gates open at 09:30', 'Both gates, coupon counters just inside.', 'schedule', true, now()),
+--   ('Pizza workshop registrations are open', 'Limited spots, at the mercato desk.', 'food', true, now());

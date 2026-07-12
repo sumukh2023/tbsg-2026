@@ -1,0 +1,100 @@
+/**
+ * Shared helpers for the Flash @ Brigade Edge functions. Files prefixed
+ * with an underscore are not exposed as routes by Vercel.
+ */
+
+export function json(status: number, body: Record<string, unknown>): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+/** Trim, collapse whitespace, strip control characters, cap length. */
+export function cleanText(value: unknown, max: number): string | null {
+  if (typeof value !== 'string') return null;
+  const cleaned = value
+    // eslint-disable-next-line no-control-regex -- stripping control chars is the point
+    .replace(/[\u0000-\u001F\u007F]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned) return null;
+  return cleaned.slice(0, max);
+}
+
+export function supabaseEnv(): { url: string; headers: Record<string, string> } | null {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return {
+    url,
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      'Content-Type': 'application/json',
+    },
+  };
+}
+
+/** URL-safe random token (default 24 bytes ≈ 192 bits of entropy). */
+export function randomToken(bytes = 24): string {
+  const raw = crypto.getRandomValues(new Uint8Array(bytes));
+  let base64 = '';
+  raw.forEach((b) => {
+    base64 += String.fromCharCode(b);
+  });
+  return btoa(base64).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+export async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(value)
+  );
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/** Human-friendly pass reference, e.g. FB26-K7M3Q (no confusable glyphs). */
+export function passReference(): string {
+  const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  const raw = crypto.getRandomValues(new Uint8Array(5));
+  let out = '';
+  raw.forEach((b) => {
+    out += alphabet[b % alphabet.length];
+  });
+  return `FB26-${out}`;
+}
+
+export type PassRow = {
+  id: string;
+  registration_id: string;
+  pass_reference: string;
+  status: 'valid' | 'checked_in' | 'cancelled';
+  issued_at: string;
+  checked_in_at: string | null;
+  checked_in_by: string | null;
+  registrations?: {
+    full_name: string;
+    visitor_type: string;
+    number_of_passes: number;
+  };
+};
+
+/** Fetch a pass (joined with its registration) by hashed token. */
+export async function findPassByToken(
+  env: { url: string; headers: Record<string, string> },
+  token: string
+): Promise<PassRow | null> {
+  const hash = await sha256Hex(token);
+  const url =
+    `${env.url}/rest/v1/passes` +
+    `?select=id,registration_id,pass_reference,status,issued_at,checked_in_at,checked_in_by,` +
+    `registrations(full_name,visitor_type,number_of_passes)` +
+    `&verification_token_hash=eq.${hash}&limit=1`;
+  const response = await fetch(url, { headers: env.headers });
+  if (!response.ok) throw new Error('pass lookup failed');
+  const rows = (await response.json()) as PassRow[];
+  return rows[0] ?? null;
+}

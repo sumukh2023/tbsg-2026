@@ -15,9 +15,12 @@ import { Domande } from './festival/Domande';
 import { Missione } from './festival/Missione';
 import { Finale } from './festival/Finale';
 import { SiteFooter } from './festival/SiteFooter';
+import { LiveUpdates } from './festival/live/LiveUpdates';
 
-// The registration flow loads on demand: it never weighs down the landing page.
+// Secondary experiences load on demand: they never weigh down the landing page.
 const GetPassesPage = lazy(() => import('./festival/getpasses/GetPassesPage'));
+const PassPage = lazy(() => import('./festival/pass/PassPage'));
+const VerifyPage = lazy(() => import('./festival/pass/VerifyPage'));
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -62,6 +65,7 @@ function HomePage() {
         <Finale />
         <SiteFooter />
       </div>
+      <LiveUpdates />
     </>
   );
 }
@@ -84,6 +88,22 @@ export default function App() {
               element={
                 <Suspense fallback={<PageFallback />}>
                   <GetPassesPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/pass/:token?"
+              element={
+                <Suspense fallback={<PageFallback />}>
+                  <PassPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/verify-pass/:token"
+              element={
+                <Suspense fallback={<PageFallback />}>
+                  <VerifyPage />
                 </Suspense>
               }
             />

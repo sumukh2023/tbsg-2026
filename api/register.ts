@@ -1,11 +1,18 @@
 /**
- * POST /api/register — Vercel Edge function persisting Flash @ Brigade pass
- * registrations to Supabase (PostgREST, service-role key, server-side only).
- *
- * Setup: create the table with supabase/schema.sql, then set SUPABASE_URL and
- * SUPABASE_SERVICE_ROLE_KEY in the Vercel project (see .env.example). The
- * service key never reaches the browser; RLS stays closed to anon clients.
+ * POST /api/register — persists a Flash @ Brigade pass registration to
+ * Supabase and mints its digital pass (opaque token in the QR; only the
+ * SHA-256 hash is stored). Setup: supabase/schema.sql + SUPABASE_URL and
+ * SUPABASE_SERVICE_ROLE_KEY in the Vercel project (see .env.example).
  */
+import {
+  cleanText,
+  json,
+  passReference,
+  randomToken,
+  sha256Hex,
+  supabaseEnv,
+} from './_shared';
+
 export const config = { runtime: 'edge' };
 
 const VISITOR_TYPES = [
@@ -28,25 +35,6 @@ type Payload = {
   accessibility_requirements: string | null;
   comments: string | null;
 };
-
-function json(status: number, body: Record<string, unknown>): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
-}
-
-/** Trim, collapse whitespace, strip control characters, cap length. */
-function cleanText(value: unknown, max: number): string | null {
-  if (typeof value !== 'string') return null;
-  const cleaned = value
-    // eslint-disable-next-line no-control-regex -- stripping control chars is the point
-    .replace(/[\u0000-\u001F\u007F]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (!cleaned) return null;
-  return cleaned.slice(0, max);
-}
 
 function validate(body: Record<string, unknown>): Payload | string {
   const full_name = cleanText(body.full_name, 120);
@@ -84,6 +72,33 @@ function validate(body: Record<string, unknown>): Payload | string {
   };
 }
 
+/** Mint the digital pass for a registration. Returns the raw token once. */
+async function mintPass(
+  env: NonNullable<ReturnType<typeof supabaseEnv>>,
+  registrationId: string
+): Promise<{ token: string; reference: string; issued_at: string } | null> {
+  // Two attempts in the astronomically unlikely event of a collision.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const token = randomToken();
+    const reference = passReference();
+    const response = await fetch(`${env.url}/rest/v1/passes`, {
+      method: 'POST',
+      headers: { ...env.headers, Prefer: 'return=representation' },
+      body: JSON.stringify({
+        registration_id: registrationId,
+        pass_reference: reference,
+        verification_token_hash: await sha256Hex(token),
+      }),
+    });
+    if (response.ok) {
+      const rows = (await response.json()) as Array<{ issued_at: string }>;
+      return { token, reference, issued_at: rows[0]?.issued_at ?? '' };
+    }
+    if (response.status !== 409) break;
+  }
+  return null;
+}
+
 export default async function handler(request: Request): Promise<Response> {
   if (request.method !== 'POST') {
     return json(405, { error: 'Method not allowed.' });
@@ -107,29 +122,22 @@ export default async function handler(request: Request): Promise<Response> {
     return json(422, { error: payload });
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceKey) {
+  const env = supabaseEnv();
+  if (!env) {
     return json(503, {
       error:
         'The registration desk is not open yet. Please try again later or write to bfcommunication@brigadeschools.edu.in.',
     });
   }
 
-  const headers = {
-    apikey: serviceKey,
-    Authorization: `Bearer ${serviceKey}`,
-    'Content-Type': 'application/json',
-  };
-
   try {
     // Guard against accidental double submissions from the same email.
     const since = new Date(Date.now() - DUPLICATE_WINDOW_MS).toISOString();
     const dupeUrl =
-      `${supabaseUrl}/rest/v1/registrations?select=id` +
+      `${env.url}/rest/v1/registrations?select=id` +
       `&email=eq.${encodeURIComponent(payload.email)}` +
       `&created_at=gte.${encodeURIComponent(since)}&limit=1`;
-    const dupeResponse = await fetch(dupeUrl, { headers });
+    const dupeResponse = await fetch(dupeUrl, { headers: env.headers });
     if (dupeResponse.ok) {
       const existing = (await dupeResponse.json()) as unknown[];
       if (existing.length > 0) {
@@ -140,9 +148,9 @@ export default async function handler(request: Request): Promise<Response> {
       }
     }
 
-    const insertResponse = await fetch(`${supabaseUrl}/rest/v1/registrations`, {
+    const insertResponse = await fetch(`${env.url}/rest/v1/registrations`, {
       method: 'POST',
-      headers: { ...headers, Prefer: 'return=representation' },
+      headers: { ...env.headers, Prefer: 'return=representation' },
       body: JSON.stringify({ ...payload, status: 'received' }),
     });
 
@@ -153,7 +161,13 @@ export default async function handler(request: Request): Promise<Response> {
     }
 
     const rows = (await insertResponse.json()) as Array<{ id: string }>;
-    return json(201, { ok: true, id: rows[0]?.id ?? null });
+    const registrationId = rows[0]?.id ?? null;
+
+    // Mint the digital pass. If this fails the registration still stands;
+    // the visitor can retrieve a pass later via /pass.
+    const pass = registrationId ? await mintPass(env, registrationId) : null;
+
+    return json(201, { ok: true, id: registrationId, pass });
   } catch {
     return json(500, {
       error: 'The registration desk is unreachable right now. Please retry.',
