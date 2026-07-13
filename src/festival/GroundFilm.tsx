@@ -56,7 +56,7 @@ function Caption({ progress }: { progress: MotionValue<number> }) {
 export function GroundFilm() {
   return (
     <section aria-label="The main ground">
-      <ScrollHero src="/ground.mp4" webmSrc="/ground.webm" heightVh={220}>
+      <ScrollHero src="/ground.mp4" webmSrc="/ground.webm" heightVh={380}>
         {(progress) => <Caption progress={progress} />}
       </ScrollHero>
     </section>

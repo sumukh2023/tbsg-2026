@@ -625,19 +625,33 @@ export default function GetPassesPage() {
                                 : 'border-destructive/60 text-foreground')
                             }
                           >
-                            {submit.message}
-                            {submit.phase === 'error' && (
-                              <span className="block pt-1 text-muted-foreground">
-                                Nothing was lost. You can try again below.
-                              </span>
-                            )}
-                            {submit.phase === 'duplicate' && (
-                              <Link
-                                to="/pass"
-                                className="mt-2 block font-semibold text-foreground underline decoration-accent/60 underline-offset-4 transition-colors hover:text-primary"
-                              >
-                                Retrieve your Pass
-                              </Link>
+                            {submit.phase === 'duplicate' ? (
+                              <>
+                                A pass has already been issued for this
+                                attendee. Please use{' '}
+                                <Link
+                                  to="/pass"
+                                  className="text-foreground underline decoration-accent/60 underline-offset-4 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                >
+                                  Retrieve your Pass
+                                </Link>{' '}
+                                if you cannot find it. If you'd like to reserve
+                                more passes, contact the{' '}
+                                <Link
+                                  to="/#contact"
+                                  className="text-foreground underline decoration-accent/60 underline-offset-4 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                >
+                                  Front Desk
+                                </Link>
+                                .
+                              </>
+                            ) : (
+                              <>
+                                {submit.message}
+                                <span className="block pt-1 text-muted-foreground">
+                                  Nothing was lost. You can try again below.
+                                </span>
+                              </>
                             )}
                           </div>
                         )}

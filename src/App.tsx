@@ -24,10 +24,18 @@ const PassPage = lazy(() => import('./festival/pass/PassPage'));
 const VerifyPage = lazy(() => import('./festival/pass/VerifyPage'));
 
 function ScrollToTop() {
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
   useEffect(() => {
+    if (hash) {
+      // Cross-page anchors (e.g. /#contact): wait a beat for sections to
+      // mount, then let the browser's smooth scroll take over.
+      const timer = setTimeout(() => {
+        document.querySelector(hash)?.scrollIntoView();
+      }, 120);
+      return () => clearTimeout(timer);
+    }
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-  }, [pathname]);
+  }, [pathname, hash]);
   return null;
 }
 

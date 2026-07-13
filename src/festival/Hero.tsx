@@ -157,7 +157,7 @@ function HeroContent({ progress }: { progress: MotionValue<number> }) {
 export function Hero() {
   return (
     <section id="top" aria-label="Namma Mia Carpisa">
-      <ScrollHero src="/hero.mp4" webmSrc="/hero.webm" heightVh={300}>
+      <ScrollHero src="/hero.mp4" webmSrc="/hero.webm" heightVh={340}>
         {(progress) => <HeroContent progress={progress} />}
       </ScrollHero>
     </section>

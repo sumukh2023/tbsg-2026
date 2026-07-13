@@ -1,10 +1,155 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
+import { X } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { EASE } from '@/utils/motion';
 import { Grain } from '../materials';
 import { CarnivalMark } from '../CarnivalMark';
+
+/** Extract a verification token from QR content (URL or bare token). */
+function parseScannedToken(text: string): string | null {
+  const fromUrl = text.match(/verify-pass\/([A-Za-z0-9_-]{20,64})/);
+  if (fromUrl) return fromUrl[1];
+  const bare = text.trim();
+  return /^[A-Za-z0-9_-]{20,64}$/.test(bare) ? bare : null;
+}
+
+type BarcodeDetectorCtor = new (options: { formats: string[] }) => {
+  detect(source: CanvasImageSource): Promise<Array<{ rawValue: string }>>;
+};
+
+/**
+ * In-tab QR scanner for continuous gate operation: native BarcodeDetector
+ * where the browser has it, jsQR frame-decoding everywhere else. Decoded
+ * passes load in this same tab.
+ */
+function QrScanner({
+  onToken,
+  onClose,
+}: {
+  onToken: (token: string) => void;
+  onClose: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    let timer = 0;
+    let stopped = false;
+
+    const start = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' },
+          audio: false,
+        });
+        const video = videoRef.current;
+        if (!video || stopped) return;
+        video.srcObject = stream;
+        await video.play();
+
+        const Detector = (
+          window as unknown as { BarcodeDetector?: BarcodeDetectorCtor }
+        ).BarcodeDetector;
+        const detector = Detector
+          ? new Detector({ formats: ['qr_code'] })
+          : null;
+        const jsqr = detector ? null : (await import('jsqr')).default;
+
+        const tick = async () => {
+          if (stopped) return;
+          const v = videoRef.current;
+          if (v && v.readyState >= 2) {
+            let raw = '';
+            if (detector) {
+              const codes = await detector.detect(v).catch(() => []);
+              raw = codes[0]?.rawValue ?? '';
+            } else if (jsqr) {
+              const canvas = canvasRef.current;
+              if (canvas) {
+                canvas.width = v.videoWidth;
+                canvas.height = v.videoHeight;
+                const context = canvas.getContext('2d', {
+                  willReadFrequently: true,
+                });
+                if (context && canvas.width > 0) {
+                  context.drawImage(v, 0, 0);
+                  const image = context.getImageData(
+                    0,
+                    0,
+                    canvas.width,
+                    canvas.height
+                  );
+                  raw =
+                    jsqr(image.data, image.width, image.height)?.data ?? '';
+                }
+              }
+            }
+            const token = raw ? parseScannedToken(raw) : null;
+            if (token) {
+              stopped = true;
+              onToken(token);
+              return;
+            }
+          }
+          timer = window.setTimeout(tick, 160);
+        };
+        void tick();
+      } catch {
+        setError(
+          'Camera unavailable. Allow camera access, or scan with your phone camera app instead.'
+        );
+      }
+    };
+    void start();
+
+    return () => {
+      stopped = true;
+      window.clearTimeout(timer);
+      stream?.getTracks().forEach((track) => track.stop());
+    };
+  }, [onToken]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.3 }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Scan the next guest's QR code"
+      className="fixed inset-0 z-50 bg-black/95"
+    >
+      <video
+        ref={videoRef}
+        playsInline
+        muted
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+      <canvas ref={canvasRef} className="hidden" />
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 p-6">
+        <div
+          aria-hidden="true"
+          className="h-60 w-60 rounded-xl border-2 border-accent/80"
+        />
+        <p className="max-w-xs text-center font-body text-sm leading-relaxed text-white/90">
+          {error || "Point the camera at the guest's QR code."}
+        </p>
+      </div>
+      <button
+        onClick={onClose}
+        aria-label="Close scanner"
+        className="absolute right-5 top-5 grid h-11 w-11 cursor-pointer place-items-center rounded-full border border-white/30 text-white transition-colors hover:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+      >
+        <X className="h-5 w-5" />
+      </button>
+    </motion.div>
+  );
+}
 
 const CODE_KEY = 'flash-verifier-code';
 
@@ -55,6 +200,8 @@ function formatTime(iso: string | null | undefined): string {
  */
 export default function VerifyPage() {
   const { token = '' } = useParams<{ token: string }>();
+  const navigate = useNavigate();
+  const [scanning, setScanning] = useState(false);
   const [code, setCode] = useState(() => {
     try {
       return sessionStorage.getItem(CODE_KEY) ?? '';
@@ -325,22 +472,43 @@ export default function VerifyPage() {
                       : 'guests'}
                   </button>
                 )}
-                {state.result === 'checked_in' && (
-                  <p className="text-center font-body text-sm text-muted-foreground">
-                    Done. Scan the next guest's code.
-                  </p>
-                )}
                 <button
                   onClick={() => code && void call('verify', code)}
                   className="inline-flex w-full items-center justify-center rounded-full border border-border px-8 py-3 font-body text-sm text-foreground transition-colors duration-300 hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   Re-check this pass
                 </button>
+                {state.result === 'checked_in' && (
+                  <button
+                    onClick={() => setScanning(true)}
+                    className="inline-flex w-full items-center justify-center rounded-full bg-primary px-8 py-4 font-body text-base font-medium text-primary-foreground transition-all duration-300 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98]"
+                  >
+                    Scan Next Guest
+                  </button>
+                )}
               </div>
             </motion.div>
           )}
         </div>
       </div>
+
+      <AnimatePresence>
+        {scanning && (
+          <QrScanner
+            onClose={() => setScanning(false)}
+            onToken={(next) => {
+              setScanning(false);
+              if (next === token) {
+                // Same code scanned again: re-check so the volunteer sees
+                // the duplicate state immediately.
+                if (code) void call('verify', code);
+              } else {
+                navigate(`/verify-pass/${next}`);
+              }
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

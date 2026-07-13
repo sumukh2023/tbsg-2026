@@ -157,7 +157,7 @@ export default async function handler(
     if (existing.length > 0) {
       return send(res, 409, {
         error:
-          'A pass has already been issued for this attendee. Please use Retrieve your Pass if you cannot find it.',
+          "A pass has already been issued for this attendee. Please use Retrieve your Pass if you cannot find it. If you'd like to reserve more passes, contact the Front Desk.",
       });
     }
 
