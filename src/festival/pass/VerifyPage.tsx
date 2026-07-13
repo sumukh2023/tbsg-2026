@@ -478,7 +478,8 @@ export default function VerifyPage() {
                 >
                   Re-check this pass
                 </button>
-                {state.result === 'checked_in' && (
+                {(state.result === 'checked_in' ||
+                  state.result === 'already_checked_in') && (
                   <button
                     onClick={() => setScanning(true)}
                     className="inline-flex w-full items-center justify-center rounded-full bg-primary px-8 py-4 font-body text-base font-medium text-primary-foreground transition-all duration-300 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98]"
