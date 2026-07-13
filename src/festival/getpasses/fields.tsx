@@ -264,7 +264,7 @@ export function PassStepper({
         </button>
       </div>
       <p className="mt-2 font-body text-xs text-muted-foreground/70">
-        Up to {max} passes per registration
+        Up to {max} {max === 1 ? 'pass' : 'passes'} for this visitor type
       </p>
     </div>
   );

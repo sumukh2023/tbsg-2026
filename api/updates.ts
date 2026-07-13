@@ -22,8 +22,8 @@ export default async function handler(
   try {
     const url =
       `${env.url}/rest/v1/updates` +
-      `?select=id,title,message,category,priority,cta_label,cta_url,published_at` +
-      `&published=eq.true&order=published_at.desc&limit=50`;
+      `?select=id,title,message,category,priority,cta_label,cta_url,published_at,created_at` +
+      `&published=eq.true&order=published_at.desc.nullslast&limit=50`;
     const response = await fetch(url, { headers: env.headers });
     if (!response.ok) {
       console.error(`[updates] stage=select supabase_status=${response.status}`);

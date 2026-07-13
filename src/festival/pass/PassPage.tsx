@@ -66,6 +66,12 @@ function RetrieveForm() {
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!email.trim() || !phone.trim()) {
+      setError(
+        'Enter both the email address and the mobile number you registered with.'
+      );
+      return;
+    }
     setBusy(true);
     setError('');
     try {

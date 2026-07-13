@@ -81,6 +81,19 @@ export async function sha256Hex(value: string): Promise<string> {
     .join('');
 }
 
+/**
+ * Maximum passes per registration by visitor type. Mirrored in the
+ * Get Passes UI (src/festival/getpasses/GetPassesPage.tsx); keep in sync.
+ */
+export const PASS_LIMITS: Record<string, number> = {
+  student: 1,
+  parent: 2,
+  guest: 2,
+  alumni: 1,
+  faculty: 5,
+  other: 3,
+};
+
 /** Human-friendly pass reference, e.g. FB26-K7M3Q (no confusable glyphs). */
 export function passReference(): string {
   const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';

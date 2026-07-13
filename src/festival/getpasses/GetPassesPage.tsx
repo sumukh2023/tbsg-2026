@@ -23,6 +23,17 @@ const VISITOR_TYPES = [
   { value: 'other', label: 'Other' },
 ] as const;
 
+// Per-visitor-type pass ceilings. Mirrors PASS_LIMITS in api/_shared.ts;
+// the server re-validates and never trusts these.
+const PASS_LIMITS: Record<string, number> = {
+  student: 1,
+  parent: 2,
+  guest: 2,
+  alumni: 1,
+  faculty: 5,
+  other: 3,
+};
+
 const STEPS = ['Visitor', 'Booking', 'Details', 'Confirm'] as const;
 
 type FormState = {
@@ -41,7 +52,7 @@ const initialForm: FormState = {
   fullName: '',
   email: '',
   phone: '',
-  passes: 2,
+  passes: 1,
   visitorType: '',
   accessibility: '',
   comments: '',
@@ -63,9 +74,11 @@ function validateStep(step: number, form: FormState): Errors {
   if (step === 1) {
     if (!VISITOR_TYPES.some((t) => t.value === form.visitorType)) {
       errors.visitorType = 'Choose the option that fits you best.';
-    }
-    if (form.passes < 1 || form.passes > 10) {
-      errors.passes = 'Passes must be between 1 and 10.';
+    } else {
+      const limit = PASS_LIMITS[form.visitorType] ?? 1;
+      if (form.passes < 1 || form.passes > limit) {
+        errors.passes = `Up to ${limit} ${limit === 1 ? 'pass' : 'passes'} for this visitor type.`;
+      }
     }
   }
   if (step === 2) {
@@ -513,19 +526,38 @@ export default function GetPassesPage() {
                         <h2 className="font-display text-2xl font-medium text-foreground">
                           Booking details
                         </h2>
-                        <PassStepper
-                          label="Number of passes"
-                          value={form.passes}
-                          onChange={(v) => set('passes', v)}
-                        />
                         <RadioPills
                           legend="I am a"
                           name="visitorType"
                           options={VISITOR_TYPES}
                           value={form.visitorType}
-                          onChange={(v) => set('visitorType', v)}
+                          onChange={(v) => {
+                            set('visitorType', v);
+                            // Clamp into the new ceiling when switching type.
+                            const limit = PASS_LIMITS[v] ?? 1;
+                            if (form.passes > limit) set('passes', limit);
+                          }}
                           error={errors.visitorType}
                         />
+                        {form.visitorType ? (
+                          <motion.div
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.4, ease: EASE.out }}
+                          >
+                            <PassStepper
+                              label="Number of passes"
+                              value={form.passes}
+                              onChange={(v) => set('passes', v)}
+                              max={PASS_LIMITS[form.visitorType] ?? 1}
+                            />
+                          </motion.div>
+                        ) : (
+                          <p className="font-body text-sm text-muted-foreground">
+                            Choose who you are and we will set how many passes
+                            you can reserve.
+                          </p>
+                        )}
                       </div>
                     )}
 
@@ -604,6 +636,14 @@ export default function GetPassesPage() {
                               <span className="block pt-1 text-muted-foreground">
                                 Nothing was lost. You can try again below.
                               </span>
+                            )}
+                            {submit.phase === 'duplicate' && (
+                              <Link
+                                to="/pass"
+                                className="mt-2 block font-semibold text-foreground underline decoration-accent/60 underline-offset-4 transition-colors hover:text-primary"
+                              >
+                                Retrieve your Pass
+                              </Link>
                             )}
                           </div>
                         )}

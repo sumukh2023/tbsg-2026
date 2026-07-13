@@ -1,30 +1,46 @@
 import { useRef } from 'react';
-import { motion, useInView } from 'framer-motion';
+import { AnimatePresence, motion, useInView } from 'framer-motion';
 import { AnimatedNumber } from '@/components/motion/animated-number';
 import { TextEffect } from '@/components/motion/text-effect';
 import { EASE } from '@/utils/motion';
 import { Grain } from './materials';
 
-const measures = [
-  { value: 18, label: 'editions, every one student-run' },
-  { value: 74, prefix: '₹', suffix: ' lakh', label: 'raised since 2008' },
+type MeasureData = {
+  value: number;
+  from?: number;
+  prefix?: string;
+  suffix?: string;
+  /** Ordinal indicator that rolls with the number, e.g. 1st -> 2nd. */
+  sup?: { from: string; to: string };
+  label: string;
+};
+
+const measures: MeasureData[] = [
+  {
+    value: 2,
+    from: 1,
+    sup: { from: 'st', to: 'nd' },
+    label: 'student-led carnival',
+  },
+  {
+    value: 10,
+    prefix: '₹',
+    suffix: ' lakh',
+    label: 'raised at Rangeelo Rajasthan',
+  },
   { value: 3160, label: 'children supported so far' },
   { value: 240, label: 'student organisers this year' },
 ];
 
 function Measure({
   value,
+  from = 0,
   prefix,
   suffix,
+  sup,
   label,
   delay,
-}: {
-  value: number;
-  prefix?: string;
-  suffix?: string;
-  label: string;
-  delay: number;
-}) {
+}: MeasureData & { delay: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: '-20% 0px' });
 
@@ -39,9 +55,25 @@ function Measure({
       <p className="font-display text-6xl font-medium tracking-tight text-primary md:text-7xl">
         {prefix}
         <AnimatedNumber
-          value={inView ? value : 0}
+          value={inView ? value : from}
           springOptions={{ stiffness: 45, damping: 26 }}
         />
+        {sup && (
+          <span className="relative inline-block w-[1.4ch] overflow-hidden align-super text-[0.42em]">
+            <AnimatePresence mode="popLayout" initial={false}>
+              <motion.span
+                key={inView ? sup.to : sup.from}
+                initial={{ opacity: 0, y: '0.6em' }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: '-0.6em' }}
+                transition={{ duration: 0.5, delay: 0.35, ease: EASE.out }}
+                className="inline-block"
+              >
+                {inView ? sup.to : sup.from}
+              </motion.span>
+            </AnimatePresence>
+          </span>
+        )}
         {suffix}
       </p>
       <p className="mt-3 max-w-[22ch] font-body text-sm leading-relaxed text-muted-foreground">

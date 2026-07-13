@@ -11,6 +11,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import {
   cleanText,
   jsonBody,
+  PASS_LIMITS,
   passReference,
   randomToken,
   send,
@@ -26,8 +27,6 @@ const VISITOR_TYPES = [
   'faculty',
   'other',
 ];
-
-const DUPLICATE_WINDOW_MS = 5 * 60 * 1000;
 
 type Payload = {
   full_name: string;
@@ -59,9 +58,11 @@ function validate(body: Record<string, unknown>): Payload | string {
     return 'Visitor type is not recognised.';
   }
 
+  // Per-visitor-type ceilings; the client mirrors these but is never trusted.
+  const limit = PASS_LIMITS[visitor_type] ?? 1;
   const passes = Number(body.number_of_passes);
-  if (!Number.isInteger(passes) || passes < 1 || passes > 10) {
-    return 'Number of passes must be between 1 and 10.';
+  if (!Number.isInteger(passes) || passes < 1 || passes > limit) {
+    return `A ${visitor_type} registration can include between 1 and ${limit} ${limit === 1 ? 'pass' : 'passes'}.`;
   }
 
   return {
@@ -136,21 +137,28 @@ export default async function handler(
   }
 
   try {
-    // Guard against accidental double submissions from the same email.
-    const since = new Date(Date.now() - DUPLICATE_WINDOW_MS).toISOString();
+    // Duplicate detection: the email or the mobile number identifying an
+    // attendee may hold only one registration, ever. Checked server-side;
+    // nothing about the existing record is revealed.
     const dupeUrl =
       `${env.url}/rest/v1/registrations?select=id` +
-      `&email=eq.${encodeURIComponent(payload.email)}` +
-      `&created_at=gte.${encodeURIComponent(since)}&limit=1`;
+      `&or=(email.eq.${encodeURIComponent(payload.email)},phone.eq.${encodeURIComponent(payload.phone)})` +
+      `&limit=1`;
     const dupeResponse = await fetch(dupeUrl, { headers: env.headers });
-    if (dupeResponse.ok) {
-      const existing = (await dupeResponse.json()) as unknown[];
-      if (existing.length > 0) {
-        return send(res, 409, {
-          error:
-            'We already have a very recent registration for this email address. Your passes are safe; there is no need to submit twice.',
-        });
-      }
+    if (!dupeResponse.ok) {
+      console.error(
+        `[register] stage=duplicate-check supabase_status=${dupeResponse.status}`
+      );
+      return send(res, 503, {
+        error: 'The registration service is unavailable right now.',
+      });
+    }
+    const existing = (await dupeResponse.json()) as unknown[];
+    if (existing.length > 0) {
+      return send(res, 409, {
+        error:
+          'A pass has already been issued for this attendee. Please use Retrieve your Pass if you cannot find it.',
+      });
     }
 
     const insertResponse = await fetch(`${env.url}/rest/v1/registrations`, {

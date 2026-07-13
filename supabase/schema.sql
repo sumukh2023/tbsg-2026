@@ -91,6 +91,30 @@ create policy "anon reads published updates"
 create index if not exists updates_published_idx
   on public.updates (published, published_at desc);
 
+-- Publishing an update stamps published_at automatically, so rows never
+-- surface with a missing timestamp (the "January 1" bug: new Date(null)).
+create or replace function public.set_updates_published_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.published and new.published_at is null then
+    new.published_at := now();
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists updates_set_published_at on public.updates;
+create trigger updates_set_published_at
+  before insert or update on public.updates
+  for each row execute function public.set_updates_published_at();
+
+-- Backfill any already-published rows that were missing the timestamp.
+update public.updates
+  set published_at = created_at
+  where published = true and published_at is null;
+
 -- Stream inserts/updates to browsers via Supabase Realtime.
 -- (Run once; errors harmlessly if the table is already in the publication.)
 alter publication supabase_realtime add table public.updates;

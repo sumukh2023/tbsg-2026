@@ -14,7 +14,16 @@ export type LiveUpdate = {
   cta_label: string | null;
   cta_url: string | null;
   published_at: string;
+  created_at?: string | null;
 };
+
+/** Rows published without a timestamp fall back to created_at, never 1970. */
+function normalize(row: LiveUpdate): LiveUpdate {
+  return {
+    ...row,
+    published_at: row.published_at ?? row.created_at ?? new Date().toISOString(),
+  };
+}
 
 const SEEN_KEY = 'flash-live-seen';
 
@@ -27,16 +36,21 @@ const categoryLabel: Record<LiveUpdate['category'], string> = {
   emergency: 'Emergency',
 };
 
-function relativeTime(iso: string): string {
-  const delta = Date.now() - new Date(iso).getTime();
-  const minutes = Math.round(delta / 60_000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} h ago`;
-  return new Date(iso).toLocaleDateString('en-IN', {
+/** The actual published_at in the visitor's locale: time today, date+time otherwise. */
+function publishedLabel(iso: string): string {
+  const date = new Date(iso);
+  const sameDay = date.toDateString() === new Date().toDateString();
+  if (sameDay) {
+    return date.toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  }
+  return date.toLocaleString(undefined, {
     day: 'numeric',
     month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
   });
 }
 
@@ -71,7 +85,7 @@ function useLiveUpdates() {
     let cleanup: (() => void) | undefined;
 
     const apply = (rows: LiveUpdate[]) => {
-      if (!cancelled) setUpdates(sortDesc(rows));
+      if (!cancelled) setUpdates(sortDesc(rows.map(normalize)));
     };
 
     if (url && anon) {
@@ -82,10 +96,10 @@ function useLiveUpdates() {
         client
           .from('updates')
           .select(
-            'id,title,message,category,priority,cta_label,cta_url,published_at'
+            'id,title,message,category,priority,cta_label,cta_url,published_at,created_at'
           )
           .eq('published', true)
-          .order('published_at', { ascending: false })
+          .order('published_at', { ascending: false, nullsFirst: false })
           .limit(50)
           .then(({ data }) => {
             if (data) apply(data as LiveUpdate[]);
@@ -101,7 +115,7 @@ function useLiveUpdates() {
               setUpdates((current) => {
                 const rest = current.filter((u) => u.id !== row.id);
                 return sortDesc(
-                  row.published ? [...rest, row as LiveUpdate] : rest
+                  row.published ? [...rest, normalize(row as LiveUpdate)] : rest
                 );
               });
             }
@@ -184,7 +198,7 @@ function UpdateItem({ update }: { update: LiveUpdate }) {
           dateTime={update.published_at}
           className="font-body text-xs tabular-nums text-muted-foreground"
         >
-          {relativeTime(update.published_at)}
+          {publishedLabel(update.published_at)}
         </time>
       </div>
       <h3 className="mt-2 font-display text-xl font-medium leading-snug text-foreground">
@@ -225,7 +239,7 @@ function Ticker({
       transition={{ duration: 0.5, ease: EASE.out }}
       onClick={onOpen}
       aria-label={`Latest update: ${update.title}. Open live updates.`}
-      className="liquid-glass origin-bottom-right cursor-pointer rounded-full py-2 pl-4 pr-4 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="liquid-glass-elevated origin-bottom-right cursor-pointer rounded-full py-2 pl-4 pr-4 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <span className="flex max-w-[min(19rem,calc(100vw-5rem))] items-center gap-3 md:max-w-xs">
         <span className="shrink-0 font-body text-2xs font-semibold uppercase tracking-[0.2em] text-accent">
@@ -314,7 +328,7 @@ export function LiveUpdates() {
             onClick={openPanel}
             aria-haspopup="dialog"
             aria-expanded={open}
-            className="liquid-glass flex cursor-pointer items-center gap-2.5 rounded-full py-2.5 pl-4 pr-5 text-white transition-transform duration-300 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="liquid-glass-elevated flex cursor-pointer items-center gap-2.5 rounded-full py-2.5 pl-4 pr-5 text-white transition-transform duration-300 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span className="relative flex h-2 w-2" aria-hidden="true">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent/70" />
@@ -359,7 +373,7 @@ export function LiveUpdates() {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ duration: 0.45, ease: EASE.out }}
-              className="fixed bottom-0 right-0 top-0 z-50 flex w-full max-w-md flex-col border-l border-border bg-background"
+              className="fixed bottom-0 right-0 top-0 z-50 flex w-full max-w-md flex-col border-l border-border/60 bg-background/80 backdrop-blur-2xl"
             >
               <div className="flex items-center justify-between border-b border-border px-6 py-5">
                 <div>
