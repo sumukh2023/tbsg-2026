@@ -4,7 +4,7 @@
  * directly with the anon key + RLS and subscribe to Realtime instead).
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { send, supabaseEnv } from './_shared';
+import { send, supabaseEnv } from './_shared.js';
 
 export default async function handler(
   req: VercelRequest,

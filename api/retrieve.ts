@@ -12,7 +12,7 @@ import {
   send,
   sha256Hex,
   supabaseEnv,
-} from './_shared';
+} from './_shared.js';
 
 const GENERIC =
   'If those details match a registration, the pass is shown here. Please check them and try again.';

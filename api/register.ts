@@ -16,7 +16,7 @@ import {
   send,
   sha256Hex,
   supabaseEnv,
-} from './_shared';
+} from './_shared.js';
 
 const VISITOR_TYPES = [
   'student',
@@ -170,10 +170,29 @@ export default async function handler(
 
     const rows = (await insertResponse.json()) as Array<{ id: string }>;
     const registrationId = rows[0]?.id ?? null;
+    if (!registrationId) {
+      console.error('[register] stage=insert no id returned');
+      return send(res, 502, {
+        error: 'The registration could not be saved. Please try again.',
+      });
+    }
 
-    // Mint the digital pass. If this fails the registration still stands;
-    // the visitor can retrieve a pass later via /pass.
-    const pass = registrationId ? await mintPass(env, registrationId) : null;
+    // Mint the digital pass. A booking without a pass is a dead record for
+    // the visitor, so if minting fails the registration is rolled back and
+    // the visitor is asked to retry cleanly.
+    const pass = await mintPass(env, registrationId);
+    if (!pass) {
+      await fetch(`${env.url}/rest/v1/registrations?id=eq.${registrationId}`, {
+        method: 'DELETE',
+        headers: env.headers,
+      }).catch(() => {
+        console.error('[register] stage=cleanup rollback delete failed');
+      });
+      return send(res, 502, {
+        error:
+          'The registration could not be completed. Nothing was booked; please try again.',
+      });
+    }
 
     return send(res, 201, { ok: true, id: registrationId, pass });
   } catch (error) {

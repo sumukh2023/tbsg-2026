@@ -317,8 +317,12 @@ export default function GetPassesPage() {
 
   const submitRegistration = async () => {
     setSubmit({ phase: 'submitting' });
+
+    // Only a failed fetch is a connectivity problem; any response from the
+    // server carries its own, more specific message.
+    let response: Response;
     try {
-      const response = await fetch('/api/register', {
+      response = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -332,33 +336,40 @@ export default function GetPassesPage() {
           website: '', // honeypot, stays empty for humans
         }),
       });
-      if (response.status === 409) {
-        const data = await response.json().catch(() => null);
-        setSubmit({
-          phase: 'duplicate',
-          message:
-            data?.error ??
-            'We already have a recent registration for this email address.',
-        });
-        return;
-      }
-      if (!response.ok) {
-        const data = await response.json().catch(() => null);
-        throw new Error(
-          data?.error ?? 'The registration desk is unreachable right now.'
-        );
-      }
-      const data = await response.json().catch(() => null);
-      setSubmit({ phase: 'success', pass: data?.pass ?? null });
-    } catch (error) {
+    } catch {
       setSubmit({
         phase: 'error',
         message:
-          error instanceof Error
-            ? error.message
-            : 'Something went wrong on our side.',
+          'We could not reach the registration desk. Check your connection and try again.',
       });
+      return;
     }
+
+    const data = await response.json().catch(() => null);
+
+    if (response.status === 409) {
+      setSubmit({
+        phase: 'duplicate',
+        message:
+          data?.error ??
+          'We already have a recent registration for this email address.',
+      });
+      return;
+    }
+    if (!response.ok) {
+      // 422 says what to fix, 502 asks to retry, 503 says the desk is not
+      // configured; fall back by class only when the body carried nothing.
+      setSubmit({
+        phase: 'error',
+        message:
+          data?.error ??
+          (response.status >= 500
+            ? 'The registration service is unavailable right now. Please try again shortly.'
+            : 'The registration could not be processed. Please review your details and retry.'),
+      });
+      return;
+    }
+    setSubmit({ phase: 'success', pass: data?.pass ?? null });
   };
 
   const panelVariants = {

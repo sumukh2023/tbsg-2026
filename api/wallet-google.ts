@@ -21,7 +21,7 @@
  * passes.google_wallet_object_id.
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { send } from './_shared';
+import { send } from './_shared.js';
 
 export default async function handler(
   _req: VercelRequest,

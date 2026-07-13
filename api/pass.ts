@@ -4,7 +4,7 @@
  * is what authorises this read. Returns only what the pass itself shows.
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { findPassByToken, send, supabaseEnv } from './_shared';
+import { findPassByToken, send, supabaseEnv } from './_shared.js';
 
 export default async function handler(
   req: VercelRequest,

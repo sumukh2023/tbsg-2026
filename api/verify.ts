@@ -27,7 +27,7 @@ import {
   send,
   supabaseEnv,
   type PassRow,
-} from './_shared';
+} from './_shared.js';
 
 function timingSafeEqual(a: string, b: string): boolean {
   const enc = new TextEncoder();
