@@ -36,17 +36,9 @@ const categoryLabel: Record<LiveUpdate['category'], string> = {
   emergency: 'Emergency',
 };
 
-/** The actual published_at in the visitor's locale: time today, date+time otherwise. */
+/** The actual published_at, date and time, in the visitor's locale. */
 function publishedLabel(iso: string): string {
-  const date = new Date(iso);
-  const sameDay = date.toDateString() === new Date().toDateString();
-  if (sameDay) {
-    return date.toLocaleTimeString(undefined, {
-      hour: 'numeric',
-      minute: '2-digit',
-    });
-  }
-  return date.toLocaleString(undefined, {
+  return new Date(iso).toLocaleString(undefined, {
     day: 'numeric',
     month: 'short',
     hour: 'numeric',
@@ -241,10 +233,7 @@ function Ticker({
       aria-label={`Latest update: ${update.title}. Open live updates.`}
       className="liquid-glass-elevated origin-bottom-right cursor-pointer rounded-full py-2 pl-4 pr-4 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <span className="flex max-w-[min(19rem,calc(100vw-5rem))] items-center gap-3 md:max-w-xs">
-        <span className="shrink-0 font-body text-2xs font-semibold uppercase tracking-[0.2em] text-accent">
-          Live
-        </span>
+      <span className="flex max-w-[min(19rem,calc(100vw-5rem))] items-center md:max-w-xs">
         {reduce ? (
           <span className="truncate font-body text-xs leading-relaxed">
             {text}
@@ -254,9 +243,9 @@ function Ticker({
             className="block min-w-0 flex-1 overflow-hidden"
             style={{
               WebkitMaskImage:
-                'linear-gradient(to right, transparent, black 10%, black 82%, transparent)',
+                'linear-gradient(to right, transparent, black 8%, black 92%, transparent)',
               maskImage:
-                'linear-gradient(to right, transparent, black 10%, black 82%, transparent)',
+                'linear-gradient(to right, transparent, black 8%, black 92%, transparent)',
             }}
           >
             <InfiniteSlider gap={56} speed={28} speedOnHover={6}>

@@ -552,12 +552,7 @@ export default function GetPassesPage() {
                               max={PASS_LIMITS[form.visitorType] ?? 1}
                             />
                           </motion.div>
-                        ) : (
-                          <p className="font-body text-sm text-muted-foreground">
-                            Choose who you are and we will set how many passes
-                            you can reserve.
-                          </p>
-                        )}
+                        ) : null}
                       </div>
                     )}
 
@@ -572,7 +567,6 @@ export default function GetPassesPage() {
                           value={form.accessibility}
                           onChange={(v) => set('accessibility', v)}
                           error={errors.accessibility}
-                          hint="Step-free routes, seating, a quiet room: tell us what helps."
                           maxLength={500}
                         />
                         <FloatingTextarea

@@ -59,13 +59,13 @@ function Measure({
           springOptions={{ stiffness: 45, damping: 26 }}
         />
         {sup && (
-          <span className="relative inline-block w-[1.4ch] overflow-hidden align-super text-[0.42em]">
+          <span className="relative -top-[0.85em] inline-block w-[1.5ch] text-[0.42em] leading-none">
             <AnimatePresence mode="popLayout" initial={false}>
               <motion.span
                 key={inView ? sup.to : sup.from}
-                initial={{ opacity: 0, y: '0.6em' }}
+                initial={{ opacity: 0, y: '0.5em' }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: '-0.6em' }}
+                exit={{ opacity: 0, y: '-0.5em' }}
                 transition={{ duration: 0.5, delay: 0.35, ease: EASE.out }}
                 className="inline-block"
               >

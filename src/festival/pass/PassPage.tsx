@@ -63,15 +63,23 @@ function RetrieveForm() {
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // Same rules, messages and timing as the Reserve Your Passes form.
+  const [fieldErrors, setFieldErrors] = useState<{
+    email?: string;
+    phone?: string;
+  }>({});
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!email.trim() || !phone.trim()) {
-      setError(
-        'Enter both the email address and the mobile number you registered with.'
-      );
-      return;
+    const next: { email?: string; phone?: string } = {};
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) {
+      next.email = 'That email address does not look right yet.';
     }
+    if (!/^(\+?91[\s-]?)?[6-9]\d{9}$/.test(phone.replace(/\s/g, ''))) {
+      next.phone = 'Please enter a 10-digit Indian mobile number.';
+    }
+    setFieldErrors(next);
+    if (next.email || next.phone) return;
     setBusy(true);
     setError('');
     try {
@@ -90,7 +98,7 @@ function RetrieveForm() {
       }
       setError(
         data?.error ??
-          'If those details match a registration, the pass is shown here. Please check them and try again.'
+          'Pass not found. Please check the details entered and try again.'
       );
     } catch {
       setError('The pass service is unreachable right now. Please retry.');
@@ -115,7 +123,11 @@ function RetrieveForm() {
           type="email"
           inputMode="email"
           value={email}
-          onChange={setEmail}
+          onChange={(v) => {
+            setEmail(v);
+            setFieldErrors((e) => ({ ...e, email: undefined }));
+          }}
+          error={fieldErrors.email}
           autoComplete="email"
           maxLength={160}
         />
@@ -125,7 +137,11 @@ function RetrieveForm() {
           type="tel"
           inputMode="tel"
           value={phone}
-          onChange={setPhone}
+          onChange={(v) => {
+            setPhone(v);
+            setFieldErrors((e) => ({ ...e, phone: undefined }));
+          }}
+          error={fieldErrors.phone}
           autoComplete="tel"
           maxLength={16}
           hint="The details you registered with."

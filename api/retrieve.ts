@@ -15,7 +15,7 @@ import {
 } from './_shared.js';
 
 const GENERIC =
-  'If those details match a registration, the pass is shown here. Please check them and try again.';
+  'Pass not found. Please check the details entered and try again.';
 
 export default async function handler(
   req: VercelRequest,

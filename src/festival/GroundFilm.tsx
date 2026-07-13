@@ -9,6 +9,14 @@ import { Grain } from './materials';
 function Caption({ progress }: { progress: MotionValue<number> }) {
   const opacity = useTransform(progress, [0.12, 0.32, 0.66, 0.86], [0, 1, 1, 0]);
   const y = useTransform(progress, [0.12, 0.86], [28, -28]);
+  // Full marble cover at both ends of the runway: before the film pins
+  // (and after it releases) the section reads as plain page, so there is
+  // never a hard video rectangle under the FAQ or against the statistics.
+  const coverOpacity = useTransform(
+    progress,
+    [0, 0.1, 0.88, 1],
+    [1, 0, 0, 1]
+  );
 
   return (
     <>
@@ -16,6 +24,11 @@ function Caption({ progress }: { progress: MotionValue<number> }) {
       <div
         aria-hidden="true"
         className="absolute inset-0 bg-[linear-gradient(180deg,hsl(var(--background)/0.6)_0%,hsl(var(--background)/0.28)_35%,hsl(var(--background)/0.22)_65%,hsl(var(--background)/0.6)_100%)]"
+      />
+      <motion.div
+        aria-hidden="true"
+        style={{ opacity: coverOpacity }}
+        className="absolute inset-0 bg-background"
       />
       <Grain />
 
