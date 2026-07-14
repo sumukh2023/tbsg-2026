@@ -8,7 +8,7 @@ For one day, the campus becomes an Italian piazza.
 
 Saturday, 14 November 2026 · 09:30 – 20:00 · Malleswaram, Bengaluru
 
-[thebrigadeschools.com](https://www.brigadeschools.edu.in) · [Instagram](https://www.instagram.com/thebrigade.schools) · [Facebook](https://www.facebook.com/TheBrigade.Schools/)
+[brigadeschools.edu.in](https://www.brigadeschools.edu.in) · [Instagram](https://www.instagram.com/thebrigade.schools) · [Facebook](https://www.facebook.com/TheBrigade.Schools/)
 
 </div>
 
@@ -19,15 +19,12 @@ Saturday, 14 November 2026 · 09:30 – 20:00 · Malleswaram, Bengaluru
 This repo is the live website for **Flash**, an annual, entirely student-run
 carnival — imagined, budgeted and run by the students of The Brigade School
 @ Malleswaram, with teachers advising and students deciding. Every rupee of
-surplus goes to the school's Reach Out programme, funding education and
+surplus goes to the school's Passion with Compassion programme, funding education and
 healthcare for underprivileged children.
 
-Flash began in November 2023 as *Rangeelo Rajasthan*, raising ₹10 lakh in
-its first year. This is the **2nd edition**: the theme turns to Italy, the
-courtyards become piazzas, and roughly 240 student organisers are running
-six regional zones, a food street, a runway show and a closing set under
-the lights — all in service of the ~3,160 children the fund has supported
-so far.
+Flash at TBSG began in November 2023 as *Rangeelo Rajasthan*. This is the **2nd edition**: the theme turns to Italy, the
+courtyards become piazzas, and student organisers are running regional zones, a food street, a runway show and a closing set under
+the lights — all in service of the underprivileged children the fund has supported so far.
 
 The site is a single continuous story — landing page, ticketing and
 event-day tooling sharing one design language — built on the
@@ -40,8 +37,8 @@ finished from scratch for this brief.
 | --- | --- |
 | **Date** | Saturday, 14 November 2026, 09:30 – 20:00 |
 | **Venue** | The Brigade School @ Malleswaram, Brigade Gateway Enclave, #26/1 Railway Parallel Road, Malleswaram West, Bangalore 560055 |
-| **Entry** | ₹150 per person · under-5s free · stalls/games/mercato priced individually |
-| **Cause** | 100% of surplus funds children's education & healthcare (Reach Out programme) |
+| **Entry** | ₹200 per person · under-5s free · stalls/games/mercato priced individually |
+| **Cause** | 100% of surplus funds children's education & healthcare (Passion with Compassion programme) |
 
 **On the site:**
 
@@ -55,8 +52,7 @@ finished from scratch for this brief.
 - **Il Mercato** — the food street menu, trattoria classics priced for
   pocket money
 - **Il Giorno** — the full minute-by-minute schedule, gates to *Arrivederci*
-- **Get Passes** — the ticketing flow: registration, a digital pass (QR +
-  Apple/Google Wallet), live event-day updates and gate verification
+- **Get Passes** — the ticketing flow: registration, a digital pass, live event-day updates and back-end gate verification for volunteers on Event Day
 
 ## Tech stack
 
