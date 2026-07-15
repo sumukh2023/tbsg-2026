@@ -1,4 +1,5 @@
 import { type ReactNode } from 'react';
+import { motion, type MotionValue } from 'framer-motion';
 import { cn } from '@/utils/cn';
 
 /**
@@ -68,6 +69,32 @@ export function ArchFrame({
     >
       {children}
     </div>
+  );
+}
+
+/**
+ * Marble veil over a scroll film: a soft whitish wash whose strength is a
+ * MotionValue driven by scrub progress, so the footage's own colour is
+ * revealed as the reader advances. One system, shared by the hero film and
+ * the ground film — pure opacity on a static gradient, so it composites on
+ * the GPU without repaints.
+ */
+export function FilmVeil({
+  opacity,
+  className,
+}: {
+  opacity: MotionValue<number> | number;
+  className?: string;
+}) {
+  return (
+    <motion.div
+      aria-hidden="true"
+      style={{ opacity }}
+      className={cn(
+        'absolute inset-0 bg-[linear-gradient(180deg,hsl(var(--background)/0.92)_0%,hsl(var(--background)/0.72)_38%,hsl(var(--background)/0.62)_62%,hsl(var(--background)/0.85)_100%)]',
+        className
+      )}
+    />
   );
 }
 

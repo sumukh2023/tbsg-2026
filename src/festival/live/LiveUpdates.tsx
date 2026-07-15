@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowUpRight, X } from 'lucide-react';
 import { InfiniteSlider } from '@/components/motion/infinite-slider';
+import { LiquidGlass, useGlassQuality } from '@/components/motion/liquid-glass';
 import { cn } from '@/utils/cn';
 import { EASE } from '@/utils/motion';
 
@@ -224,14 +225,15 @@ function Ticker({
   const text = `${update.title} · ${update.message}`;
 
   return (
-    <motion.button
+    <LiquidGlass
+      as="button"
       initial={{ opacity: 0, y: 10, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 6, scale: 0.97 }}
       transition={{ duration: 0.5, ease: EASE.out }}
       onClick={onOpen}
       aria-label={`Latest update: ${update.title}. Open live updates.`}
-      className="liquid-glass-elevated origin-bottom-right cursor-pointer rounded-full py-2 pl-4 pr-4 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="origin-bottom-right min-h-10 cursor-pointer rounded-full py-2.5 pl-4 pr-4 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <span className="flex max-w-[min(19rem,calc(100vw-5rem))] items-center md:max-w-xs">
         {reduce ? (
@@ -256,12 +258,13 @@ function Ticker({
           </span>
         )}
       </span>
-    </motion.button>
+    </LiquidGlass>
   );
 }
 
 export function LiveUpdates() {
   const { updates, unread, markSeen, live } = useLiveUpdates();
+  const quality = useGlassQuality();
   const [open, setOpen] = useState(false);
   const [flash, setFlash] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -311,13 +314,15 @@ export function LiveUpdates() {
             )}
           </AnimatePresence>
 
-          <motion.button
+          <LiquidGlass
+            as="button"
+            layout
             animate={flash ? { scale: [1, 1.05, 1] } : { scale: 1 }}
             transition={{ duration: 0.55, ease: EASE.inOut }}
             onClick={openPanel}
             aria-haspopup="dialog"
             aria-expanded={open}
-            className="liquid-glass-elevated flex cursor-pointer items-center gap-2.5 rounded-full py-2.5 pl-4 pr-5 text-white transition-transform duration-300 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-full py-2.5 pl-4 pr-5 text-white transition-transform duration-300 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span className="relative flex h-2 w-2" aria-hidden="true">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent/70" />
@@ -338,7 +343,7 @@ export function LiveUpdates() {
                 </motion.span>
               )}
             </AnimatePresence>
-          </motion.button>
+          </LiquidGlass>
         </motion.div>
       </div>
 
@@ -351,10 +356,17 @@ export function LiveUpdates() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
               onClick={() => setOpen(false)}
-              className="fixed inset-0 z-40 bg-foreground/25 backdrop-blur-[2px]"
+              className={cn(
+                'fixed inset-0 z-40 bg-foreground/25',
+                // A full-screen backdrop-filter is one of the most expensive
+                // layers a phone can composite; the dim alone reads fine there.
+                quality === 'full' && 'backdrop-blur-[2px]'
+              )}
               aria-hidden="true"
             />
-            <motion.aside
+            <LiquidGlass
+              as="aside"
+              variant="panel"
               role="dialog"
               aria-modal="true"
               aria-label="Live carnival updates"
@@ -362,7 +374,7 @@ export function LiveUpdates() {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ duration: 0.45, ease: EASE.out }}
-              className="fixed bottom-0 right-0 top-0 z-50 flex w-full max-w-md flex-col border-l border-border/60 bg-background/80 backdrop-blur-2xl"
+              className="fixed bottom-0 right-0 top-0 z-50 flex w-full max-w-md flex-col"
             >
               <div className="flex items-center justify-between border-b border-border px-6 py-5">
                 <div>
@@ -384,7 +396,7 @@ export function LiveUpdates() {
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <div className="flex-1 overflow-y-auto px-6">
+              <div className="flex-1 overflow-y-auto px-6 pb-[env(safe-area-inset-bottom)]">
                 {updates.length === 0 ? (
                   <div className="flex h-full flex-col items-center justify-center pb-16 text-center">
                     <p className="font-display text-2xl italic text-muted-foreground">
@@ -403,7 +415,7 @@ export function LiveUpdates() {
                   </ul>
                 )}
               </div>
-            </motion.aside>
+            </LiquidGlass>
           </>
         )}
       </AnimatePresence>

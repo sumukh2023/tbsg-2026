@@ -5,7 +5,7 @@ import { ScrollHero } from '@/components/ScrollHero';
 import { TextEffect } from '@/components/motion/text-effect';
 import { Magnetic } from '@/components/motion/magnetic';
 import { EASE } from '@/utils/motion';
-import { Grain } from './materials';
+import { FilmVeil, Grain } from './materials';
 
 /** The three portico arches draw themselves in: the piazza being built. */
 function Colonnade() {
@@ -51,11 +51,7 @@ function HeroContent({ progress }: { progress: MotionValue<number> }) {
   return (
     <>
       {/* Marble veil: keeps the ink typography cleanly readable over film. */}
-      <motion.div
-        aria-hidden="true"
-        style={{ opacity: veilOpacity }}
-        className="absolute inset-0 bg-[linear-gradient(180deg,hsl(var(--background)/0.92)_0%,hsl(var(--background)/0.72)_38%,hsl(var(--background)/0.62)_62%,hsl(var(--background)/0.85)_100%)]"
-      />
+      <FilmVeil opacity={veilOpacity} />
       <div
         aria-hidden="true"
         className="absolute inset-0 bg-[radial-gradient(90%_60%_at_50%_-5%,hsl(var(--accent)/0.14),transparent_70%)]"
@@ -157,7 +153,12 @@ function HeroContent({ progress }: { progress: MotionValue<number> }) {
 export function Hero() {
   return (
     <section id="top" aria-label="Namma Mia Carpisa">
-      <ScrollHero src="/hero.mp4" webmSrc="/hero.webm" heightVh={340}>
+      <ScrollHero
+        src="/hero.mp4"
+        webmSrc="/hero.webm"
+        mobileSrc="/hero-mobile.mp4"
+        heightVh={340}
+      >
         {(progress) => <HeroContent progress={progress} />}
       </ScrollHero>
     </section>

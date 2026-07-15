@@ -7,28 +7,28 @@ const voices = [
       '“You forget it’s a school. For one day it genuinely is somewhere else.”',
     name: 'Sumukh Nayak',
     role: 'Class XII A',
-    align: 'md:col-span-8 md:col-start-1',
+    align: 'lg:col-span-8 lg:col-start-1',
   },
   {
     quote:
       '“We budget it, we build it, we run it. That is the whole point of Flash.”',
     name: 'Ryan Saha',
     role: 'Class XII A',
-    align: 'md:col-span-8 md:col-start-5',
+    align: 'lg:col-span-8 lg:col-start-5',
   },
   {
     quote:
       '“My first Flash was Rangeelo Rajasthan. Looking forward to the Italian themed Flash this year!”',
     name: 'Pranav Chauhan',
     role: 'Class XII A',
-    align: 'md:col-span-8 md:col-start-2',
+    align: 'lg:col-span-8 lg:col-start-2',
   },
 ];
 
 export function Voci() {
   return (
     <section className="py-24 md:py-36" aria-label="Voices from past editions">
-      <div className="mx-auto grid max-w-6xl gap-20 px-6 md:grid-cols-12 md:gap-24 md:px-10">
+      <div className="mx-auto grid max-w-6xl gap-20 px-6 lg:grid-cols-12 lg:gap-24 lg:px-10">
         {voices.map((voice, i) => (
           <motion.figure
             key={voice.name}
