@@ -33,23 +33,39 @@ function QrScanner({
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [error, setError] = useState('');
+  const [status, setStatus] = useState<
+    'starting' | 'active' | 'denied' | 'unsupported' | 'error'
+  >('starting');
+  // Bumping this re-runs the effect: the retry path after a camera failure.
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
     let timer = 0;
     let stopped = false;
 
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setStatus('unsupported');
+      return;
+    }
+    setStatus('starting');
+
     const start = async () => {
       try {
+        // Permission is requested here, only once the volunteer has chosen
+        // to scan; the rear camera is preferred for gate work.
         stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment' },
           audio: false,
         });
         const video = videoRef.current;
-        if (!video || stopped) return;
+        if (!video || stopped) {
+          stream?.getTracks().forEach((track) => track.stop());
+          return;
+        }
         video.srcObject = stream;
         await video.play();
+        if (!stopped) setStatus('active');
 
         const Detector = (
           window as unknown as { BarcodeDetector?: BarcodeDetectorCtor }
@@ -98,20 +114,35 @@ function QrScanner({
           timer = window.setTimeout(tick, 160);
         };
         void tick();
-      } catch {
-        setError(
-          'Camera unavailable. Allow camera access, or scan with your phone camera app instead.'
+      } catch (cause) {
+        if (stopped) return;
+        const name = (cause as { name?: string } | null)?.name;
+        setStatus(
+          name === 'NotAllowedError' || name === 'SecurityError'
+            ? 'denied'
+            : 'error'
         );
       }
     };
     void start();
 
+    // Closing or navigating away always releases the camera: the cleanup
+    // stops every track so no light stays on in the background.
     return () => {
       stopped = true;
       window.clearTimeout(timer);
       stream?.getTracks().forEach((track) => track.stop());
     };
-  }, [onToken]);
+  }, [onToken, attempt]);
+
+  const failed =
+    status === 'denied' || status === 'unsupported' || status === 'error';
+  const failureMessage =
+    status === 'unsupported'
+      ? 'This browser cannot open the camera. Use Safari or Chrome, or scan the QR code with your phone camera app.'
+      : status === 'denied'
+        ? 'Camera permission was declined. Allow camera access for this site, then retry.'
+        : 'The camera could not start. Close other apps using the camera, then retry.';
 
   return (
     <motion.div
@@ -132,18 +163,35 @@ function QrScanner({
       />
       <canvas ref={canvasRef} className="hidden" />
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 p-6">
-        <div
-          aria-hidden="true"
-          className="h-60 w-60 rounded-xl border-2 border-accent/80"
-        />
-        <p className="max-w-xs text-center font-body text-sm leading-relaxed text-white/90">
-          {error || "Point the camera at the guest's QR code."}
+        {!failed && (
+          <div
+            aria-hidden="true"
+            className="h-60 w-60 max-w-[70vw] rounded-xl border-2 border-accent/80"
+          />
+        )}
+        <p
+          aria-live="polite"
+          className="max-w-xs text-center font-body text-sm leading-relaxed text-white/90"
+        >
+          {failed
+            ? failureMessage
+            : status === 'starting'
+              ? 'Starting camera…'
+              : "Point the camera at the guest's QR code."}
         </p>
+        {failed && status !== 'unsupported' && (
+          <button
+            onClick={() => setAttempt((n) => n + 1)}
+            className="inline-flex min-h-11 items-center justify-center rounded-full bg-primary px-8 py-3 font-body text-sm font-medium text-primary-foreground transition-all duration-300 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white active:scale-[0.98]"
+          >
+            Retry camera
+          </button>
+        )}
       </div>
       <button
         onClick={onClose}
         aria-label="Close scanner"
-        className="absolute right-5 top-5 grid h-11 w-11 cursor-pointer place-items-center rounded-full border border-white/30 text-white transition-colors hover:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+        className="absolute right-[max(1.25rem,env(safe-area-inset-right))] top-[max(1.25rem,env(safe-area-inset-top))] grid h-11 w-11 cursor-pointer place-items-center rounded-full border border-white/30 text-white transition-colors hover:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
       >
         <X className="h-5 w-5" />
       </button>
@@ -294,7 +342,7 @@ export default function VerifyPage() {
         <Grain className="opacity-[0.04]" />
       </div>
 
-      <div className="relative z-10 mx-auto flex min-h-[100dvh] max-w-md flex-col px-6 py-8">
+      <div className="relative z-10 mx-auto flex min-h-[100dvh] max-w-md flex-col px-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-8">
         <div className="flex items-center gap-3">
           <CarnivalMark className="h-6 w-auto text-foreground" />
           <p className="font-body text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
@@ -478,8 +526,11 @@ export default function VerifyPage() {
                 >
                   Re-check this pass
                 </button>
-                {(state.result === 'checked_in' ||
-                  state.result === 'already_checked_in') && (
+                {/* Every completed outcome — checked in, already checked in,
+                    cancelled, invalid — flows to the next guest through the
+                    same shared scanner. Only 'valid' holds, because its
+                    primary action is the check-in itself. */}
+                {state.result !== 'valid' && (
                   <button
                     onClick={() => setScanning(true)}
                     className="inline-flex w-full items-center justify-center rounded-full bg-primary px-8 py-4 font-body text-base font-medium text-primary-foreground transition-all duration-300 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98]"

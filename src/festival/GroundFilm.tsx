@@ -1,14 +1,25 @@
 import { motion, useTransform, type MotionValue } from 'framer-motion';
 import { ScrollHero } from '@/components/ScrollHero';
-import { Grain } from './materials';
+import { FilmVeil, Grain } from './materials';
 
 /**
  * The second drone film: the main ground itself, scrubbed by scroll as the
- * last daylight passage before the page turns to evening.
+ * last daylight passage before the page turns to evening. Same treatment as
+ * the hero: a soft whitish marble veil opens the passage, then thins with
+ * scroll progress until the footage carries its own colour and detail.
  */
 function Caption({ progress }: { progress: MotionValue<number> }) {
   const opacity = useTransform(progress, [0.12, 0.32, 0.66, 0.86], [0, 1, 1, 0]);
   const y = useTransform(progress, [0.12, 0.86], [28, -28]);
+  // The shared marble veil (FilmVeil, same gradient as the hero) starts at
+  // full strength — the whitish atmospheric introduction — and eases down as
+  // the reader scrubs deeper, revealing the ground's true colour. It breathes
+  // back up slightly at the end so the hand-off to the dusk chapter is soft.
+  const veilOpacity = useTransform(
+    progress,
+    [0, 0.14, 0.55, 0.82, 1],
+    [1, 0.85, 0.35, 0.18, 0.3]
+  );
   // Full marble cover at both ends of the runway: before the film pins
   // (and after it releases) the section reads as plain page, so there is
   // never a hard video rectangle under the FAQ or against the statistics.
@@ -20,11 +31,7 @@ function Caption({ progress }: { progress: MotionValue<number> }) {
 
   return (
     <>
-      {/* Light marble wash so the film reads as part of the page, not a cut. */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 bg-[linear-gradient(180deg,hsl(var(--background)/0.6)_0%,hsl(var(--background)/0.28)_35%,hsl(var(--background)/0.22)_65%,hsl(var(--background)/0.6)_100%)]"
-      />
+      <FilmVeil opacity={veilOpacity} />
       <motion.div
         aria-hidden="true"
         style={{ opacity: coverOpacity }}
@@ -36,7 +43,9 @@ function Caption({ progress }: { progress: MotionValue<number> }) {
         style={{ opacity, y }}
         className="relative z-10 flex h-full items-end"
       >
-        <div className="relative px-6 pb-16 md:px-16 md:pb-20">
+        <div className="relative px-6 pb-[max(4rem,env(safe-area-inset-bottom))] md:px-16 md:pb-20">
+          {/* Local scrim travels with the caption so the words stay legible
+              even once the veil has thinned to nearly nothing. */}
           <div
             aria-hidden="true"
             className="absolute -inset-x-16 -inset-y-10 bg-[radial-gradient(60%_70%_at_30%_60%,hsl(var(--background)/0.75),transparent_75%)]"
@@ -56,7 +65,12 @@ function Caption({ progress }: { progress: MotionValue<number> }) {
 export function GroundFilm() {
   return (
     <section aria-label="The main ground">
-      <ScrollHero src="/ground.mp4" webmSrc="/ground.webm" heightVh={380}>
+      <ScrollHero
+        src="/ground.mp4"
+        webmSrc="/ground.webm"
+        mobileSrc="/ground-mobile.mp4"
+        heightVh={380}
+      >
         {(progress) => <Caption progress={progress} />}
       </ScrollHero>
     </section>

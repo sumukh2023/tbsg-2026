@@ -71,11 +71,11 @@ export function SiteFooter() {
               +91 96866 69805
             </a>
             <br />
-            <span className="md:whitespace-nowrap">
+            <span className="lg:whitespace-nowrap">
               Email:{' '}
               <a
                 href="mailto:bfcommunication@brigadeschools.edu.in"
-                className="underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="break-all underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 bfcommunication@brigadeschools.edu.in
               </a>
