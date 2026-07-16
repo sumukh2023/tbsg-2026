@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowUpRight, X } from 'lucide-react';
 import { InfiniteSlider } from '@/components/motion/infinite-slider';
-import { LiquidGlass, useGlassQuality } from '@/components/motion/liquid-glass';
+import {
+  LiquidGlassButton,
+  LiquidGlassModal,
+  LiquidGlassTicker,
+  useGlassQuality,
+} from '@/components/motion/liquid-glass';
 import { cn } from '@/utils/cn';
 import { EASE } from '@/utils/motion';
 
@@ -10,7 +15,8 @@ export type LiveUpdate = {
   id: string;
   title: string;
   message: string;
-  category: 'general' | 'performance' | 'food' | 'schedule' | 'important' | 'emergency';
+  category:
+    'general' | 'performance' | 'food' | 'schedule' | 'important' | 'emergency';
   priority: 'normal' | 'high';
   cta_label: string | null;
   cta_url: string | null;
@@ -22,7 +28,8 @@ export type LiveUpdate = {
 function normalize(row: LiveUpdate): LiveUpdate {
   return {
     ...row,
-    published_at: row.published_at ?? row.created_at ?? new Date().toISOString(),
+    published_at:
+      row.published_at ?? row.created_at ?? new Date().toISOString(),
   };
 }
 
@@ -144,8 +151,7 @@ function useLiveUpdates() {
   }, []);
 
   const unread = useMemo(
-    () =>
-      updates.filter((u) => !lastSeen || u.published_at > lastSeen).length,
+    () => updates.filter((u) => !lastSeen || u.published_at > lastSeen).length,
     [updates, lastSeen]
   );
 
@@ -171,7 +177,8 @@ function UpdateItem({ update }: { update: LiveUpdate }) {
     <li
       className={cn(
         'border-b border-border/60 py-5 last:border-b-0',
-        update.category === 'emergency' && 'border-l-2 border-l-destructive pl-4'
+        update.category === 'emergency' &&
+          'border-l-2 border-l-destructive pl-4'
       )}
     >
       <div className="flex items-baseline justify-between gap-3">
@@ -225,15 +232,14 @@ function Ticker({
   const text = `${update.title} · ${update.message}`;
 
   return (
-    <LiquidGlass
-      as="button"
+    <LiquidGlassTicker
       initial={{ opacity: 0, y: 10, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 6, scale: 0.97 }}
       transition={{ duration: 0.5, ease: EASE.out }}
       onClick={onOpen}
       aria-label={`Latest update: ${update.title}. Open live updates.`}
-      className="origin-bottom-right min-h-10 cursor-pointer rounded-full py-2.5 pl-4 pr-4 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="origin-bottom-right px-4 py-2.5"
     >
       <span className="flex max-w-[min(19rem,calc(100vw-5rem))] items-center md:max-w-xs">
         {reduce ? (
@@ -258,7 +264,7 @@ function Ticker({
           </span>
         )}
       </span>
-    </LiquidGlass>
+    </LiquidGlassTicker>
   );
 }
 
@@ -314,15 +320,14 @@ export function LiveUpdates() {
             )}
           </AnimatePresence>
 
-          <LiquidGlass
-            as="button"
+          <LiquidGlassButton
             layout
             animate={flash ? { scale: [1, 1.05, 1] } : { scale: 1 }}
             transition={{ duration: 0.55, ease: EASE.inOut }}
             onClick={openPanel}
             aria-haspopup="dialog"
             aria-expanded={open}
-            className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-full py-2.5 pl-4 pr-5 text-white transition-transform duration-300 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex items-center gap-2.5 py-2.5 pl-4 pr-5 transition-transform duration-300 hover:-translate-y-0.5"
           >
             <span className="relative flex h-2 w-2" aria-hidden="true">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent/70" />
@@ -343,7 +348,7 @@ export function LiveUpdates() {
                 </motion.span>
               )}
             </AnimatePresence>
-          </LiquidGlass>
+          </LiquidGlassButton>
         </motion.div>
       </div>
 
@@ -364,11 +369,7 @@ export function LiveUpdates() {
               )}
               aria-hidden="true"
             />
-            <LiquidGlass
-              as="aside"
-              variant="panel"
-              role="dialog"
-              aria-modal="true"
+            <LiquidGlassModal
               aria-label="Live carnival updates"
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
@@ -415,7 +416,7 @@ export function LiveUpdates() {
                   </ul>
                 )}
               </div>
-            </LiquidGlass>
+            </LiquidGlassModal>
           </>
         )}
       </AnimatePresence>

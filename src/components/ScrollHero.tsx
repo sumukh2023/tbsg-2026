@@ -1,9 +1,4 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { motionValue, type MotionValue } from 'framer-motion';
 import { cn } from '@/utils/cn';
 
@@ -41,7 +36,18 @@ export interface ScrollHeroProps {
  * - The video preloads metadata only until its section approaches.
  * - Phones receive `mobileSrc` (lower resolution) when provided.
  *
- * Under prefers-reduced-motion the film collapses to a still first frame.
+ * Safari/iOS contract (scrub videos that are never play()ed):
+ * - `playsInline` + legacy `webkit-playsinline`, muted, no remote playback.
+ * - iOS won't paint a frame for a metadata-preloaded video: the playhead is
+ *   nudged to 0.001s on loadedmetadata, and the decoder is primed with a
+ *   muted play()→pause() the first time the section approaches (allowed
+ *   without a gesture for muted inline video).
+ * - Safari ignores a `preload` upgrade on a stalled element, so a stalled
+ *   fetch is restarted with an explicit load() when the section approaches.
+ * - The element only fades in once a real frame exists (loadeddata/seeked);
+ *   if every source fails, the marble veil simply remains — no black box.
+ *
+ * Under prefers-reduced-motion the film holds its first frame as a still.
  */
 export function ScrollHero({
   src,
@@ -67,12 +73,9 @@ export function ScrollHero({
   );
   const activeSrc = compact && mobileSrc ? mobileSrc : src;
 
-  // Fade the video in over the first 200ms so it never pops in cold.
+  // Fade in only once the decoder actually holds a frame; a source that
+  // never loads leaves the veil/marble backdrop instead of a black box.
   const [ready, setReady] = useState(false);
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => setReady(true));
-    return () => cancelAnimationFrame(frame);
-  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -81,17 +84,46 @@ export function ScrollHero({
 
     video.pause();
 
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      return; // hold the first frame as a still backdrop
-    }
+    const reduced = window.matchMedia(
+      '(prefers-reduced-motion: reduce)'
+    ).matches;
 
     let current = 0;
     let duration = Number.isFinite(video.duration) ? video.duration : 0;
     let frame = 0;
     let active = false;
+    let primed = false;
 
     const onLoadedMetadata = () => {
       duration = video.duration;
+      // iOS Safari paints nothing at preload="metadata"; nudging the
+      // playhead forces the first frame to decode and display.
+      if (video.currentTime === 0) {
+        try {
+          video.currentTime = 0.001;
+        } catch {
+          // Seeking before metadata settles can throw on old WebKit; the
+          // decoder prime below still surfaces the first frame.
+        }
+      }
+    };
+    const onFrameReady = () => setReady(true);
+
+    // Muted inline play()→pause() is permitted without a gesture and is the
+    // one reliable way to wake a lazy iOS decoder for a scrub-only video.
+    const prime = () => {
+      if (primed) return;
+      primed = true;
+      const played = video.play();
+      if (played && typeof played.then === 'function') {
+        played
+          .then(() => video.pause())
+          .catch(() => {
+            primed = false; // retry the next time the section approaches
+          });
+      } else {
+        video.pause();
+      }
     };
 
     const tick = () => {
@@ -125,7 +157,21 @@ export function ScrollHero({
         if (near && !active) {
           active = true;
           if (video.preload !== 'auto') video.preload = 'auto';
-          frame = requestAnimationFrame(tick);
+          // Safari won't resume a stalled fetch on a preload flip alone.
+          if (
+            video.readyState === HTMLMediaElement.HAVE_NOTHING &&
+            video.networkState !== HTMLMediaElement.NETWORK_LOADING
+          ) {
+            try {
+              video.load();
+            } catch {
+              // NETWORK_NO_SOURCE: the fade-in gate keeps the veil instead.
+            }
+          }
+          prime();
+          // Reduced motion still loads and paints the still first frame —
+          // it just never scrubs.
+          if (!reduced) frame = requestAnimationFrame(tick);
         } else if (!near && active) {
           active = false;
           cancelAnimationFrame(frame);
@@ -135,10 +181,16 @@ export function ScrollHero({
     );
 
     video.addEventListener('loadedmetadata', onLoadedMetadata);
+    video.addEventListener('loadeddata', onFrameReady);
+    video.addEventListener('seeked', onFrameReady);
+    if (video.readyState >= 1) onLoadedMetadata();
+    if (video.readyState >= 2) onFrameReady();
     observer.observe(container);
 
     return () => {
       video.removeEventListener('loadedmetadata', onLoadedMetadata);
+      video.removeEventListener('loadeddata', onFrameReady);
+      video.removeEventListener('seeked', onFrameReady);
       observer.disconnect();
       cancelAnimationFrame(frame);
     };
@@ -156,9 +208,13 @@ export function ScrollHero({
           muted
           playsInline
           preload="metadata"
+          disableRemotePlayback
           aria-hidden="true"
+          // Legacy WebKit inline hint (pre-iOS 10 attribute name; some iOS
+          // WebViews still honour only this spelling).
+          {...{ 'webkit-playsinline': '' }}
           className={cn(
-            'absolute inset-0 h-full w-full object-cover transition-opacity duration-200',
+            'pointer-events-none absolute inset-0 h-full w-full object-cover transition-opacity duration-300',
             ready ? 'opacity-100' : 'opacity-0'
           )}
         >

@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react';
 import { useLenis } from '@/hooks';
+import { LiquidGlassFilters } from '@/components/motion/liquid-glass';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { ScrollProgress } from '@/components/ScrollProgress';
@@ -20,6 +21,7 @@ export function RootLayout({ children, chrome = true }: RootLayoutProps) {
 
   return (
     <div className="relative min-h-screen">
+      <LiquidGlassFilters />
       {chrome && (
         <>
           <ScrollProgress />

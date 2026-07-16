@@ -160,42 +160,62 @@
   pointer-events: none;
 }
 
-/* Floating live surfaces: a lighter, deeper visionOS-style variant of
-   liquid-glass, with saturated blur, a specular top sheen and soft lift. */
+/* Floating live surfaces — Liquid Glass. Legibility comes from shaping the
+   backdrop itself (brightness/contrast in the filter chain), so the opaque
+   tint stays near 16% and the scenery remains clearly recognisable through
+   the material. */
 .liquid-glass-elevated {
   background:
     linear-gradient(
       180deg,
-      rgba(255, 255, 255, 0.14) 0%,
-      rgba(255, 255, 255, 0.04) 45%,
-      rgba(0, 0, 0, 0.1) 100%
+      rgba(255, 255, 255, 0.13) 0%,
+      rgba(255, 255, 255, 0.02) 42%,
+      rgba(0, 0, 0, 0.05) 100%
     ),
-    rgba(20, 22, 20, 0.34);
-  backdrop-filter: blur(18px) saturate(170%);
-  -webkit-backdrop-filter: blur(18px) saturate(170%);
+    rgba(26, 28, 26, 0.16);
+  backdrop-filter: blur(20px) saturate(180%) brightness(0.76) contrast(1.06);
+  -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(0.76)
+    contrast(1.06);
   border: none;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
   box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.22),
-    inset 0 -1px 1px rgba(255, 255, 255, 0.05),
-    0 12px 32px -12px rgba(0, 0, 0, 0.45);
+    inset 0 1px 1px rgba(255, 255, 255, 0.3),
+    inset 0 -1px 1.5px rgba(255, 255, 255, 0.1),
+    inset 0 0 18px -8px rgba(255, 255, 255, 0.14),
+    inset 0 -10px 18px -12px rgba(0, 0, 0, 0.3),
+    0 0 0 0.5px rgba(255, 255, 255, 0.16),
+    0 2px 6px -2px rgba(0, 0, 0, 0.2),
+    0 14px 36px -14px rgba(0, 0, 0, 0.42);
   position: relative;
   overflow: hidden;
 }
+/* Hairline ring: two light sources — strong from above, a faint bounce from
+   below — with dead zones between, so the rim reads as lit glass, not a
+   uniform white border. */
 .liquid-glass-elevated::before {
   content: '';
   position: absolute;
   inset: 0;
+  z-index: 2;
   border-radius: inherit;
   padding: 1.2px;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.45) 0%,
-    rgba(255, 255, 255, 0.12) 24%,
-    rgba(255, 255, 255, 0) 46%,
-    rgba(255, 255, 255, 0) 62%,
-    rgba(255, 255, 255, 0.1) 82%,
-    rgba(255, 255, 255, 0.32) 100%
-  );
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.55) 0%,
+      rgba(255, 255, 255, 0.14) 22%,
+      rgba(255, 255, 255, 0) 44%,
+      rgba(255, 255, 255, 0) 60%,
+      rgba(255, 255, 255, 0.1) 82%,
+      rgba(255, 255, 255, 0.38) 100%
+    ),
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.2) 0%,
+      rgba(255, 255, 255, 0) 18%,
+      rgba(255, 255, 255, 0) 82%,
+      rgba(255, 255, 255, 0.14) 100%
+    );
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
@@ -203,6 +223,7 @@
   mask-composite: exclude;
   pointer-events: none;
 }
+/* Ambient top-light diffusion across the surface. */
 .liquid-glass-elevated::after {
   content: '';
   position: absolute;
@@ -210,9 +231,88 @@
   border-radius: inherit;
   background: radial-gradient(
     120% 60% at 18% 0%,
-    rgba(255, 255, 255, 0.16),
+    rgba(255, 255, 255, 0.14),
     transparent 55%
   );
+  pointer-events: none;
+}
+
+/* --- Liquid glass inner layers (rendered by the LiquidGlass component) --- */
+
+/* Refraction band: a second backdrop sample confined to the rim by an
+   exclusion mask. Where SVG displacement is supported in backdrop-filter
+   (Chromium), the backdrop genuinely bends near the curved edges; elsewhere
+   a bright micro-blurred band gives the same thick-edge lensing read. */
+.lg-refract {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  padding: 7px;
+  backdrop-filter: blur(1.5px) brightness(1.14) saturate(135%);
+  -webkit-backdrop-filter: blur(1.5px) brightness(1.14) saturate(135%);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+@supports (backdrop-filter: url('#lg-refraction')) {
+  .lg-refract {
+    backdrop-filter: url('#lg-refraction') brightness(1.1) saturate(135%);
+  }
+}
+.liquid-glass-panel > .lg-refract {
+  padding: 10px;
+}
+
+/* Specular hotspot: an oversized soft light blob the component drives with
+   springed transforms (cursor + scroll). Pure transform/opacity — no repaint. */
+.lg-specular {
+  position: absolute;
+  top: -60%;
+  left: -20%;
+  z-index: 1;
+  width: 90%;
+  aspect-ratio: 1;
+  border-radius: 9999px;
+  background: radial-gradient(
+    closest-side,
+    rgba(255, 255, 255, 0.26),
+    rgba(255, 255, 255, 0.07) 45%,
+    transparent 72%
+  );
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+/* One-shot opening sheen: a soft light bar that sweeps once on mount. */
+.lg-sheen {
+  position: absolute;
+  inset: -20% auto -20% 0;
+  z-index: 2;
+  width: 45%;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.16) 45%,
+    rgba(255, 255, 255, 0.28) 50%,
+    rgba(255, 255, 255, 0.16) 55%,
+    transparent 100%
+  );
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+/* Restrained glass grain so flat light fields read as material. */
+.lg-noise {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.04;
   pointer-events: none;
 }
 /* Large translucent sheet (drawers, dialogs) on page tokens: the same
@@ -222,16 +322,19 @@
   background:
     linear-gradient(
       180deg,
-      rgba(255, 255, 255, 0.22) 0%,
+      rgba(255, 255, 255, 0.24) 0%,
       rgba(255, 255, 255, 0) 32%
     ),
-    hsl(var(--background) / 0.72);
-  backdrop-filter: blur(26px) saturate(150%);
-  -webkit-backdrop-filter: blur(26px) saturate(150%);
+    hsl(var(--background) / 0.55);
+  backdrop-filter: blur(28px) saturate(160%) brightness(1.05);
+  -webkit-backdrop-filter: blur(28px) saturate(160%) brightness(1.05);
   border: none;
   box-shadow:
     inset 1px 0 0 hsl(var(--border) / 0.7),
-    inset 2px 0 0 rgba(255, 255, 255, 0.28),
+    inset 2px 0 0 rgba(255, 255, 255, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 8px 0 14px -10px rgba(255, 255, 255, 0.3),
+    -1px 0 0 rgba(255, 255, 255, 0.12),
     -28px 0 60px -36px rgba(0, 0, 0, 0.35);
   /* No position here: unlayered CSS would beat Tailwind's layered `fixed`
      (the .liquid-glass lesson) — callers control their own positioning. */
@@ -246,20 +349,21 @@
       180deg,
       rgba(255, 255, 255, 0.12) 0%,
       rgba(255, 255, 255, 0.03) 45%,
-      rgba(0, 0, 0, 0.12) 100%
+      rgba(0, 0, 0, 0.08) 100%
     ),
-    rgba(20, 22, 20, 0.55);
-  backdrop-filter: blur(10px) saturate(140%);
-  -webkit-backdrop-filter: blur(10px) saturate(140%);
+    rgba(24, 26, 24, 0.3);
+  backdrop-filter: blur(10px) saturate(150%) brightness(0.72);
+  -webkit-backdrop-filter: blur(10px) saturate(150%) brightness(0.72);
   box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.2),
+    inset 0 1px 1px rgba(255, 255, 255, 0.26),
+    0 0 0 0.5px rgba(255, 255, 255, 0.12),
     0 8px 20px -10px rgba(0, 0, 0, 0.4);
 }
 .liquid-glass-elevated.glass-lite::after {
   content: none;
 }
 .liquid-glass-panel.glass-lite {
-  background: hsl(var(--background) / 0.9);
+  background: hsl(var(--background) / 0.88);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
@@ -274,6 +378,11 @@
     background: hsl(var(--background) / 0.98);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+  }
+  .lg-refract,
+  .lg-specular,
+  .lg-noise {
+    display: none;
   }
 }
 
