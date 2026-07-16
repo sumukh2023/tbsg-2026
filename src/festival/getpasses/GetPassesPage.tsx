@@ -123,14 +123,21 @@ function EveningBackdrop() {
 function ProgressRail({ step }: { step: number }) {
   return (
     <div>
-      <div className="flex items-baseline justify-between">
-        <ol className="flex gap-5" aria-label="Registration steps">
+      {/* Below sm the four labels form a deliberate 2×2 grid — the form's
+          inner width (224px at a 320px viewport) cannot seat them on one
+          line at any legible size — and the counter goes screen-reader
+          only. Desktop keeps its original single rail untouched. */}
+      <div className="flex items-baseline justify-between gap-3">
+        <ol
+          className="grid grid-cols-2 gap-x-6 gap-y-1.5 sm:flex sm:gap-x-5"
+          aria-label="Registration steps"
+        >
           {STEPS.map((label, i) => (
             <li
               key={label}
               aria-current={i === step ? 'step' : undefined}
               className={
-                'font-body text-xs uppercase tracking-[0.18em] transition-colors duration-300 ' +
+                'font-body text-2xs uppercase tracking-[0.12em] transition-colors duration-300 sm:text-xs sm:tracking-[0.18em] ' +
                 (i === step
                   ? 'text-primary'
                   : i < step
@@ -142,7 +149,10 @@ function ProgressRail({ step }: { step: number }) {
             </li>
           ))}
         </ol>
-        <p className="font-body text-xs tabular-nums text-muted-foreground" aria-live="polite">
+        <p
+          className="font-body text-xs tabular-nums text-muted-foreground max-sm:sr-only"
+          aria-live="polite"
+        >
           {step + 1} / {STEPS.length}
         </p>
       </div>
@@ -158,13 +168,7 @@ function ProgressRail({ step }: { step: number }) {
   );
 }
 
-function SuccessView({
-  pass,
-  form,
-}: {
-  pass: MintedPass;
-  form: FormState;
-}) {
+function SuccessView({ pass, form }: { pass: MintedPass; form: FormState }) {
   return (
     <div className="flex flex-col items-center py-8 text-center">
       <svg viewBox="0 0 96 96" className="h-24 w-24" aria-hidden="true">
@@ -419,7 +423,7 @@ export default function GetPassesPage() {
         </Link>
       </motion.nav>
 
-      <div className="relative z-10 mx-auto flex min-h-[100dvh] max-w-3xl flex-col px-6 pt-16 md:px-8">
+      <div className="relative z-10 mx-auto flex min-h-[100dvh] max-w-3xl flex-col px-6 pb-[env(safe-area-inset-bottom)] pt-16 md:px-8">
         {/* Hero */}
         <header className="pb-10 pt-14 md:pb-14 md:pt-20">
           <TextEffect
@@ -592,7 +596,10 @@ export default function GetPassesPage() {
                             onEdit={() => goTo(0)}
                           />
                           <SummaryRow label="Email" value={form.email.trim()} />
-                          <SummaryRow label="Mobile" value={form.phone.trim()} />
+                          <SummaryRow
+                            label="Mobile"
+                            value={form.phone.trim()}
+                          />
                           <SummaryRow
                             label="Passes"
                             value={`${form.passes} · ${visitorLabel}`}

@@ -50,7 +50,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         <Grain className="opacity-[0.04]" />
       </div>
       <Chrome />
-      <div className="relative z-10 mx-auto flex min-h-[100dvh] max-w-3xl flex-col px-6 pt-16 md:px-8">
+      <div className="relative z-10 mx-auto flex min-h-[100dvh] max-w-3xl flex-col px-6 pb-[env(safe-area-inset-bottom)] pt-16 md:px-8">
         {children}
       </div>
     </div>
@@ -148,7 +148,10 @@ function RetrieveForm() {
         />
       </div>
       {error && (
-        <p role="alert" className="mt-2 font-body text-sm text-muted-foreground">
+        <p
+          role="alert"
+          className="mt-2 font-body text-sm text-muted-foreground"
+        >
           {error}
         </p>
       )}

@@ -1,5 +1,12 @@
-import { motion, useTransform, type MotionValue } from 'framer-motion';
+import { useEffect } from 'react';
+import {
+  motion,
+  useMotionValueEvent,
+  useTransform,
+  type MotionValue,
+} from 'framer-motion';
 import { ScrollHero } from '@/components/ScrollHero';
+import { setLiveChromeReceded } from './live/live-visibility';
 import { FilmVeil, Grain } from './materials';
 
 /**
@@ -9,7 +16,11 @@ import { FilmVeil, Grain } from './materials';
  * scroll progress until the footage carries its own colour and detail.
  */
 function Caption({ progress }: { progress: MotionValue<number> }) {
-  const opacity = useTransform(progress, [0.12, 0.32, 0.66, 0.86], [0, 1, 1, 0]);
+  const opacity = useTransform(
+    progress,
+    [0.12, 0.32, 0.66, 0.86],
+    [0, 1, 1, 0]
+  );
   const y = useTransform(progress, [0.12, 0.86], [28, -28]);
   // The shared marble veil (FilmVeil, same gradient as the hero) starts at
   // full strength — the whitish atmospheric introduction — and eases down as
@@ -23,11 +34,15 @@ function Caption({ progress }: { progress: MotionValue<number> }) {
   // Full marble cover at both ends of the runway: before the film pins
   // (and after it releases) the section reads as plain page, so there is
   // never a hard video rectangle under the FAQ or against the statistics.
-  const coverOpacity = useTransform(
-    progress,
-    [0, 0.1, 0.88, 1],
-    [1, 0, 0, 1]
-  );
+  const coverOpacity = useTransform(progress, [0, 0.1, 0.88, 1], [1, 0, 0, 1]);
+
+  // While the film is actively scrubbed the floating Live Updates chrome
+  // recedes so the caption stays fully readable; it fades back the moment
+  // the scrub completes (both directions).
+  useMotionValueEvent(progress, 'change', (v) => {
+    setLiveChromeReceded(v > 0.04 && v < 0.96);
+  });
+  useEffect(() => () => setLiveChromeReceded(false), []);
 
   return (
     <>

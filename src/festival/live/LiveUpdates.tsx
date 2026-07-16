@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowUpRight, X } from 'lucide-react';
 import { InfiniteSlider } from '@/components/motion/infinite-slider';
@@ -10,6 +17,7 @@ import {
 } from '@/components/motion/liquid-glass';
 import { cn } from '@/utils/cn';
 import { EASE } from '@/utils/motion';
+import { getLiveChromeReceded, subscribeLiveChrome } from './live-visibility';
 
 export type LiveUpdate = {
   id: string;
@@ -35,6 +43,20 @@ function normalize(row: LiveUpdate): LiveUpdate {
 
 const SEEN_KEY = 'flash-live-seen';
 
+/**
+ * Timestamp → epoch ms, tolerant of every format the pipeline produces
+ * (Postgres "2026-11-14 09:00:00+00", ISO with or without zone). Safari's
+ * Date.parse rejects space separators and bare two-digit offsets, so both
+ * are normalised first — unread counting must agree across engines.
+ */
+function toEpoch(value: string | null | undefined): number {
+  if (!value) return 0;
+  let s = value.replace(' ', 'T');
+  if (/[+-]\d{2}$/.test(s)) s += ':00';
+  const t = Date.parse(s);
+  return Number.isNaN(t) ? 0 : t;
+}
+
 const categoryLabel: Record<LiveUpdate['category'], string> = {
   general: 'General',
   performance: 'Performance',
@@ -56,8 +78,7 @@ function publishedLabel(iso: string): string {
 
 function sortDesc(updates: LiveUpdate[]): LiveUpdate[] {
   return [...updates].sort(
-    (a, b) =>
-      new Date(b.published_at).getTime() - new Date(a.published_at).getTime()
+    (a, b) => toEpoch(b.published_at) - toEpoch(a.published_at)
   );
 }
 
@@ -83,52 +104,18 @@ function useLiveUpdates() {
     const anon = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
     let cancelled = false;
     let cleanup: (() => void) | undefined;
+    let polling = false;
 
     const apply = (rows: LiveUpdate[]) => {
       if (!cancelled) setUpdates(sortDesc(rows.map(normalize)));
     };
 
-    if (url && anon) {
-      // Real-time path: anon reads via RLS + a postgres_changes stream.
-      import('@supabase/supabase-js').then(({ createClient }) => {
-        if (cancelled) return;
-        const client = createClient(url, anon);
-        client
-          .from('updates')
-          .select(
-            'id,title,message,category,priority,cta_label,cta_url,published_at,created_at'
-          )
-          .eq('published', true)
-          .order('published_at', { ascending: false, nullsFirst: false })
-          .limit(50)
-          .then(({ data }) => {
-            if (data) apply(data as LiveUpdate[]);
-          });
-        const channel = client
-          .channel('live-updates')
-          .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'updates' },
-            (payload) => {
-              const row = payload.new as LiveUpdate & { published?: boolean };
-              if (!row?.id) return;
-              setUpdates((current) => {
-                const rest = current.filter((u) => u.id !== row.id);
-                return sortDesc(
-                  row.published ? [...rest, normalize(row as LiveUpdate)] : rest
-                );
-              });
-            }
-          )
-          .subscribe((status) => {
-            if (!cancelled) setLive(status === 'SUBSCRIBED');
-          });
-        cleanup = () => {
-          client.removeChannel(channel);
-        };
-      });
-    } else {
-      // Fallback: poll the server endpoint quietly.
+    // Server-endpoint polling: the fallback path, and the safety net the
+    // realtime path drops to if Supabase ever fails to load, query or
+    // subscribe — updates (and the unread badge) must never silently vanish.
+    const startPolling = () => {
+      if (polling || cancelled) return;
+      polling = true;
       const load = async () => {
         try {
           const response = await fetch('/api/updates');
@@ -141,7 +128,63 @@ function useLiveUpdates() {
       };
       void load();
       const interval = setInterval(load, 60_000);
-      cleanup = () => clearInterval(interval);
+      const stop = cleanup;
+      cleanup = () => {
+        clearInterval(interval);
+        stop?.();
+      };
+    };
+
+    if (url && anon) {
+      // Real-time path: anon reads via RLS + a postgres_changes stream.
+      import('@supabase/supabase-js')
+        .then(({ createClient }) => {
+          if (cancelled) return;
+          const client = createClient(url, anon);
+          client
+            .from('updates')
+            .select(
+              'id,title,message,category,priority,cta_label,cta_url,published_at,created_at'
+            )
+            .eq('published', true)
+            .order('published_at', { ascending: false, nullsFirst: false })
+            .limit(50)
+            .then(({ data, error }) => {
+              if (data) apply(data as LiveUpdate[]);
+              if (error) startPolling();
+            });
+          const channel = client
+            .channel('live-updates')
+            .on(
+              'postgres_changes',
+              { event: '*', schema: 'public', table: 'updates' },
+              (payload) => {
+                const row = payload.new as LiveUpdate & { published?: boolean };
+                if (!row?.id) return;
+                setUpdates((current) => {
+                  const rest = current.filter((u) => u.id !== row.id);
+                  return sortDesc(
+                    row.published
+                      ? [...rest, normalize(row as LiveUpdate)]
+                      : rest
+                  );
+                });
+              }
+            )
+            .subscribe((status) => {
+              if (cancelled) return;
+              setLive(status === 'SUBSCRIBED');
+              if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                startPolling();
+              }
+            });
+          cleanup = () => {
+            client.removeChannel(channel);
+          };
+        })
+        .catch(startPolling);
+    } else {
+      startPolling();
     }
 
     return () => {
@@ -150,13 +193,17 @@ function useLiveUpdates() {
     };
   }, []);
 
-  const unread = useMemo(
-    () => updates.filter((u) => !lastSeen || u.published_at > lastSeen).length,
-    [updates, lastSeen]
-  );
+  const unread = useMemo(() => {
+    const seenMs = toEpoch(lastSeen);
+    return updates.filter((u) => toEpoch(u.published_at) > seenMs).length;
+  }, [updates, lastSeen]);
 
   const markSeen = useCallback(() => {
-    const newest = updates[0]?.published_at ?? new Date().toISOString();
+    // Nothing loaded yet → nothing was seen. Stamping "now" here would
+    // poison the stored watermark and hide the badge for rows that arrive
+    // a moment later.
+    const newest = updates[0]?.published_at;
+    if (!newest) return;
     setLastSeen(newest);
     try {
       localStorage.setItem(SEEN_KEY, newest);
@@ -275,11 +322,20 @@ export function LiveUpdates() {
   const [flash, setFlash] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
   const latest = updates[0];
+  // Full-viewport film moments (the ground-film caption) ask the floating
+  // chrome to recede so the caption stays readable; it returns right after.
+  const receded = useSyncExternalStore(
+    subscribeLiveChrome,
+    getLiveChromeReceded
+  );
 
-  const openPanel = () => {
-    setOpen(true);
-    markSeen();
-  };
+  const openPanel = () => setOpen(true);
+
+  // Reading the panel marks everything current as read — including updates
+  // that arrive in realtime while it is open.
+  useEffect(() => {
+    if (open) markSeen();
+  }, [open, markSeen]);
 
   // A new arrival nudges the control once, without interrupting anyone.
   const prevLatestId = useRef<string | undefined>(undefined);
@@ -306,8 +362,18 @@ export function LiveUpdates() {
   return (
     <>
       {/* Plain fixed wrapper: .liquid-glass declares position:relative, so
-          the glass surfaces live INSIDE this anchor, never on it. */}
-      <div className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-5 z-40 md:bottom-[max(2rem,env(safe-area-inset-bottom))] md:right-8">
+          the glass surfaces live INSIDE this anchor, never on it. The anchor
+          also carries the recede fade (film captions), ending hidden so the
+          invisible controls can't be tabbed to or tapped. */}
+      <motion.div
+        animate={
+          receded && !open
+            ? { opacity: 0, y: 12, transitionEnd: { visibility: 'hidden' } }
+            : { opacity: 1, y: 0, visibility: 'visible' }
+        }
+        transition={{ duration: 0.5, ease: EASE.inOut }}
+        className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-5 z-40 md:bottom-[max(2rem,env(safe-area-inset-bottom))] md:right-8"
+      >
         <motion.div
           initial={{ opacity: 0, y: 18, scale: 0.97 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -350,7 +416,7 @@ export function LiveUpdates() {
             </AnimatePresence>
           </LiquidGlassButton>
         </motion.div>
-      </div>
+      </motion.div>
 
       <AnimatePresence>
         {open && (

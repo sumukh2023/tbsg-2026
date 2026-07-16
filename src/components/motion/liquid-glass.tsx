@@ -38,49 +38,6 @@ export function useGlassQuality(): 'full' | 'lite' {
   }, []);
 }
 
-/**
- * SVG displacement map behind the `.lg-refract` rim band. Where a browser
- * accepts `backdrop-filter: url(...)` (Chromium), the scenery genuinely
- * bends near the curved edges; everywhere else CSS falls back to a bright
- * micro-blur band. Mount ONCE near the app root (RootLayout does).
- */
-export function LiquidGlassFilters() {
-  return (
-    <svg
-      aria-hidden="true"
-      focusable="false"
-      width="0"
-      height="0"
-      style={{ position: 'absolute' }}
-    >
-      <filter
-        id="lg-refraction"
-        x="-30%"
-        y="-30%"
-        width="160%"
-        height="160%"
-        colorInterpolationFilters="sRGB"
-      >
-        <feTurbulence
-          type="fractalNoise"
-          baseFrequency="0.01 0.016"
-          numOctaves="2"
-          seed="7"
-          result="noise"
-        />
-        <feGaussianBlur in="noise" stdDeviation="2.5" result="soft" />
-        <feDisplacementMap
-          in="SourceGraphic"
-          in2="soft"
-          scale="22"
-          xChannelSelector="R"
-          yChannelSelector="G"
-        />
-      </filter>
-    </svg>
-  );
-}
-
 type GlassTag = 'div' | 'button' | 'aside' | 'section' | 'nav';
 
 export type LiquidGlassProps<T extends GlassTag = 'div'> = Omit<
@@ -94,7 +51,7 @@ export type LiquidGlassProps<T extends GlassTag = 'div'> = Omit<
    * `panel` — a large translucent sheet (drawers, dialogs) on page tokens.
    */
   variant?: 'elevated' | 'panel';
-  /** Edge refraction band (full tier only). Default on. */
+  /** Edge lensing band, identical across engines (full tier only). */
   refract?: boolean;
   /** Cursor/scroll-reactive specular highlight (fine pointers, full tier). */
   interactive?: boolean;

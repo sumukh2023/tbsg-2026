@@ -240,9 +240,9 @@
 /* --- Liquid glass inner layers (rendered by the LiquidGlass component) --- */
 
 /* Refraction band: a second backdrop sample confined to the rim by an
-   exclusion mask. Where SVG displacement is supported in backdrop-filter
-   (Chromium), the backdrop genuinely bends near the curved edges; elsewhere
-   a bright micro-blurred band gives the same thick-edge lensing read. */
+   exclusion mask. One implementation for every engine — a bright
+   micro-blurred band that reads as thick-edge lensing — so the material is
+   identical on Safari, Chrome, Edge and Firefox. */
 .lg-refract {
   position: absolute;
   inset: 0;
@@ -257,11 +257,6 @@
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none;
-}
-@supports (backdrop-filter: url('#lg-refraction')) {
-  .lg-refract {
-    backdrop-filter: url('#lg-refraction') brightness(1.1) saturate(135%);
-  }
 }
 .liquid-glass-panel > .lg-refract {
   padding: 10px;

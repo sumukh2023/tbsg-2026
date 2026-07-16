@@ -1,5 +1,11 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+} from 'react-router-dom';
 import { MotionConfig } from 'framer-motion';
 import { RootLayout } from '@/layouts/RootLayout';
 import { SiteNav } from './festival/SiteNav';
@@ -22,6 +28,30 @@ import { LiveUpdates } from './festival/live/LiveUpdates';
 const GetPassesPage = lazy(() => import('./festival/getpasses/GetPassesPage'));
 const PassPage = lazy(() => import('./festival/pass/PassPage'));
 const VerifyPage = lazy(() => import('./festival/pass/VerifyPage'));
+
+/**
+ * The pass experiences are evening-dark pages while the document root keeps
+ * the marble day tokens. During rubber-band overscroll Safari and Chrome
+ * paint the canvas (html) background beyond the page edges — on a dark page
+ * that reads as a white strip. Match the canvas to the route's chapter so
+ * overscroll always reveals the page's own colour.
+ */
+const DARK_ROUTES = /^\/(get-passes|pass|verify-pass)(\/|$)/;
+
+function CanvasBackground() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    const root = document.documentElement;
+    // The evening chapter's --background token (see globals.css .dark).
+    root.style.backgroundColor = DARK_ROUTES.test(pathname)
+      ? 'hsl(160 22% 8%)'
+      : '';
+    return () => {
+      root.style.backgroundColor = '';
+    };
+  }, [pathname]);
+  return null;
+}
 
 function ScrollToTop() {
   const { pathname, hash } = useLocation();
@@ -91,6 +121,7 @@ export default function App() {
     <MotionConfig reducedMotion="user">
       <BrowserRouter>
         <RootLayout chrome={false}>
+          <CanvasBackground />
           <ScrollToTop />
           <Routes>
             <Route path="/" element={<HomePage />} />
