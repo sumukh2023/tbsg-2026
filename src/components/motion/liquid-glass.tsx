@@ -1,26 +1,12 @@
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  type ElementType,
-  type ReactNode,
-} from 'react';
-import {
-  motion,
-  useMotionValue,
-  useReducedMotion,
-  useScroll,
-  useSpring,
-  useTransform,
-  type HTMLMotionProps,
-} from 'framer-motion';
+import { useMemo, type ElementType, type ReactNode } from 'react';
+import { motion, useReducedMotion, type HTMLMotionProps } from 'framer-motion';
 import { cn } from '@/utils/cn';
 import { EASE } from '@/utils/motion';
 
 /**
  * One-time device quality probe for expensive surface effects. Phones,
  * low-core/low-memory devices and data-saver sessions get the "lite" tier:
- * thinner blur radii and fewer composited layers, same design language.
+ * thinner blur radii, same design language.
  * (`prefers-reduced-transparency` is handled separately, in CSS.)
  */
 export function useGlassQuality(): 'full' | 'lite' {
@@ -51,91 +37,22 @@ export type LiquidGlassProps<T extends GlassTag = 'div'> = Omit<
    * `panel` — a large translucent sheet (drawers, dialogs) on page tokens.
    */
   variant?: 'elevated' | 'panel';
-  /** Edge lensing band, identical across engines (full tier only). */
-  refract?: boolean;
-  /** Cursor/scroll-reactive specular highlight (fine pointers, full tier). */
-  interactive?: boolean;
   /** One-shot light sweep when the surface mounts (drawers, popovers). */
   sheen?: boolean;
   children?: ReactNode;
 };
 
 /**
- * The living highlight: a soft light blob that drifts almost imperceptibly
- * with page scroll and leans toward the cursor while it hovers the surface.
- * Transform/opacity only, springed, so it never repaints the glass.
- */
-function SpecularLayer({ root }: { root: React.RefObject<HTMLElement> }) {
-  const px = useMotionValue(48);
-  const py = useMotionValue(0);
-  const opacity = useMotionValue(0.4);
-  const sx = useSpring(px, { stiffness: 120, damping: 22, mass: 0.6 });
-  const sy = useSpring(py, { stiffness: 120, damping: 22, mass: 0.6 });
-  const sOpacity = useSpring(opacity, { stiffness: 140, damping: 26 });
-
-  const { scrollY } = useScroll();
-  const driftX = useTransform(scrollY, (v) => Math.cos(v / 720) * 8);
-  const driftY = useTransform(scrollY, (v) => Math.sin(v / 480) * 6);
-  const x = useTransform<number, number>([sx, driftX], ([a, b]) => a + b);
-  const y = useTransform<number, number>([sy, driftY], ([a, b]) => a + b);
-
-  useEffect(() => {
-    const el = root.current;
-    if (!el) return;
-    // Rest slot: upper-left third of the surface, where the ambient light sits.
-    const rest = () => {
-      px.set(el.offsetWidth * 0.3);
-      py.set(0);
-      opacity.set(0.4);
-    };
-    rest();
-
-    let rect: DOMRect | null = null;
-    const onEnter = () => {
-      rect = el.getBoundingClientRect();
-      opacity.set(0.75);
-    };
-    const onMove = (event: PointerEvent) => {
-      if (!rect) rect = el.getBoundingClientRect();
-      px.set(event.clientX - rect.left);
-      py.set(event.clientY - rect.top);
-    };
-    const onLeave = () => {
-      rect = null;
-      rest();
-    };
-    el.addEventListener('pointerenter', onEnter);
-    el.addEventListener('pointermove', onMove);
-    el.addEventListener('pointerleave', onLeave);
-    return () => {
-      el.removeEventListener('pointerenter', onEnter);
-      el.removeEventListener('pointermove', onMove);
-      el.removeEventListener('pointerleave', onLeave);
-    };
-  }, [root, px, py, opacity]);
-
-  return (
-    <motion.span
-      aria-hidden="true"
-      className="lg-specular"
-      style={{ x, y, opacity: sOpacity }}
-    />
-  );
-}
-
-/**
- * Liquid glass surface: a Framer Motion element carrying the layered
- * translucent material (low-tint backdrop, gradient hairline ring, rim
- * refraction, grain, dynamic specular — defined in globals.css). Quality
- * adapts per device via useGlassQuality, so the same component is
- * convincing on desktop and smooth on mobile. Accepts every motion prop —
- * animate, layout, exit — so open/close choreography lives at the call site.
+ * Liquid glass surface: a Framer Motion element carrying the translucent
+ * material (black tint over backdrop blur + hairline rim, defined in
+ * globals.css — identical on every engine). Quality adapts per device via
+ * useGlassQuality, so the same component is convincing on desktop and
+ * smooth on mobile. Accepts every motion prop — animate, layout, exit —
+ * so open/close choreography lives at the call site.
  */
 export function LiquidGlass<T extends GlassTag = 'div'>({
   as,
   variant = 'elevated',
-  refract = true,
-  interactive = true,
   sheen = false,
   className,
   children,
@@ -143,22 +60,10 @@ export function LiquidGlass<T extends GlassTag = 'div'>({
 }: LiquidGlassProps<T>) {
   const quality = useGlassQuality();
   const reduce = useReducedMotion();
-  const rootRef = useRef<HTMLElement>(null);
-  const finePointer = useMemo(
-    () =>
-      typeof window !== 'undefined' &&
-      window.matchMedia('(hover: hover) and (pointer: fine)').matches,
-    []
-  );
   const Component = motion[(as ?? 'div') as GlassTag] as ElementType;
-
-  const full = quality === 'full';
-  const showSpecular =
-    interactive && full && finePointer && !reduce && variant === 'elevated';
 
   return (
     <Component
-      ref={rootRef}
       className={cn(
         variant === 'panel' ? 'liquid-glass-panel' : 'liquid-glass-elevated',
         quality === 'lite' && 'glass-lite',
@@ -167,9 +72,6 @@ export function LiquidGlass<T extends GlassTag = 'div'>({
       )}
       {...rest}
     >
-      {full && refract && <span aria-hidden="true" className="lg-refract" />}
-      {full && <span aria-hidden="true" className="lg-noise" />}
-      {showSpecular && <SpecularLayer root={rootRef} />}
       {sheen && !reduce && (
         <motion.span
           aria-hidden="true"
@@ -260,21 +162,13 @@ export function LiquidGlassModal({
   );
 }
 
-/** Glass navigation bar; refraction off by default (a full-width band is
-    the one place the rim treatment stops being restrained). */
+/** Glass navigation bar. */
 export function LiquidGlassNavbar({
   className,
   ...props
 }: Without<LiquidGlassProps<'nav'>, 'as' | 'variant'>) {
   return (
-    <LiquidGlass
-      as="nav"
-      variant="panel"
-      refract={false}
-      interactive={false}
-      className={className}
-      {...props}
-    />
+    <LiquidGlass as="nav" variant="panel" className={className} {...props} />
   );
 }
 

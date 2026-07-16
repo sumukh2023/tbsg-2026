@@ -91,9 +91,13 @@ function sortDesc(updates: LiveUpdate[]): LiveUpdate[] {
 function useLiveUpdates() {
   const [updates, setUpdates] = useState<LiveUpdate[]>([]);
   const [live, setLive] = useState(false);
+  // Session-scoped on purpose: every new visit starts with the unread count
+  // showing (a permanent watermark meant the badge never reappeared once the
+  // panel had been opened in that browser). Opening the panel clears it for
+  // the session; realtime arrivals afterwards still increment it.
   const [lastSeen, setLastSeen] = useState<string>(() => {
     try {
-      return localStorage.getItem(SEEN_KEY) ?? '';
+      return sessionStorage.getItem(SEEN_KEY) ?? '';
     } catch {
       return '';
     }
@@ -206,7 +210,7 @@ function useLiveUpdates() {
     if (!newest) return;
     setLastSeen(newest);
     try {
-      localStorage.setItem(SEEN_KEY, newest);
+      sessionStorage.setItem(SEEN_KEY, newest);
     } catch {
       // Private mode: unread state simply resets next visit.
     }
