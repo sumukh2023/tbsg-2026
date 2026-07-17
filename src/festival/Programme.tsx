@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { cn } from '@/utils/cn';
@@ -63,17 +63,90 @@ const acts: Act[] = [
 
 export function Programme() {
   const track = useRef<HTMLDivElement>(null);
+  const sectionRef = useRef<HTMLElement>(null);
+  // Auto-rotation yields to the visitor: any manual interaction holds it,
+  // and it only ticks while the section is actually on screen.
+  const holdUntil = useRef(0);
 
   const scrollByCard = (dir: 1 | -1) => {
     const el = track.current;
     if (!el) return;
+    holdUntil.current = Date.now() + 8000;
     const card = el.querySelector('article');
     const amount = card ? card.clientWidth + 20 : 360;
     el.scrollBy({ left: dir * amount, behavior: 'smooth' });
   };
 
+  // Ambient rotation: one card every few seconds, looping back to the start
+  // after the last. Scroll-based (the same snap track), so nothing shifts
+  // layout; off-screen or hidden tabs cost nothing; reduced motion opts out.
+  useEffect(() => {
+    const el = track.current;
+    const section = sectionRef.current;
+    if (!el || !section) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    let visible = false;
+
+    const step = () => {
+      const card = el.querySelector('article');
+      if (!card) return;
+      const stride = card.clientWidth + 20;
+      const max = el.scrollWidth - el.clientWidth;
+      if (el.scrollLeft >= max - stride / 2) {
+        el.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        el.scrollBy({ left: stride, behavior: 'smooth' });
+      }
+    };
+
+    const interval = setInterval(() => {
+      if (!visible || document.hidden) return;
+      if (Date.now() < holdUntil.current) return;
+      step();
+    }, 4000);
+
+    // A cursor resting on the track parks the rotation entirely; wheel and
+    // touch input hold it long enough to browse by hand.
+    const park = () => {
+      holdUntil.current = Number.MAX_SAFE_INTEGER;
+    };
+    const release = () => {
+      holdUntil.current = Date.now() + 2000;
+    };
+    const hold = () => {
+      holdUntil.current = Date.now() + 8000;
+    };
+    el.addEventListener('pointerenter', park);
+    el.addEventListener('pointerleave', release);
+    el.addEventListener('wheel', hold, { passive: true });
+    el.addEventListener('touchstart', hold, { passive: true });
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        visible = entry.isIntersecting;
+      },
+      { threshold: 0.35 }
+    );
+    observer.observe(section);
+
+    return () => {
+      clearInterval(interval);
+      observer.disconnect();
+      el.removeEventListener('pointerenter', park);
+      el.removeEventListener('pointerleave', release);
+      el.removeEventListener('wheel', hold);
+      el.removeEventListener('touchstart', hold);
+    };
+  }, []);
+
   return (
-    <section id="programma" className="py-24 md:py-36" aria-labelledby="programma-heading">
+    <section
+      id="programma"
+      ref={sectionRef}
+      className="py-24 md:py-36"
+      aria-labelledby="programma-heading"
+    >
       <div className="mx-auto max-w-6xl px-6 md:px-10">
         <motion.div
           initial={{ opacity: 0, y: 32 }}
@@ -115,7 +188,7 @@ export function Programme() {
 
       <div
         ref={track}
-        className="mt-14 flex snap-x snap-mandatory gap-5 overflow-x-auto px-6 pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:px-[max(2.5rem,calc((100vw-72rem)/2+2.5rem))]"
+        className="mt-14 flex snap-x snap-mandatory gap-5 overflow-x-auto px-6 pb-4 [scrollbar-width:none] md:px-[max(2.5rem,calc((100vw-72rem)/2+2.5rem))] [&::-webkit-scrollbar]:hidden"
       >
         {acts.map((act, i) => (
           <motion.article
@@ -123,7 +196,11 @@ export function Programme() {
             initial={{ opacity: 0, y: 32 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '0px -5% 0px 0px' }}
-            transition={{ duration: 0.7, delay: (i % 3) * 0.08, ease: EASE.out }}
+            transition={{
+              duration: 0.7,
+              delay: (i % 3) * 0.08,
+              ease: EASE.out,
+            }}
             className={cn(
               'group relative flex h-[420px] w-[300px] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-lg p-8 transition-transform duration-500 ease-out hover:-translate-y-1 md:h-[460px] md:w-[340px]',
               act.surface,

@@ -202,7 +202,9 @@ export function ScrollHero({
       className={cn('relative', className)}
       style={{ height: `${heightVh}vh` }}
     >
-      <div className="sticky top-0 h-[100dvh] overflow-hidden">
+      {/* translateZ(0): pre-promote the pinned viewport to its own
+          compositor layer so Safari never re-rasterises it mid-scroll. */}
+      <div className="sticky top-0 h-[100dvh] overflow-hidden [transform:translateZ(0)]">
         <video
           ref={videoRef}
           muted

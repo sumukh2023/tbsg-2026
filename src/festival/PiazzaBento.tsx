@@ -12,41 +12,44 @@ type Cell = {
   featured?: boolean;
 };
 
+/* The carnival stalls, one cell per family of stalls — food, games,
+   merchandise, student clubs, performances, special experiences — all
+   built and staffed by student guilds. */
 const cells: Cell[] = [
   {
-    title: 'La Passerella',
-    body: 'A student-designed runway of Italian fashion, from Milanese tailoring to Sicilian colour.',
+    title: 'Le Cucine',
+    body: 'The food stalls: trattoria classics, wood-fired and hand-rolled, cooked and served by student brigades.',
     span: 'md:col-span-7',
     surface: 'terracotta',
   },
   {
-    title: "L'Orchestra",
-    body: 'Strings, choirs and street musicians score the day from balconies and corners.',
+    title: 'I Giochi',
+    body: 'Game and activity stalls across the courtyards, from bocce lanes to a masked treasure hunt.',
     span: 'md:col-span-5',
     surface: 'olive',
   },
   {
-    title: 'Le Botteghe',
-    body: 'Artisan stalls of student craft: paper, leather, ceramics and Venetian masks.',
+    title: 'Il Mercatino',
+    body: 'The merchandise stalls: student-made prints, ceramics, keepsakes and Venetian masks to carry home.',
     span: 'md:col-span-5',
     surface: 'marble',
   },
   {
-    title: 'La Cucina',
-    body: 'A food street of trattoria classics cooked and served by student brigades.',
+    title: 'I Circoli',
+    body: 'The school clubs keep stalls of their own craft, from robotics and art to quizzing and poetry.',
     span: 'md:col-span-7',
     surface: 'ink',
   },
   {
     title: 'Il Palco',
-    body: 'The main stage: theatre, opera medleys and the evening finale under the lights.',
+    body: 'Performances and attractions around the main stage: street theatre, opera medleys and the evening finale.',
     span: 'md:col-span-8',
     surface: 'gold',
     featured: true,
   },
   {
-    title: 'I Giochi',
-    body: 'Carnival games in the little courtyard, from bocce lanes to a masked treasure hunt.',
+    title: 'Le Meraviglie',
+    body: 'Special experiences tucked between the stalls, saved for those who wander far enough to find them.',
     span: 'md:col-span-4',
     surface: 'plaster',
   },
@@ -109,7 +112,11 @@ function BentoCell({ cell, index }: { cell: Cell; index: number }) {
 
 export function PiazzaBento() {
   return (
-    <section id="piazza" className="py-24 md:py-36" aria-labelledby="piazza-heading">
+    <section
+      id="piazza"
+      className="py-24 md:py-36"
+      aria-labelledby="piazza-heading"
+    >
       <div className="mx-auto max-w-6xl px-6 md:px-10">
         <motion.div
           initial={{ opacity: 0, y: 32 }}
@@ -125,8 +132,8 @@ export function PiazzaBento() {
             La Piazza
           </h2>
           <p className="mt-5 max-w-md font-body text-base leading-relaxed text-muted-foreground">
-            Six worlds inside one campus, each built and staffed by a student
-            guild.
+            Six streets of carnival stalls fill the campus, every one built and
+            staffed by a student guild.
           </p>
         </motion.div>
 
