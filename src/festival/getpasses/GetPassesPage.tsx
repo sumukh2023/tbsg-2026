@@ -123,13 +123,13 @@ function EveningBackdrop() {
 function ProgressRail({ step }: { step: number }) {
   return (
     <div>
-      {/* Below sm the four labels form a deliberate 2×2 grid — the form's
-          inner width (224px at a 320px viewport) cannot seat them on one
-          line at any legible size — and the counter goes screen-reader
-          only. Desktop keeps its original single rail untouched. */}
+      {/* Below sm the rail stays on ONE line: fluid type (clamped to the
+          viewport) shrinks the four labels just enough to seat them in the
+          form's inner width (224px at a 320px viewport), and the counter
+          goes screen-reader only. Desktop keeps its original rail. */}
       <div className="flex items-baseline justify-between gap-3">
         <ol
-          className="grid grid-cols-2 gap-x-6 gap-y-1.5 sm:flex sm:gap-x-5"
+          className="flex flex-nowrap gap-x-1.5 sm:gap-x-5"
           aria-label="Registration steps"
         >
           {STEPS.map((label, i) => (
@@ -137,7 +137,7 @@ function ProgressRail({ step }: { step: number }) {
               key={label}
               aria-current={i === step ? 'step' : undefined}
               className={
-                'font-body text-2xs uppercase tracking-[0.12em] transition-colors duration-300 sm:text-xs sm:tracking-[0.18em] ' +
+                'whitespace-nowrap font-body text-[clamp(0.5rem,2.8vw,0.6875rem)] uppercase tracking-[0.06em] transition-colors duration-300 sm:text-xs sm:tracking-[0.18em] ' +
                 (i === step
                   ? 'text-primary'
                   : i < step

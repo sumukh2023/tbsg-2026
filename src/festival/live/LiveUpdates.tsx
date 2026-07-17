@@ -15,6 +15,7 @@ import {
   LiquidGlassTicker,
   useGlassQuality,
 } from '@/components/motion/liquid-glass';
+import { useMediaQuery } from '@/hooks';
 import { cn } from '@/utils/cn';
 import { EASE } from '@/utils/motion';
 import { getLiveChromeReceded, subscribeLiveChrome } from './live-visibility';
@@ -290,7 +291,7 @@ function Ticker({
       transition={{ duration: 0.5, ease: EASE.out }}
       onClick={onOpen}
       aria-label={`Latest update: ${update.title}. Open live updates.`}
-      className="origin-bottom-right px-4 py-2.5"
+      className="pointer-events-auto origin-bottom-right px-4 py-2.5"
     >
       <span className="flex max-w-[min(19rem,calc(100vw-5rem))] items-center md:max-w-xs">
         {reduce ? (
@@ -326,12 +327,26 @@ export function LiveUpdates() {
   const [flash, setFlash] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
   const latest = updates[0];
-  // Full-viewport film moments (the ground-film caption) ask the floating
-  // chrome to recede so the caption stays readable; it returns right after.
-  const receded = useSyncExternalStore(
+  // Small screens only: the floating chrome recedes while the ground-film
+  // caption is scrubbed and while the footer's social row is on screen (the
+  // cluster would otherwise sit on top of the icons and swallow their taps).
+  // Desktop keeps the cluster visible at all times.
+  const compact = useMediaQuery('(max-width: 767px)');
+  const filmActive = useSyncExternalStore(
     subscribeLiveChrome,
     getLiveChromeReceded
   );
+  const [footerNear, setFooterNear] = useState(false);
+  useEffect(() => {
+    const socials = document.getElementById('footer-socials');
+    if (!socials) return;
+    const observer = new IntersectionObserver(([entry]) =>
+      setFooterNear(entry.isIntersecting)
+    );
+    observer.observe(socials);
+    return () => observer.disconnect();
+  }, []);
+  const receded = compact && (filmActive || footerNear);
 
   const openPanel = () => setOpen(true);
 
@@ -367,8 +382,10 @@ export function LiveUpdates() {
     <>
       {/* Plain fixed wrapper: .liquid-glass declares position:relative, so
           the glass surfaces live INSIDE this anchor, never on it. The anchor
-          also carries the recede fade (film captions), ending hidden so the
-          invisible controls can't be tabbed to or tapped. */}
+          also carries the mobile recede fade (film caption, footer socials),
+          ending hidden so the invisible controls can't be tabbed or tapped.
+          pointer-events: only the buttons themselves are hit targets — the
+          wrapper boxes must never swallow taps meant for page content. */}
       <motion.div
         animate={
           receded && !open
@@ -376,7 +393,7 @@ export function LiveUpdates() {
             : { opacity: 1, y: 0, visibility: 'visible' }
         }
         transition={{ duration: 0.5, ease: EASE.inOut }}
-        className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-5 z-40 md:bottom-[max(2rem,env(safe-area-inset-bottom))] md:right-8"
+        className="pointer-events-none fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-5 z-40 md:bottom-[max(2rem,env(safe-area-inset-bottom))] md:right-8"
       >
         <motion.div
           initial={{ opacity: 0, y: 18, scale: 0.97 }}
@@ -397,7 +414,7 @@ export function LiveUpdates() {
             onClick={openPanel}
             aria-haspopup="dialog"
             aria-expanded={open}
-            className="flex items-center gap-2.5 py-2.5 pl-4 pr-5 transition-transform duration-300 hover:-translate-y-0.5"
+            className="pointer-events-auto flex items-center gap-2.5 py-2.5 pl-4 pr-5 transition-transform duration-300 hover:-translate-y-0.5"
           >
             <span className="relative flex h-2 w-2" aria-hidden="true">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent/70" />

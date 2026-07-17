@@ -57,14 +57,16 @@ export function SiteFooter() {
         <div className="md:col-span-4">
           <h3 className="font-body text-sm font-semibold">Contact Us</h3>
           <p className="mt-3 font-body text-sm leading-relaxed text-muted-foreground">
-            Landline: <a
+            Landline:{' '}
+            <a
               href="tel:+918041148397"
               className="underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               +91 80411 48397
             </a>
             <br />
-            Mobile: <a
+            Mobile:{' '}
+            <a
               href="tel:+919686669805"
               className="underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
@@ -85,7 +87,14 @@ export function SiteFooter() {
       </div>
       <div className="border-t border-border/60">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-6 md:flex-row md:items-center md:justify-between md:px-10">
-          <ul className="flex items-center gap-2" aria-label="The Brigade Schools on social media">
+          {/* id: the floating Live Updates cluster observes this row and
+              recedes on mobile while it is on screen, so the icons are
+              always tappable. */}
+          <ul
+            id="footer-socials"
+            className="flex items-center gap-2"
+            aria-label="The Brigade Schools on social media"
+          >
             {socials.map(({ label, href, Icon }) => (
               <li key={label}>
                 <a
