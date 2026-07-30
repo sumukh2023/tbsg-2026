@@ -36,16 +36,33 @@ export interface ScrollHeroProps {
  * - The video preloads metadata only until its section approaches.
  * - Phones receive `mobileSrc` (lower resolution) when provided.
  *
+ * Readiness contract (why this never waits on a single event):
+ * - Duration, readyState and networkState are re-read from the element every
+ *   frame. Nothing depends on a particular event having fired at a
+ *   particular moment, so a `loadedmetadata` that arrived before the effect
+ *   attached, a `loadeddata` iOS never sends, and a `suspend` that fires
+ *   twice are all non-events. Media events are attached as accelerators and
+ *   only ever re-check that same state.
+ * - Consequence: mount order, hydration timing, a warm HTTP cache and a
+ *   refresh part-way down the page all converge on the same state, because
+ *   the loop asks the element what it has rather than remembering what it
+ *   was told.
+ *
  * Safari/iOS contract (scrub videos that are never play()ed):
  * - `playsInline` + legacy `webkit-playsinline`, muted, no remote playback.
  * - iOS won't paint a frame for a metadata-preloaded video: the playhead is
- *   nudged to 0.001s on loadedmetadata, and the decoder is primed with a
- *   muted play()→pause() the first time the section approaches (allowed
- *   without a gesture for muted inline video).
- * - Safari ignores a `preload` upgrade on a stalled element, so a stalled
- *   fetch is restarted with an explicit load() when the section approaches.
- * - The element only fades in once a real frame exists (loadeddata/seeked);
- *   if every source fails, the marble veil simply remains — no black box.
+ *   nudged off zero (on loadedmetadata, and again from the loop while no
+ *   frame exists), and the decoder is primed with a muted play()→pause()
+ *   on every approach until a frame exists — allowed without a gesture for
+ *   muted inline video, and retried because one rejected play() (iOS Low
+ *   Power Mode) must not disable the film for the rest of the session.
+ * - Safari will not resume a suspended fetch on a `preload` flip alone, so a
+ *   video idling at HAVE_METADATA — which cannot serve a scrub at all — has
+ *   its fetch restarted with an explicit load(). Capped, and latched off the
+ *   moment a first frame exists: load() resets the playhead and drops the
+ *   buffer, so it must never fire against a film that is already scrubbing.
+ * - The element only fades in once the decoder actually holds a frame; if
+ *   every source fails, the marble veil simply remains — no black box.
  *
  * Under prefers-reduced-motion the film holds its first frame as a still.
  */
@@ -89,13 +106,27 @@ export function ScrollHero({
     ).matches;
 
     let current = 0;
-    let duration = Number.isFinite(video.duration) ? video.duration : 0;
     let frame = 0;
     let active = false;
-    let primed = false;
+    let shown = false;
+    let restarts = 0;
+
+    // Readiness is READ FROM THE ELEMENT, never inferred from an event
+    // having fired. iOS may never fire `loadeddata` for a video that is
+    // preloaded as metadata and never played, and Safari does not re-fire it
+    // for a fetch that was suspended and later resumed. Anything that waits
+    // on one specific event to arrive is a race; polling the element inside
+    // the loop that is already running is not.
+    const hasFrame = () =>
+      video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
+
+    const reveal = () => {
+      if (shown || !hasFrame()) return;
+      shown = true;
+      setReady(true);
+    };
 
     const onLoadedMetadata = () => {
-      duration = video.duration;
       // iOS Safari paints nothing at preload="metadata"; nudging the
       // playhead forces the first frame to decode and display.
       if (video.currentTime === 0) {
@@ -103,26 +134,56 @@ export function ScrollHero({
           video.currentTime = 0.001;
         } catch {
           // Seeking before metadata settles can throw on old WebKit; the
-          // decoder prime below still surfaces the first frame.
+          // loop's own first-frame nudge still surfaces the frame.
         }
       }
     };
-    const onFrameReady = () => setReady(true);
 
     // Muted inline play()→pause() is permitted without a gesture and is the
     // one reliable way to wake a lazy iOS decoder for a scrub-only video.
+    // Retried on every approach until a frame actually exists, because a
+    // single latched attempt is lost if that one play() was rejected (iOS
+    // Low Power Mode) or if the element was reloaded underneath it.
     const prime = () => {
-      if (primed) return;
-      primed = true;
+      // `shown`, not hasFrame(): readyState can dip back below HAVE_CURRENT_DATA
+      // while re-buffering mid-scrub, and waking the decoder then would shove
+      // the playhead. Once a frame has ever existed, initialisation is over.
+      if (shown || video.error) return;
       const played = video.play();
       if (played && typeof played.then === 'function') {
-        played
-          .then(() => video.pause())
-          .catch(() => {
-            primed = false; // retry the next time the section approaches
-          });
+        played.then(() => video.pause()).catch(() => {});
       } else {
         video.pause();
+      }
+    };
+
+    // A video parked at HAVE_METADATA cannot serve a scrub, and Safari will
+    // not resume a suspended fetch on a `preload` flip alone — the element
+    // sits at readyState 1 / networkState IDLE for ever and every seek lands
+    // on data that was never fetched. Restart the fetch when the section
+    // approaches and the element has gone idle short of usable data. Capped,
+    // and never once real data exists, so a buffer is never thrown away.
+    const ensureLoading = () => {
+      if (video.preload !== 'auto') video.preload = 'auto';
+      // Latched on `shown` for the same reason as prime(), and because load()
+      // is destructive: it resets the playhead and discards the buffer. Before
+      // the first frame there is nothing to lose; after it, never.
+      if (video.error || shown || restarts >= 3) return;
+      const idle =
+        video.networkState === HTMLMediaElement.NETWORK_EMPTY ||
+        video.networkState === HTMLMediaElement.NETWORK_IDLE;
+      if (!idle) return;
+      // Parked means parked on *nothing*: a header and no media. If a second
+      // of footage has already arrived the fetch is doing its job and a
+      // restart would only throw that away and re-seek from zero.
+      const buffered = video.buffered;
+      const held = buffered.length ? buffered.end(buffered.length - 1) : 0;
+      if (held >= 1) return;
+      restarts += 1;
+      try {
+        video.load();
+      } catch {
+        // NETWORK_NO_SOURCE: the fade-in gate keeps the veil instead.
       }
     };
 
@@ -137,15 +198,29 @@ export function ScrollHero({
       if (Math.abs(target - current) < 0.0005) current = target;
       progress.set(current);
 
-      if (duration > 0 && video.readyState >= 1) {
+      // Duration is re-read every frame rather than captured when some event
+      // fired, so a late, re-fired or missed `loadedmetadata` cannot leave
+      // the scrubber holding a stale 0 and silently doing nothing.
+      const duration = video.duration;
+      if (
+        duration > 0 &&
+        Number.isFinite(duration) &&
+        video.readyState >= HTMLMediaElement.HAVE_METADATA
+      ) {
         const time = current * duration;
-        const drift = Math.abs(video.currentTime - time);
+        // At the very top of the runway the target time is 0 — exactly where
+        // the playhead already sits — so nothing would ever ask the decoder
+        // for a frame and iOS would show an empty box until the first scroll.
+        const seekTo = !shown && time < 0.001 ? 0.001 : time;
+        const drift = Math.abs(video.currentTime - seekTo);
         // Skip sub-frame micro-seeks, and never stack a new seek on a
         // decoder that is still seeking unless we have fallen well behind.
         if (drift > 0.02 && (!video.seeking || drift > 0.3)) {
-          video.currentTime = time;
+          video.currentTime = seekTo;
         }
       }
+
+      reveal();
       frame = requestAnimationFrame(tick);
     };
 
@@ -156,18 +231,7 @@ export function ScrollHero({
         const near = entry.isIntersecting;
         if (near && !active) {
           active = true;
-          if (video.preload !== 'auto') video.preload = 'auto';
-          // Safari won't resume a stalled fetch on a preload flip alone.
-          if (
-            video.readyState === HTMLMediaElement.HAVE_NOTHING &&
-            video.networkState !== HTMLMediaElement.NETWORK_LOADING
-          ) {
-            try {
-              video.load();
-            } catch {
-              // NETWORK_NO_SOURCE: the fade-in gate keeps the veil instead.
-            }
-          }
+          ensureLoading();
           prime();
           // Reduced motion still loads and paints the still first frame —
           // it just never scrubs.
@@ -180,17 +244,31 @@ export function ScrollHero({
       { rootMargin: '50% 0px 50% 0px' }
     );
 
+    // Events are accelerators, not the contract: each one only re-checks the
+    // element's own state, so a missing event costs nothing and a duplicate
+    // event does nothing. `stalled`/`suspend` are where Safari parks a fetch
+    // it has decided not to finish.
+    const recheck = () => {
+      reveal();
+      if (active) ensureLoading();
+    };
     video.addEventListener('loadedmetadata', onLoadedMetadata);
-    video.addEventListener('loadeddata', onFrameReady);
-    video.addEventListener('seeked', onFrameReady);
-    if (video.readyState >= 1) onLoadedMetadata();
-    if (video.readyState >= 2) onFrameReady();
+    video.addEventListener('loadeddata', reveal);
+    video.addEventListener('canplay', reveal);
+    video.addEventListener('seeked', reveal);
+    video.addEventListener('stalled', recheck);
+    video.addEventListener('suspend', recheck);
+    if (video.readyState >= HTMLMediaElement.HAVE_METADATA) onLoadedMetadata();
+    reveal();
     observer.observe(container);
 
     return () => {
       video.removeEventListener('loadedmetadata', onLoadedMetadata);
-      video.removeEventListener('loadeddata', onFrameReady);
-      video.removeEventListener('seeked', onFrameReady);
+      video.removeEventListener('loadeddata', reveal);
+      video.removeEventListener('canplay', reveal);
+      video.removeEventListener('seeked', reveal);
+      video.removeEventListener('stalled', recheck);
+      video.removeEventListener('suspend', recheck);
       observer.disconnect();
       cancelAnimationFrame(frame);
     };

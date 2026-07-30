@@ -44,10 +44,14 @@ export function supabaseEnv(
     // Names only, never values: these lines exist to make Vercel Logs
     // reveal the exact missing configuration.
     if (!url) {
-      console.error(`[${scope}] Missing required environment variable: SUPABASE_URL`);
+      console.error(
+        `[${scope}] Missing required environment variable: SUPABASE_URL`
+      );
     }
     if (!key) {
-      console.error(`[${scope}] Missing required environment variable: SUPABASE_SERVICE_ROLE_KEY`);
+      console.error(
+        `[${scope}] Missing required environment variable: SUPABASE_SERVICE_ROLE_KEY`
+      );
     }
     return null;
   }
@@ -68,7 +72,10 @@ export function randomToken(bytes = 24): string {
   raw.forEach((b) => {
     base64 += String.fromCharCode(b);
   });
-  return btoa(base64).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return btoa(base64)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
 }
 
 export async function sha256Hex(value: string): Promise<string> {
@@ -82,17 +89,12 @@ export async function sha256Hex(value: string): Promise<string> {
 }
 
 /**
- * Maximum passes per registration by visitor type. Mirrored in the
- * Get Passes UI (src/festival/getpasses/GetPassesPage.tsx); keep in sync.
+ * Maximum passes per registration — one ceiling for every visitor type.
+ * Mirrored in the Get Passes UI (src/festival/getpasses/GetPassesPage.tsx);
+ * keep in sync. The `registrations.number_of_passes` check constraint in
+ * supabase/schema.sql already permits 1..10, so this needs no migration.
  */
-export const PASS_LIMITS: Record<string, number> = {
-  student: 1,
-  parent: 2,
-  guest: 2,
-  alumni: 1,
-  faculty: 5,
-  other: 3,
-};
+export const MAX_PASSES = 10;
 
 /** Human-friendly pass reference, e.g. FB26-K7M3Q (no confusable glyphs). */
 export function passReference(): string {

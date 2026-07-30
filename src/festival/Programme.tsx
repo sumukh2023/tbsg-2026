@@ -105,9 +105,12 @@ function reenterLoop(el: HTMLElement, g: Geometry, dir: 1 | -1) {
 export function Programme() {
   const track = useRef<HTMLDivElement>(null);
   const sectionRef = useRef<HTMLElement>(null);
-  // Auto-rotation yields to the visitor: any manual interaction holds it,
-  // and it only ticks while the section is actually on screen.
-  const holdUntil = useRef(0);
+  // Visibility is the ONLY thing that governs the rotation. Hovering, wheeling
+  // over the track or touching it does not hold it: those hooks made the
+  // carousel look broken, because scrolling the page past the section fires
+  // wheel/touch events on the track and parked it until well after the reader
+  // had stopped scrolling.
+  const restart = useRef<() => void>(() => {});
   // Reduced motion keeps the six acts exactly once and never advances them.
   const [looping] = useState(
     () => !window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -116,14 +119,17 @@ export function Programme() {
   const sets = looping ? copies : 1;
 
   const advance = useCallback(
-    (dir: 1 | -1, hold: number) => {
+    (dir: 1 | -1, manual: boolean) => {
       const el = track.current;
       if (!el) return;
       const g = geometryOf(el);
       if (!g) return;
-      if (hold) holdUntil.current = Date.now() + hold;
       if (looping) reenterLoop(el, g, dir);
       el.scrollBy({ left: dir * g.stride, behavior: 'smooth' });
+      // An arrow press re-times the cadence so the next automatic move is a
+      // full interval away instead of landing on top of the manual one. The
+      // rotation is never suspended, only re-phased.
+      if (manual) restart.current();
     },
     [looping]
   );
@@ -145,64 +151,56 @@ export function Programme() {
   }, [looping]);
 
   // Ambient rotation: one card every few seconds, for ever. Scroll-based (the
-  // same snap track), so nothing shifts layout and nothing re-renders; the
-  // timer exists only while the section is on screen and the tab is visible.
+  // same snap track), so nothing shifts layout and nothing re-renders. The
+  // timer exists exactly while the section is on screen and the tab is
+  // visible — it keeps running throughout a scroll, under the cursor, and
+  // under a finger, and it is never held back by any of them.
   useEffect(() => {
-    const el = track.current;
     const section = sectionRef.current;
-    if (!el || !section || !looping) return;
+    if (!section || !looping) return;
 
     let timer = 0;
     let visible = false;
 
-    const tick = () => {
-      if (Date.now() < holdUntil.current) return;
-      advance(1, 0);
-    };
-    const sync = () => {
-      const run = visible && !document.hidden;
-      if (run && !timer) {
-        timer = window.setInterval(tick, ROTATION_MS);
-      } else if (!run && timer) {
+    const stop = () => {
+      if (timer) {
         window.clearInterval(timer);
         timer = 0;
       }
     };
+    const sync = () => {
+      const run = visible && !document.hidden;
+      if (run && !timer)
+        timer = window.setInterval(() => advance(1, false), ROTATION_MS);
+      else if (!run) stop();
+    };
+    // Re-phase without pausing: drop the pending tick and start a fresh full
+    // interval from now.
+    restart.current = () => {
+      if (!timer) return;
+      stop();
+      sync();
+    };
 
-    // A cursor resting on the track parks the rotation entirely; wheel and
-    // touch input hold it long enough to browse by hand.
-    const park = () => {
-      holdUntil.current = Number.MAX_SAFE_INTEGER;
-    };
-    const release = () => {
-      holdUntil.current = Date.now() + 2000;
-    };
-    const hold = () => {
-      holdUntil.current = Date.now() + 8000;
-    };
-    el.addEventListener('pointerenter', park);
-    el.addEventListener('pointerleave', release);
-    el.addEventListener('wheel', hold, { passive: true });
-    el.addEventListener('touchstart', hold, { passive: true });
     document.addEventListener('visibilitychange', sync);
 
+    // Any sliver of the section counts as visible: the rotation is running
+    // from the moment the section enters the viewport, not once it is a third
+    // of the way up it, and it stops only when the section has fully left.
     const observer = new IntersectionObserver(
       ([entry]) => {
         visible = entry.isIntersecting;
         sync();
       },
-      { threshold: 0.35 }
+      { threshold: 0 }
     );
     observer.observe(section);
 
     return () => {
-      if (timer) clearInterval(timer);
+      stop();
+      restart.current = () => {};
       observer.disconnect();
       document.removeEventListener('visibilitychange', sync);
-      el.removeEventListener('pointerenter', park);
-      el.removeEventListener('pointerleave', release);
-      el.removeEventListener('wheel', hold);
-      el.removeEventListener('touchstart', hold);
     };
   }, [advance, looping]);
 
@@ -235,14 +233,14 @@ export function Programme() {
           </div>
           <div className="hidden gap-2 md:flex">
             <button
-              onClick={() => advance(-1, 8000)}
+              onClick={() => advance(-1, true)}
               aria-label="Previous performances"
               className="grid h-11 w-11 cursor-pointer place-items-center rounded-full border border-border text-foreground transition-colors duration-300 hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
             <button
-              onClick={() => advance(1, 8000)}
+              onClick={() => advance(1, true)}
               aria-label="Next performances"
               className="grid h-11 w-11 cursor-pointer place-items-center rounded-full border border-border text-foreground transition-colors duration-300 hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >

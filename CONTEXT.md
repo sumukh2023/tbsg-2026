@@ -63,8 +63,8 @@ system with QR + gate verification, and realtime Live Updates.
   machine code/checking/result/service/network. **Scan Next Guest appears on
   every completed outcome (`state.result !== 'valid'`)**; scanner has
   unsupported/denied/error states with Retry, stops tracks on close
-- `src/festival/getpasses/GetPassesPage.tsx` — registration (PASS_LIMITS:
-  student 1, parent 2, guest 2, alumni 1, faculty 5, other 3); duplicate
+- `src/festival/getpasses/GetPassesPage.tsx` — registration (MAX_PASSES: a
+  uniform 10 for every visitor type, mirrored in `api/_shared.ts`); duplicate
   message links to Retrieve + Front Desk
 - `src/festival/pass/PassPage.tsx` — pass display + Retrieve (email AND phone)
 - `api/_shared.ts`, `api/register|verify|pass|retrieve|updates|wallet-*.ts`

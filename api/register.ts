@@ -11,7 +11,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import {
   cleanText,
   jsonBody,
-  PASS_LIMITS,
+  MAX_PASSES,
   passReference,
   randomToken,
   send,
@@ -58,11 +58,11 @@ function validate(body: Record<string, unknown>): Payload | string {
     return 'Visitor type is not recognised.';
   }
 
-  // Per-visitor-type ceilings; the client mirrors these but is never trusted.
-  const limit = PASS_LIMITS[visitor_type] ?? 1;
+  // One ceiling for every visitor type; the client mirrors it but is never
+  // trusted.
   const passes = Number(body.number_of_passes);
-  if (!Number.isInteger(passes) || passes < 1 || passes > limit) {
-    return `A ${visitor_type} registration can include between 1 and ${limit} ${limit === 1 ? 'pass' : 'passes'}.`;
+  if (!Number.isInteger(passes) || passes < 1 || passes > MAX_PASSES) {
+    return `A registration can include between 1 and ${MAX_PASSES} passes.`;
   }
 
   return {

@@ -219,7 +219,10 @@ export function PassStepper({
   const clamp = (next: number) => Math.min(max, Math.max(min, next));
   return (
     <div>
-      <p id="passes-label" className="font-body text-sm font-medium text-foreground">
+      <p
+        id="passes-label"
+        className="font-body text-sm font-medium text-foreground"
+      >
         {label}
       </p>
       <div className="mt-3 flex items-center gap-6">
@@ -264,7 +267,7 @@ export function PassStepper({
         </button>
       </div>
       <p className="mt-2 font-body text-xs text-muted-foreground/70">
-        Up to {max} {max === 1 ? 'pass' : 'passes'} for this visitor type
+        Up to {max} {max === 1 ? 'pass' : 'passes'} per registration
       </p>
     </div>
   );

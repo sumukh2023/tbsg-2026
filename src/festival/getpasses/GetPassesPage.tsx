@@ -23,16 +23,9 @@ const VISITOR_TYPES = [
   { value: 'other', label: 'Other' },
 ] as const;
 
-// Per-visitor-type pass ceilings. Mirrors PASS_LIMITS in api/_shared.ts;
-// the server re-validates and never trusts these.
-const PASS_LIMITS: Record<string, number> = {
-  student: 1,
-  parent: 2,
-  guest: 2,
-  alumni: 1,
-  faculty: 5,
-  other: 3,
-};
+// One pass ceiling for every visitor type. Mirrors MAX_PASSES in
+// api/_shared.ts; the server re-validates and never trusts this.
+const MAX_PASSES = 10;
 
 const STEPS = ['Visitor', 'Booking', 'Details', 'Confirm'] as const;
 
@@ -74,11 +67,8 @@ function validateStep(step: number, form: FormState): Errors {
   if (step === 1) {
     if (!VISITOR_TYPES.some((t) => t.value === form.visitorType)) {
       errors.visitorType = 'Choose the option that fits you best.';
-    } else {
-      const limit = PASS_LIMITS[form.visitorType] ?? 1;
-      if (form.passes < 1 || form.passes > limit) {
-        errors.passes = `Up to ${limit} ${limit === 1 ? 'pass' : 'passes'} for this visitor type.`;
-      }
+    } else if (form.passes < 1 || form.passes > MAX_PASSES) {
+      errors.passes = `Up to ${MAX_PASSES} passes per registration.`;
     }
   }
   if (step === 2) {
@@ -535,12 +525,7 @@ export default function GetPassesPage() {
                           name="visitorType"
                           options={VISITOR_TYPES}
                           value={form.visitorType}
-                          onChange={(v) => {
-                            set('visitorType', v);
-                            // Clamp into the new ceiling when switching type.
-                            const limit = PASS_LIMITS[v] ?? 1;
-                            if (form.passes > limit) set('passes', limit);
-                          }}
+                          onChange={(v) => set('visitorType', v)}
                           error={errors.visitorType}
                         />
                         {form.visitorType ? (
@@ -553,7 +538,7 @@ export default function GetPassesPage() {
                               label="Number of passes"
                               value={form.passes}
                               onChange={(v) => set('passes', v)}
-                              max={PASS_LIMITS[form.visitorType] ?? 1}
+                              max={MAX_PASSES}
                             />
                           </motion.div>
                         ) : null}
