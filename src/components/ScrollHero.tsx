@@ -151,8 +151,10 @@ export function ScrollHero({
     let mode: 'play' | 'scrub' =
       autoplayUntilScroll && isWebKit() && !reduced ? 'play' : 'scrub';
     // Playback position carried across the handoff, so the frame on screen at
-    // the moment of the handoff is the frame that stays on screen.
+    // the moment of the handoff is the frame that stays on screen, and the
+    // scroll progress at which it happened.
     let phase = 0;
+    let phaseAt = 0;
 
     // Readiness is READ FROM THE ELEMENT, never inferred from an event
     // having fired. iOS may never fire `loadeddata` for a video that is
@@ -289,6 +291,7 @@ export function ScrollHero({
         }
         mode = 'scrub';
         phase = video.currentTime;
+        phaseAt = current;
         video.loop = false;
         video.pause();
       }
@@ -306,12 +309,24 @@ export function ScrollHero({
         Number.isFinite(duration) &&
         video.readyState >= HTMLMediaElement.HAVE_METADATA
       ) {
-        // With a handoff behind us the scrub runs from the frame playback had
-        // reached and wraps at the end, exactly as the looping playback did.
-        // Without one (`phase` 0: every non-WebKit browser) this is the plain
-        // progress-to-time mapping it has always been.
-        const raw = phase + current * duration;
-        const time = phase > 0 ? raw % duration : raw;
+        // With a handoff behind us, what is left of the runway maps onto what
+        // is left of the footage: the film starts from the frame playback had
+        // reached and finishes exactly as the runway does, so the reader is
+        // handed to the next section on the last frame. It never wraps back
+        // to the beginning to replay under the remaining scroll. Without a
+        // handoff (`phase` and `phaseAt` 0: every non-WebKit browser) this is
+        // the plain progress-to-time mapping it has always been.
+        const remaining = 1 - phaseAt;
+        const time =
+          remaining > 0
+            ? Math.max(
+                0,
+                Math.min(
+                  duration,
+                  phase + ((current - phaseAt) / remaining) * (duration - phase)
+                )
+              )
+            : duration;
         // At the very top of the runway the target time is 0 — exactly where
         // the playhead already sits — so nothing would ever ask the decoder
         // for a frame and iOS would show an empty box until the first scroll.

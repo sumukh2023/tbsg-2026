@@ -6,7 +6,13 @@ import { EASE } from '@/utils/motion';
 import { GoldRule } from './materials';
 
 /** Large serif statement lines that surface one by one as the reader arrives. */
-function Statement({ lines, className }: { lines: string[]; className?: string }) {
+function Statement({
+  lines,
+  className,
+}: {
+  lines: string[];
+  className?: string;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: '-20% 0px' });
 
@@ -22,9 +28,16 @@ function Statement({ lines, className }: { lines: string[]; className?: string }
           delay={i * 0.35}
           speedReveal={1.6}
           segmentTransition={{ duration: 0.7, ease: EASE.out }}
-          className="block font-display text-4xl font-medium leading-[1.15] tracking-tight text-foreground sm:text-5xl md:text-6xl"
+          // The three lines are a deliberate typographic break at the widths
+          // that can hold them. Narrower than that they are just a sentence
+          // cut into thirds, so each fragment ends early and leaves a ragged
+          // hole: inline until `md`, where they run together and wrap where
+          // the measure actually ends.
+          className="inline font-display text-4xl font-medium leading-[1.15] tracking-tight text-foreground sm:text-5xl md:block md:text-6xl"
         >
-          {line}
+          {/* Trailing space so consecutive fragments do not fuse while
+              inline; TextEffect keeps whitespace as its own segment. */}
+          {i < lines.length - 1 ? `${line} ` : line}
         </TextEffect>
       ))}
     </div>
@@ -33,7 +46,10 @@ function Statement({ lines, className }: { lines: string[]; className?: string }
 
 export function Overture() {
   return (
-    <section className="relative py-32 md:py-44" aria-labelledby="overture-heading">
+    <section
+      className="relative py-32 md:py-44"
+      aria-labelledby="overture-heading"
+    >
       <div className="mx-auto max-w-6xl px-6 md:px-10">
         <h2 id="overture-heading" className="sr-only">
           About Flash
