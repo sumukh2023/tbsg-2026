@@ -252,7 +252,15 @@ export function Programme() {
 
       <div
         ref={track}
-        className="mt-14 flex snap-x snap-mandatory gap-5 overflow-x-auto px-6 pb-4 [scrollbar-width:none] md:px-[max(2.5rem,calc((100vw-72rem)/2+2.5rem))] [&::-webkit-scrollbar]:hidden"
+        // `overflow-x-auto` alone computes overflow-y to `auto` as well, which
+        // quietly made the track a vertical scroll container with 16px of
+        // travel — enough for a vertical swipe on an iPad to be swallowed by
+        // the carousel instead of moving the page. Pinning overflow-y closes
+        // it; pt-2 gives the hover lift room so nothing is clipped, and the
+        // outer margin drops by the same 8px so the layout is unchanged.
+        // overscroll-x-contain keeps a horizontal swipe from chaining out to
+        // the browser's back gesture.
+        className="mt-12 flex snap-x snap-mandatory gap-5 overflow-x-auto overflow-y-hidden overscroll-x-contain px-6 pb-4 pt-2 [scrollbar-width:none] md:px-[max(2.5rem,calc((100vw-72rem)/2+2.5rem))] [&::-webkit-scrollbar]:hidden"
       >
         {Array.from({ length: sets }).flatMap((_, copy) =>
           acts.map((act, i) => (

@@ -13,6 +13,12 @@ export interface ScrollHeroProps {
   heightVh?: number;
   /** Smoothing factor for the playhead lerp (0..1, higher = snappier). */
   smoothing?: number;
+  /**
+   * WebKit only: play and loop the film until the reader's first scroll, then
+   * hand over to the scrubber from whatever frame is on screen. Blink and
+   * Gecko ignore this and scrub from the first frame as they always have.
+   */
+  autoplayUntilScroll?: boolean;
   className?: string;
   /**
    * Sticky-viewport content layered over the video. Receives the smoothed
@@ -48,6 +54,18 @@ export interface ScrollHeroProps {
  *   the loop asks the element what it has rather than remembering what it
  *   was told.
  *
+ * WebKit-only opening (opt in with `autoplayUntilScroll`):
+ * - Safari, iOS and iPadOS get a film that plays and loops from load until
+ *   the reader's first scroll; the scrubber then takes over from the frame
+ *   playback had reached, so control changes hands without the picture
+ *   moving. Blink and Gecko never enter this mode and scrub from the first
+ *   frame exactly as before.
+ * - It doubles as the sturdiest fix for the iPad: a video that has never
+ *   played may hold no decoded frame and no buffered media, and so cannot
+ *   serve a seek at all. One that is genuinely playing has both.
+ * - If autoplay is refused (iOS Low Power Mode) the film falls back to the
+ *   plain scrubber rather than neither playing nor scrubbing.
+ *
  * Safari/iOS contract (scrub videos that are never play()ed):
  * - `playsInline` + legacy `webkit-playsinline`, muted, no remote playback.
  * - iOS won't paint a frame for a metadata-preloaded video: the playhead is
@@ -66,12 +84,26 @@ export interface ScrollHeroProps {
  *
  * Under prefers-reduced-motion the film holds its first frame as a still.
  */
+/**
+ * WebKit engine: Safari on macOS, iOS and iPadOS, and every iOS/iPadOS
+ * browser, which are all WebKit underneath whatever badge they wear. The
+ * vendor string is the one signal desktop Chrome, Edge and Firefox never
+ * report, so their behaviour is left exactly as it was.
+ */
+function isWebKit(): boolean {
+  return (
+    typeof navigator !== 'undefined' &&
+    navigator.vendor === 'Apple Computer, Inc.'
+  );
+}
+
 export function ScrollHero({
   src,
   webmSrc,
   mobileSrc,
   heightVh = 300,
   smoothing = 0.22,
+  autoplayUntilScroll = false,
   className,
   children,
 }: ScrollHeroProps) {
@@ -111,6 +143,17 @@ export function ScrollHero({
     let shown = false;
     let restarts = 0;
 
+    // WebKit only: the film plays and loops until the reader's first scroll,
+    // then hands over to the scrubber. This is also the sturdiest possible
+    // answer to the iPad, where a video that has never played may hold no
+    // decoded frame and no buffered media, and therefore cannot serve a seek
+    // at all — a film that is genuinely playing has both by definition.
+    let mode: 'play' | 'scrub' =
+      autoplayUntilScroll && isWebKit() && !reduced ? 'play' : 'scrub';
+    // Playback position carried across the handoff, so the frame on screen at
+    // the moment of the handoff is the frame that stays on screen.
+    let phase = 0;
+
     // Readiness is READ FROM THE ELEMENT, never inferred from an event
     // having fired. iOS may never fire `loadeddata` for a video that is
     // preloaded as metadata and never played, and Safari does not re-fire it
@@ -144,11 +187,49 @@ export function ScrollHero({
     // Retried on every approach until a frame actually exists, because a
     // single latched attempt is lost if that one play() was rejected (iOS
     // Low Power Mode) or if the element was reloaded underneath it.
+    // Keep the film running in play mode. Re-attempted from the loop rather
+    // than once at arming, because our own ensureLoading() calls load(), and
+    // a load() rejects any play() still in flight with AbortError. Only a
+    // NotAllowedError is a real refusal by the browser (iOS Low Power Mode),
+    // and only that falls back to the plain scrubber; an abort we caused
+    // ourselves simply gets picked up again on the next frame.
+    let playPending = false;
+    const keepPlaying = () => {
+      if (mode !== 'play' || playPending || video.error || !video.paused) {
+        return;
+      }
+      video.loop = true;
+      playPending = true;
+      const running = video.play();
+      if (running && typeof running.then === 'function') {
+        running
+          .then(() => {
+            playPending = false;
+          })
+          .catch((error: DOMException) => {
+            playPending = false;
+            if (error?.name === 'NotAllowedError') {
+              mode = 'scrub';
+              video.loop = false;
+            }
+          });
+      } else {
+        playPending = false;
+      }
+    };
+
     const prime = () => {
+      if (video.error) return;
+      // In play mode the film is meant to keep running, so this is a real
+      // play() and not a wake-up nudge.
+      if (mode === 'play') {
+        keepPlaying();
+        return;
+      }
       // `shown`, not hasFrame(): readyState can dip back below HAVE_CURRENT_DATA
       // while re-buffering mid-scrub, and waking the decoder then would shove
       // the playhead. Once a frame has ever existed, initialisation is over.
-      if (shown || video.error) return;
+      if (shown) return;
       const played = video.play();
       if (played && typeof played.then === 'function') {
         played.then(() => video.pause()).catch(() => {});
@@ -194,6 +275,24 @@ export function ScrollHero({
       const target =
         runway > 0 ? Math.min(1, Math.max(0, -rect.top / runway)) : 0;
 
+      if (mode === 'play') {
+        // The reader has not scrolled yet: leave the film playing and the
+        // overlay choreography parked at zero. The first real scroll takes
+        // the film's current position as the scrub's origin, so control
+        // changes hands without the picture moving.
+        if (target <= 0.002) {
+          keepPlaying();
+          progress.set(0);
+          reveal();
+          frame = requestAnimationFrame(tick);
+          return;
+        }
+        mode = 'scrub';
+        phase = video.currentTime;
+        video.loop = false;
+        video.pause();
+      }
+
       current += (target - current) * smoothing;
       if (Math.abs(target - current) < 0.0005) current = target;
       progress.set(current);
@@ -207,7 +306,12 @@ export function ScrollHero({
         Number.isFinite(duration) &&
         video.readyState >= HTMLMediaElement.HAVE_METADATA
       ) {
-        const time = current * duration;
+        // With a handoff behind us the scrub runs from the frame playback had
+        // reached and wraps at the end, exactly as the looping playback did.
+        // Without one (`phase` 0: every non-WebKit browser) this is the plain
+        // progress-to-time mapping it has always been.
+        const raw = phase + current * duration;
+        const time = phase > 0 ? raw % duration : raw;
         // At the very top of the runway the target time is 0 — exactly where
         // the playhead already sits — so nothing would ever ask the decoder
         // for a frame and iOS would show an empty box until the first scroll.
@@ -272,7 +376,7 @@ export function ScrollHero({
       observer.disconnect();
       cancelAnimationFrame(frame);
     };
-  }, [progress, smoothing]);
+  }, [autoplayUntilScroll, progress, smoothing]);
 
   return (
     <div

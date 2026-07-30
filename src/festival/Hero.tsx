@@ -158,6 +158,7 @@ export function Hero() {
         webmSrc="/hero.webm"
         mobileSrc="/hero-mobile.mp4"
         heightVh={340}
+        autoplayUntilScroll
       >
         {(progress) => <HeroContent progress={progress} />}
       </ScrollHero>
