@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { motionValue, type MotionValue } from 'framer-motion';
 import { cn } from '@/utils/cn';
-import { detectEngine, scrubProfile } from '@/utils/engine';
+import { scrubProfile } from '@/utils/engine';
 
 export interface ScrollHeroProps {
   /** Video served from public/, e.g. "/hero.mp4". */
@@ -12,15 +12,13 @@ export interface ScrollHeroProps {
   mobileSrc?: string;
   /** Total scroll runway; the sticky viewport stays pinned through it. */
   heightVh?: number;
-  /**
-   * Overrides the engine profile's playhead lerp (0..1, higher = snappier).
-   * Left unset, each engine gets the factor tuned for it.
-   */
+  /** Smoothing factor for the playhead lerp (0..1, higher = snappier). */
   smoothing?: number;
   /**
-   * WebKit only: play and loop the film until the reader's first scroll, then
-   * hand over to the scrubber from whatever frame is on screen. Blink and
-   * Gecko ignore this and scrub from the first frame as they always have.
+   * TOUCH DEVICES only: play and loop the film until the reader's first
+   * scroll, then hand over to the scrubber from whatever frame is on screen.
+   * Every desktop browser — Safari included — ignores this and scrubs from
+   * the first frame. See "Hero section: the two setups" in CONTEXT.md.
    */
   autoplayUntilScroll?: boolean;
   className?: string;
@@ -73,17 +71,17 @@ const BLEND = 0.86;
  *   the loop asks the element what it has rather than remembering what it
  *   was told.
  *
- * WebKit-only opening (opt in with `autoplayUntilScroll`):
- * - Safari, iOS and iPadOS get a film that plays and loops from load. The
+ * Touch-device opening (opt in with `autoplayUntilScroll`):
+ * - Phones and tablets, on every engine, get a film that plays and loops
+ *   from load; every desktop browser scrubs from the first frame. The
  *   reader's first scroll takes control immediately, from the frame then on
  *   screen, and the gap between that frame and the one the timeline wants is
  *   closed out of their own scrolling: proportionally on the way down, so
  *   the film always advances and lands on the last frame, and outright on
  *   the way up, where backwards motion is what the reader asked for anyway.
  *   The film is never dragged backwards under a downward scroll, which is
- *   the settling that used to be visible. Blink and Gecko never enter this
- *   mode and scrub from the first frame exactly as before.
- * - It doubles as the sturdiest fix for the iPad: a video that has never
+ *   the settling that used to be visible.
+ * - It doubles as the sturdiest fix for iOS and iPadOS: a video that has never
  *   played may hold no decoded frame and no buffered media, and so cannot
  *   serve a seek at all. One that is genuinely playing has both.
  * - If autoplay is refused (iOS Low Power Mode) the film falls back to the
@@ -112,7 +110,7 @@ export function ScrollHero({
   webmSrc,
   mobileSrc,
   heightVh = 300,
-  smoothing,
+  smoothing = 0.22,
   autoplayUntilScroll = false,
   className,
   children,
@@ -153,20 +151,19 @@ export function ScrollHero({
     let revealed = false;
     let restarts = 0;
 
-    // WebKit only: the film plays and loops until the reader's first scroll,
-    // then hands over to the scrubber. This is also the sturdiest possible
-    // answer to the iPad, where a video that has never played may hold no
-    // decoded frame and no buffered media, and therefore cannot serve a seek
-    // at all — a film that is genuinely playing has both by definition.
-    const engine = detectEngine();
     const profile = scrubProfile();
     // fastSeek is Safari's own scrubbing API; guard on the method existing
     // as well as the profile asking for it.
     const useFastSeek =
       profile.fastSeek && typeof video.fastSeek === 'function';
-    const lerp = smoothing ?? profile.smoothing;
+    // The autoplay opening is a PHONE AND TABLET behaviour, not a WebKit one.
+    // `pointer: coarse` is the device class, not the engine: it takes in iOS
+    // and Android alike and leaves out every desktop, including Safari on a
+    // Mac and a laptop that merely happens to have a touchscreen (whose
+    // primary pointer is still fine). See CONTEXT.md.
+    const touch = window.matchMedia('(pointer: coarse)').matches;
     let mode: 'play' | 'scrub' =
-      autoplayUntilScroll && engine === 'webkit' && !reduced ? 'play' : 'scrub';
+      autoplayUntilScroll && touch && !reduced ? 'play' : 'scrub';
     // Gap, in seconds, between where the opening left the playhead and where
     // the timeline wants it. Decays to zero over a few hundred milliseconds
     // and is then gone for good.
@@ -297,7 +294,7 @@ export function ScrollHero({
       const target =
         runway > 0 ? Math.min(1, Math.max(0, -rect.top / runway)) : 0;
 
-      current += (target - current) * lerp;
+      current += (target - current) * smoothing;
       if (Math.abs(target - current) < 0.0005) current = target;
       progress.set(current);
 
