@@ -4,7 +4,7 @@ import { fadeVariants } from '@/utils/motion';
 export interface FadeInProps extends HTMLMotionProps<'div'> {
   /** Seconds to wait before animating in. */
   delay?: number;
-  /** Animate only once when it enters the viewport. */
+  /** Play once instead of replaying each time it re-enters the viewport. */
   once?: boolean;
   /** Negative margin shrinks the trigger area; tweak when to fire. */
   amount?: number;
@@ -14,7 +14,7 @@ export interface FadeInProps extends HTMLMotionProps<'div'> {
 export function FadeIn({
   children,
   delay = 0,
-  once = true,
+  once = false,
   amount = 0.3,
   ...props
 }: FadeInProps) {

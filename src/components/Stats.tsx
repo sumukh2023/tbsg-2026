@@ -45,7 +45,7 @@ function useCountUp(
 
 function StatItem({ stat }: { stat: Stat }) {
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.5 });
+  const inView = useInView(ref, { once: false, amount: 0.5 });
   const value = useCountUp(stat.value, inView, 1400, stat.decimals ?? 0);
 
   return (

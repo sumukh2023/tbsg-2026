@@ -103,7 +103,7 @@ export function Regions() {
         <motion.div
           initial={{ opacity: 0, y: 32 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-15% 0px' }}
+          viewport={{ once: false, margin: '-15% 0px' }}
           transition={{ duration: 0.9, ease: EASE.out }}
           className="max-w-2xl"
         >

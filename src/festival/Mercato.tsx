@@ -60,7 +60,7 @@ export function Mercato() {
         <motion.div
           initial={{ opacity: 0, y: 32 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-15% 0px' }}
+          viewport={{ once: false, margin: '-15% 0px' }}
           transition={{ duration: 0.9, ease: EASE.out }}
           className="max-w-2xl"
         >
@@ -97,7 +97,7 @@ export function Mercato() {
             key={course.title}
             initial={{ opacity: 0, y: 32 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-10% 0px' }}
+            viewport={{ once: false, margin: '-10% 0px' }}
             transition={{ duration: 0.8, delay: ci * 0.12, ease: EASE.out }}
           >
             <h3 className="font-display text-3xl font-medium italic text-foreground">

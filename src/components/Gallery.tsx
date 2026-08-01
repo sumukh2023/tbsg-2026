@@ -34,7 +34,7 @@ export function Gallery({ items, className, columns = 3 }: GalleryProps) {
       variants={containerVariants(0.06)}
       initial="hidden"
       whileInView="visible"
-      viewport={{ once: true, amount: 0.15 }}
+      viewport={{ once: false, amount: 0.15 }}
       className={cn(
         'grid auto-rows-[180px] grid-cols-1 gap-4',
         colMap[columns],

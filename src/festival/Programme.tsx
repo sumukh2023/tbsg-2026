@@ -215,7 +215,7 @@ export function Programme() {
         <motion.div
           initial={{ opacity: 0, y: 32 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-15% 0px' }}
+          viewport={{ once: false, margin: '-15% 0px' }}
           transition={{ duration: 0.9, ease: EASE.out }}
           className="flex flex-wrap items-end justify-between gap-6"
         >
@@ -269,6 +269,10 @@ export function Programme() {
               aria-hidden={copy > 0 || undefined}
               initial={{ opacity: 0, y: 32 }}
               whileInView={{ opacity: 1, y: 0 }}
+              // Deliberately one-shot, unlike every other section: the loop
+              // relies on each copy of the acts rendering identically, and a
+              // card that re-runs its entrance every time the rotation carries
+              // it across the viewport edge would make the wrap visible.
               viewport={{ once: true, margin: '0px -5% 0px 0px' }}
               transition={{
                 duration: 0.7,

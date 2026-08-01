@@ -146,6 +146,71 @@ export function FloatingTextarea({
   );
 }
 
+/**
+ * Dropdown in the same floating-label register as the text fields. A native
+ * `select` on purpose: it gives the platform picker on phones, keyboard
+ * behaviour and screen-reader semantics for free, which no styled listbox
+ * matches. The label sits raised permanently, since a select always shows a
+ * value once one is chosen and the empty option carries the placeholder.
+ */
+export function FloatingSelect({
+  id,
+  label,
+  value,
+  onChange,
+  options,
+  error,
+  hint,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: readonly string[];
+  error?: string;
+  hint?: string;
+}) {
+  const errorId = `${id}-error`;
+  return (
+    <FieldShell error={error} hint={hint} errorId={errorId}>
+      <div className="relative">
+        <select
+          id={id}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? errorId : undefined}
+          className={cn(
+            inputBase,
+            'cursor-pointer appearance-none bg-[length:0.65rem] bg-[right_1rem_center] bg-no-repeat pr-10',
+            "bg-[image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23000' stroke-opacity='.45' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E\")]",
+            error ? 'border-destructive/70' : 'border-border',
+            value ? 'text-foreground' : 'text-transparent'
+          )}
+        >
+          <option value="" />
+          {options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+        <label
+          htmlFor={id}
+          className={cn(
+            'pointer-events-none absolute left-4 font-body text-muted-foreground transition-all duration-300',
+            value
+              ? 'top-3.5 text-xs tracking-wide'
+              : 'top-1/2 -translate-y-1/2 text-base'
+          )}
+        >
+          {label}
+        </label>
+      </div>
+    </FieldShell>
+  );
+}
+
 export function RadioPills({
   legend,
   name,
@@ -209,12 +274,15 @@ export function PassStepper({
   onChange,
   min = 1,
   max = 10,
+  hint,
 }: {
   label: string;
   value: number;
   onChange: (value: number) => void;
   min?: number;
   max?: number;
+  /** Overrides the default ceiling line, e.g. for unrestricted types. */
+  hint?: string;
 }) {
   const clamp = (next: number) => Math.min(max, Math.max(min, next));
   return (
@@ -267,7 +335,7 @@ export function PassStepper({
         </button>
       </div>
       <p className="mt-2 font-body text-xs text-muted-foreground/70">
-        Up to {max} {max === 1 ? 'pass' : 'passes'} per registration
+        {hint ?? `Up to ${max} ${max === 1 ? 'pass' : 'passes'} per registration`}
       </p>
     </div>
   );

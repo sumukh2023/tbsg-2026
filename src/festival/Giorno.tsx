@@ -30,7 +30,7 @@ export function Giorno() {
         <motion.div
           initial={{ opacity: 0, y: 32 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-15% 0px' }}
+          viewport={{ once: false, margin: '-15% 0px' }}
           transition={{ duration: 0.9, ease: EASE.out }}
           className="max-w-2xl"
         >
@@ -61,7 +61,7 @@ export function Giorno() {
                 key={moment.time}
                 initial={{ opacity: 0, x: -24 }}
                 whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true, margin: '-20% 0px' }}
+                viewport={{ once: false, margin: '-20% 0px' }}
                 transition={{ duration: 0.7, delay: (i % 2) * 0.05, ease: EASE.out }}
                 className="grid gap-2 pl-8 md:grid-cols-12 md:gap-6 md:pl-12"
               >

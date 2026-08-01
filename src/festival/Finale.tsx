@@ -7,7 +7,7 @@ import { EASE } from '@/utils/motion';
 
 export function Finale() {
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, margin: '-15% 0px' });
+  const inView = useInView(ref, { once: false, margin: '-15% 0px' });
 
   return (
     <section

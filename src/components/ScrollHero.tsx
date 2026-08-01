@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { motionValue, type MotionValue } from 'framer-motion';
 import { cn } from '@/utils/cn';
+import { detectEngine, scrubProfile } from '@/utils/engine';
 
 export interface ScrollHeroProps {
   /** Video served from public/, e.g. "/hero.mp4". */
@@ -84,19 +85,6 @@ export interface ScrollHeroProps {
  *
  * Under prefers-reduced-motion the film holds its first frame as a still.
  */
-/**
- * WebKit engine: Safari on macOS, iOS and iPadOS, and every iOS/iPadOS
- * browser, which are all WebKit underneath whatever badge they wear. The
- * vendor string is the one signal desktop Chrome, Edge and Firefox never
- * report, so their behaviour is left exactly as it was.
- */
-function isWebKit(): boolean {
-  return (
-    typeof navigator !== 'undefined' &&
-    navigator.vendor === 'Apple Computer, Inc.'
-  );
-}
-
 export function ScrollHero({
   src,
   webmSrc,
@@ -148,8 +136,14 @@ export function ScrollHero({
     // answer to the iPad, where a video that has never played may hold no
     // decoded frame and no buffered media, and therefore cannot serve a seek
     // at all — a film that is genuinely playing has both by definition.
+    const engine = detectEngine();
+    const profile = scrubProfile();
+    // fastSeek is Safari's own scrubbing API; guard on the method existing
+    // as well as the profile asking for it.
+    const useFastSeek =
+      profile.fastSeek && typeof video.fastSeek === 'function';
     let mode: 'play' | 'scrub' =
-      autoplayUntilScroll && isWebKit() && !reduced ? 'play' : 'scrub';
+      autoplayUntilScroll && engine === 'webkit' && !reduced ? 'play' : 'scrub';
     // Playback position carried across the handoff, so the frame on screen at
     // the moment of the handoff is the frame that stays on screen, and the
     // scroll progress at which it happened.
@@ -334,8 +328,21 @@ export function ScrollHero({
         const drift = Math.abs(video.currentTime - seekTo);
         // Skip sub-frame micro-seeks, and never stack a new seek on a
         // decoder that is still seeking unless we have fallen well behind.
-        if (drift > 0.02 && (!video.seeking || drift > 0.3)) {
-          video.currentTime = seekTo;
+        // Both thresholds come from the engine profile (src/utils/engine.ts).
+        // The `paused` guard covers the frames just after a WebKit handoff:
+        // the element has been told to pause but has not stopped yet, and
+        // seeking a still-playing decoder is what made that transition
+        // stutter.
+        if (
+          drift > profile.minSeek &&
+          video.paused &&
+          (!video.seeking || drift > profile.stackedSeek)
+        ) {
+          if (useFastSeek) {
+            video.fastSeek(seekTo);
+          } else {
+            video.currentTime = seekTo;
+          }
         }
       }
 

@@ -401,8 +401,14 @@ export function LiveUpdates() {
           transition={{ duration: 0.9, delay: 4.0, ease: EASE.out }}
           className="flex flex-col items-end gap-2.5"
         >
+          {/* The ticker oval is desktop and tablet only. On a phone it sat
+              directly over the page above the control, covering body copy
+              while it scrolled, and its own width left almost no room to
+              reach what was underneath. The control below carries the same
+              unread count, and the drawer carries the updates themselves,
+              so nothing is lost by folding it away on small screens. */}
           <AnimatePresence mode="popLayout">
-            {latest && !open && (
+            {latest && !open && !compact && (
               <Ticker key={latest.id} update={latest} onOpen={openPanel} />
             )}
           </AnimatePresence>

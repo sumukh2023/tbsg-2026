@@ -40,6 +40,10 @@ export default async function handler(
           name: pass.registrations?.full_name ?? '',
           visitor_type: pass.registrations?.visitor_type ?? '',
           number_of_passes: pass.registrations?.number_of_passes ?? 1,
+          // Present only on student passes; the gate reads them off the pass.
+          usn: pass.registrations?.usn ?? null,
+          class: pass.registrations?.class ?? null,
+          section: pass.registrations?.section ?? null,
         },
       },
     });

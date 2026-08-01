@@ -11,14 +11,15 @@ export type PassData = {
   guestName: string;
   visitorType: string;
   numberOfPasses: number;
+  /** School roll, present on student passes only. */
+  usn?: string | null;
+  studentClass?: string | null;
+  section?: string | null;
 };
 
 const visitorLabels: Record<string, string> = {
   student: 'Student',
   parent: 'Parent',
-  guest: 'Guest',
-  alumni: 'Alumni',
-  faculty: 'Faculty',
   other: 'Visitor',
 };
 
@@ -94,6 +95,27 @@ export function PassCard({ pass }: { pass: PassData }) {
                 {pass.numberOfPasses}
               </dd>
             </div>
+            {/* The gate reads the roll straight off a student pass. */}
+            {pass.usn && (
+              <div>
+                <dt className="font-body text-2xs uppercase tracking-[0.16em] text-muted-foreground">
+                  USN
+                </dt>
+                <dd className="mt-1 font-body text-sm tabular-nums text-foreground">
+                  {pass.usn}
+                </dd>
+              </div>
+            )}
+            {(pass.studentClass || pass.section) && (
+              <div>
+                <dt className="font-body text-2xs uppercase tracking-[0.16em] text-muted-foreground">
+                  Class
+                </dt>
+                <dd className="mt-1 font-body text-sm text-foreground">
+                  {[pass.studentClass, pass.section].filter(Boolean).join(' ')}
+                </dd>
+              </div>
+            )}
           </dl>
         </div>
 

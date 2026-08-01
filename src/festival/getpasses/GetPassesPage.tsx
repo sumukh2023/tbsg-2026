@@ -11,21 +11,47 @@ import {
   FloatingInput,
   FloatingTextarea,
   PassStepper,
+  FloatingSelect,
   RadioPills,
 } from './fields';
 
 const VISITOR_TYPES = [
   { value: 'student', label: 'Student' },
   { value: 'parent', label: 'Parent' },
-  { value: 'guest', label: 'Guest' },
-  { value: 'alumni', label: 'Alumni' },
-  { value: 'faculty', label: 'Faculty' },
   { value: 'other', label: 'Other' },
 ] as const;
 
-// One pass ceiling for every visitor type. Mirrors MAX_PASSES in
-// api/_shared.ts; the server re-validates and never trusts this.
-const MAX_PASSES = 10;
+// Passes each visitor type may reserve; `null` is unrestricted. Mirrors
+// PASS_LIMITS in api/_shared.ts; the server re-validates and never trusts
+// this copy.
+const PASS_LIMITS: Record<string, number | null> = {
+  student: 1,
+  parent: 2,
+  other: null,
+};
+
+/** Ceiling for the stepper: unrestricted types still need a sane top stop. */
+const OPEN_LIMIT = 20;
+
+const CLASSES = [
+  'Nursery',
+  'LKG',
+  'UKG',
+  'Grade 1',
+  'Grade 2',
+  'Grade 3',
+  'Grade 4',
+  'Grade 5',
+  'Grade 6',
+  'Grade 7',
+  'Grade 8',
+  'Grade 9',
+  'Grade 10',
+  'Grade 11',
+  'Grade 12',
+] as const;
+
+const SECTIONS = ['A', 'B', 'C', 'D'] as const;
 
 const STEPS = ['Visitor', 'Booking', 'Details', 'Confirm'] as const;
 
@@ -35,6 +61,9 @@ type FormState = {
   phone: string;
   passes: number;
   visitorType: string;
+  usn: string;
+  studentClass: string;
+  section: string;
   accessibility: string;
   comments: string;
 };
@@ -47,6 +76,9 @@ const initialForm: FormState = {
   phone: '',
   passes: 1,
   visitorType: '',
+  usn: '',
+  studentClass: '',
+  section: '',
   accessibility: '',
   comments: '',
 };
@@ -67,8 +99,23 @@ function validateStep(step: number, form: FormState): Errors {
   if (step === 1) {
     if (!VISITOR_TYPES.some((t) => t.value === form.visitorType)) {
       errors.visitorType = 'Choose the option that fits you best.';
-    } else if (form.passes < 1 || form.passes > MAX_PASSES) {
-      errors.passes = `Up to ${MAX_PASSES} passes per registration.`;
+    } else {
+      const limit = PASS_LIMITS[form.visitorType] ?? OPEN_LIMIT;
+      if (form.passes < 1 || form.passes > limit) {
+        errors.passes =
+          PASS_LIMITS[form.visitorType] === null
+            ? 'Please enter at least one pass.'
+            : `A ${form.visitorType} registration includes ${limit} ${limit === 1 ? 'pass' : 'passes'}.`;
+      }
+      if (form.visitorType === 'student') {
+        if (!form.usn.trim()) errors.usn = 'Please enter the student USN.';
+        if (!CLASSES.includes(form.studentClass as (typeof CLASSES)[number])) {
+          errors.studentClass = 'Choose the class.';
+        }
+        if (!SECTIONS.includes(form.section as (typeof SECTIONS)[number])) {
+          errors.section = 'Choose the section.';
+        }
+      }
     }
   }
   if (step === 2) {
@@ -219,6 +266,10 @@ function SuccessView({ pass, form }: { pass: MintedPass; form: FormState }) {
               guestName: form.fullName.trim(),
               visitorType: form.visitorType,
               numberOfPasses: form.passes,
+              usn: form.visitorType === 'student' ? form.usn.trim() : null,
+              studentClass:
+                form.visitorType === 'student' ? form.studentClass : null,
+              section: form.visitorType === 'student' ? form.section : null,
             }}
           />
           <p className="mx-auto mt-5 max-w-sm font-body text-xs leading-relaxed text-muted-foreground">
@@ -338,6 +389,11 @@ export default function GetPassesPage() {
           phone: form.phone.replace(/\s/g, ''),
           visitor_type: form.visitorType,
           number_of_passes: form.passes,
+          // Only students carry a school roll; the server refuses these
+          // fields on any other visitor type.
+          usn: form.visitorType === 'student' ? form.usn.trim() : null,
+          class: form.visitorType === 'student' ? form.studentClass : null,
+          section: form.visitorType === 'student' ? form.section : null,
           accessibility_requirements: form.accessibility.trim() || null,
           comments: form.comments.trim() || null,
           website: '', // honeypot, stays empty for humans
@@ -525,7 +581,14 @@ export default function GetPassesPage() {
                           name="visitorType"
                           options={VISITOR_TYPES}
                           value={form.visitorType}
-                          onChange={(v) => set('visitorType', v)}
+                          onChange={(v) => {
+                            set('visitorType', v);
+                            // Clamp into the new ceiling. Student roll values
+                            // are deliberately NOT cleared here: switching away
+                            // and back preserves whatever was typed.
+                            const limit = PASS_LIMITS[v] ?? OPEN_LIMIT;
+                            if (form.passes > limit) set('passes', limit);
+                          }}
                           error={errors.visitorType}
                         />
                         {form.visitorType ? (
@@ -538,10 +601,61 @@ export default function GetPassesPage() {
                               label="Number of passes"
                               value={form.passes}
                               onChange={(v) => set('passes', v)}
-                              max={MAX_PASSES}
+                              max={PASS_LIMITS[form.visitorType] ?? OPEN_LIMIT}
+                              hint={
+                                PASS_LIMITS[form.visitorType] === null
+                                  ? 'As many as your party needs'
+                                  : undefined
+                              }
                             />
                           </motion.div>
                         ) : null}
+                        {/* School roll: revealed for students, folded away
+                            cleanly for everyone else. Values survive the
+                            round trip because they live in the same form
+                            state, which is never reset on type change. */}
+                        <AnimatePresence initial={false}>
+                          {form.visitorType === 'student' && (
+                            <motion.div
+                              key="student-roll"
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              transition={{ duration: 0.45, ease: EASE.out }}
+                              className="overflow-hidden"
+                            >
+                              <div className="space-y-1 pt-2">
+                                <FloatingInput
+                                  id="usn"
+                                  label="USN"
+                                  value={form.usn}
+                                  onChange={(v) => set('usn', v)}
+                                  error={errors.usn}
+                                  maxLength={20}
+                                  autoComplete="off"
+                                />
+                                <div className="grid gap-1 sm:grid-cols-2">
+                                  <FloatingSelect
+                                    id="studentClass"
+                                    label="Class"
+                                    value={form.studentClass}
+                                    onChange={(v) => set('studentClass', v)}
+                                    error={errors.studentClass}
+                                    options={CLASSES}
+                                  />
+                                  <FloatingSelect
+                                    id="section"
+                                    label="Section"
+                                    value={form.section}
+                                    onChange={(v) => set('section', v)}
+                                    error={errors.section}
+                                    options={SECTIONS}
+                                  />
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
                     )}
 
@@ -590,6 +704,13 @@ export default function GetPassesPage() {
                             value={`${form.passes} · ${visitorLabel}`}
                             onEdit={() => goTo(1)}
                           />
+                          {form.visitorType === 'student' && (
+                            <SummaryRow
+                              label="Student"
+                              value={`${form.usn.trim()} · ${form.studentClass} ${form.section}`}
+                              onEdit={() => goTo(1)}
+                            />
+                          )}
                           {form.accessibility.trim() && (
                             <SummaryRow
                               label="Access"

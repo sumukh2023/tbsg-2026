@@ -42,7 +42,7 @@ function Measure({
   delay,
 }: MeasureData & { delay: number }) {
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, margin: '-20% 0px' });
+  const inView = useInView(ref, { once: false, margin: '-20% 0px' });
 
   return (
     <motion.div
@@ -85,7 +85,7 @@ function Measure({
 
 export function Missione() {
   const headRef = useRef<HTMLDivElement>(null);
-  const headInView = useInView(headRef, { once: true, margin: '-25% 0px' });
+  const headInView = useInView(headRef, { once: false, margin: '-25% 0px' });
 
   return (
     <section

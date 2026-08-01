@@ -14,7 +14,7 @@ function Statement({
   className?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, margin: '-20% 0px' });
+  const inView = useInView(ref, { once: false, margin: '-20% 0px' });
 
   return (
     <div ref={ref} className={className}>
@@ -58,7 +58,7 @@ export function Overture() {
         <motion.div
           initial={{ opacity: 0, scaleX: 0 }}
           whileInView={{ opacity: 1, scaleX: 1 }}
-          viewport={{ once: true, margin: '-15% 0px' }}
+          viewport={{ once: false, margin: '-15% 0px' }}
           transition={{ duration: 0.9, ease: EASE.out }}
           className="origin-left"
         >
@@ -82,7 +82,7 @@ export function Overture() {
                 visible: { opacity: 1, y: 0 },
               }}
               transition={{ duration: 0.9, ease: EASE.out }}
-              viewOptions={{ once: true, margin: '-15% 0px' }}
+              viewOptions={{ once: false, margin: '-15% 0px' }}
             >
               <p className="font-body text-base leading-relaxed text-muted-foreground">
                 Flash began in November 2023, when Rangeelo Rajasthan turned
@@ -99,7 +99,7 @@ export function Overture() {
                 visible: { opacity: 1, y: 0 },
               }}
               transition={{ duration: 0.9, delay: 0.15, ease: EASE.out }}
-              viewOptions={{ once: true, margin: '-15% 0px' }}
+              viewOptions={{ once: false, margin: '-15% 0px' }}
             >
               <p className="font-body text-base leading-relaxed text-muted-foreground">
                 The tradition continues; the destination changes. This year the

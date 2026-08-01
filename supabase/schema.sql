@@ -9,9 +9,20 @@ create table if not exists public.registrations (
   email text not null,
   phone text not null,
   visitor_type text not null
-    check (visitor_type in ('student', 'parent', 'guest', 'alumni', 'faculty', 'other')),
+    check (visitor_type in ('student', 'parent', 'other')),
+  -- Tiered ceilings live in the API (api/_shared.ts PASS_LIMITS): student 1,
+  -- parent 2, other unrestricted. The column only guards the lower bound so
+  -- an unrestricted booking is not silently truncated at the database.
   number_of_passes integer not null
-    check (number_of_passes between 1 and 10),
+    check (number_of_passes >= 1),
+  -- School roll, populated for students only.
+  usn varchar(20),
+  class text,
+  section text,
+  constraint registrations_student_details check (
+    visitor_type <> 'student'
+    or (usn is not null and class is not null and section is not null)
+  ),
   accessibility_requirements text,
   comments text,
   status text not null default 'received'

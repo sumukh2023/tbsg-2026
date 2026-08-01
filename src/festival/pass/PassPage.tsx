@@ -204,6 +204,9 @@ export default function PassPage() {
             guestName: data.pass.guest.name,
             visitorType: data.pass.guest.visitor_type,
             numberOfPasses: data.pass.guest.number_of_passes,
+            usn: data.pass.guest.usn,
+            studentClass: data.pass.guest.class,
+            section: data.pass.guest.section,
           },
         });
       } catch {

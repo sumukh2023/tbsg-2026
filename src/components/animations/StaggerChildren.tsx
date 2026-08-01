@@ -17,7 +17,7 @@ export function StaggerChildren({
   children,
   stagger = 0.08,
   delayChildren = 0,
-  once = true,
+  once = false,
   amount = 0.2,
   ...props
 }: StaggerChildrenProps) {

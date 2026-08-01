@@ -9,31 +9,29 @@
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import {
+  CLASSES,
   cleanText,
   jsonBody,
-  MAX_PASSES,
+  PASS_LIMITS,
   passReference,
   randomToken,
+  SECTIONS,
   send,
   sha256Hex,
   supabaseEnv,
+  VISITOR_TYPES,
+  type VisitorType,
 } from './_shared.js';
-
-const VISITOR_TYPES = [
-  'student',
-  'parent',
-  'guest',
-  'alumni',
-  'faculty',
-  'other',
-];
 
 type Payload = {
   full_name: string;
   email: string;
   phone: string;
-  visitor_type: string;
+  visitor_type: VisitorType;
   number_of_passes: number;
+  usn: string | null;
+  class: string | null;
+  section: string | null;
   accessibility_requirements: string | null;
   comments: string | null;
 };
@@ -52,17 +50,40 @@ function validate(body: Record<string, unknown>): Payload | string {
     return 'A valid 10-digit Indian mobile number is required.';
   }
 
-  const visitor_type =
-    typeof body.visitor_type === 'string' ? body.visitor_type : '';
+  const visitor_type = (
+    typeof body.visitor_type === 'string' ? body.visitor_type : ''
+  ) as VisitorType;
   if (!VISITOR_TYPES.includes(visitor_type)) {
     return 'Visitor type is not recognised.';
   }
 
-  // One ceiling for every visitor type; the client mirrors it but is never
-  // trusted.
+  // Tiered ceilings; the client mirrors these but is never trusted. A null
+  // limit is unrestricted, so only the lower bound and integrality apply.
+  const limit = PASS_LIMITS[visitor_type];
   const passes = Number(body.number_of_passes);
-  if (!Number.isInteger(passes) || passes < 1 || passes > MAX_PASSES) {
-    return `A registration can include between 1 and ${MAX_PASSES} passes.`;
+  if (!Number.isInteger(passes) || passes < 1) {
+    return 'A registration must include at least one pass.';
+  }
+  if (limit !== null && passes > limit) {
+    return `A ${visitor_type} registration can include ${limit} ${limit === 1 ? 'pass' : 'passes'}.`;
+  }
+
+  // School roll details, required for students and refused for everyone
+  // else so a stray client cannot attach them to a non-student record.
+  let usn: string | null = null;
+  let className: string | null = null;
+  let section: string | null = null;
+  if (visitor_type === 'student') {
+    usn = cleanText(body.usn, 20);
+    if (!usn) return 'A USN is required for student registrations.';
+    className = cleanText(body.class, 20);
+    if (!className || !CLASSES.includes(className as (typeof CLASSES)[number])) {
+      return 'Choose the class the student is in.';
+    }
+    section = cleanText(body.section, 2);
+    if (!section || !SECTIONS.includes(section as (typeof SECTIONS)[number])) {
+      return 'Choose the student\'s section.';
+    }
   }
 
   return {
@@ -71,6 +92,9 @@ function validate(body: Record<string, unknown>): Payload | string {
     phone,
     visitor_type,
     number_of_passes: passes,
+    usn,
+    class: className,
+    section,
     accessibility_requirements: cleanText(body.accessibility_requirements, 500),
     comments: cleanText(body.comments, 500),
   };

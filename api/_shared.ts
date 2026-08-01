@@ -88,13 +88,43 @@ export async function sha256Hex(value: string): Promise<string> {
     .join('');
 }
 
+/** The only visitor types the festival issues passes for. */
+export const VISITOR_TYPES = ['student', 'parent', 'other'] as const;
+export type VisitorType = (typeof VISITOR_TYPES)[number];
+
 /**
- * Maximum passes per registration — one ceiling for every visitor type.
- * Mirrored in the Get Passes UI (src/festival/getpasses/GetPassesPage.tsx);
- * keep in sync. The `registrations.number_of_passes` check constraint in
- * supabase/schema.sql already permits 1..10, so this needs no migration.
+ * Passes a visitor type may reserve. `null` is deliberately unrestricted:
+ * "other" covers stallholders, vendors and visiting troupes, whose party
+ * size is not something the form should be guessing at. Mirrored in the Get
+ * Passes UI (src/festival/getpasses/GetPassesPage.tsx); the server
+ * re-validates and never trusts the client's copy.
  */
-export const MAX_PASSES = 10;
+export const PASS_LIMITS: Record<VisitorType, number | null> = {
+  student: 1,
+  parent: 2,
+  other: null,
+};
+
+/** Classes a student can be in, oldest form of the school roll first. */
+export const CLASSES = [
+  'Nursery',
+  'LKG',
+  'UKG',
+  'Grade 1',
+  'Grade 2',
+  'Grade 3',
+  'Grade 4',
+  'Grade 5',
+  'Grade 6',
+  'Grade 7',
+  'Grade 8',
+  'Grade 9',
+  'Grade 10',
+  'Grade 11',
+  'Grade 12',
+] as const;
+
+export const SECTIONS = ['A', 'B', 'C', 'D'] as const;
 
 /** Human-friendly pass reference, e.g. FB26-K7M3Q (no confusable glyphs). */
 export function passReference(): string {
@@ -119,6 +149,9 @@ export type PassRow = {
     full_name: string;
     visitor_type: string;
     number_of_passes: number;
+    usn: string | null;
+    class: string | null;
+    section: string | null;
   };
 };
 
@@ -131,7 +164,7 @@ export async function findPassByToken(
   const url =
     `${env.url}/rest/v1/passes` +
     `?select=id,registration_id,pass_reference,status,issued_at,checked_in_at,checked_in_by,` +
-    `registrations(full_name,visitor_type,number_of_passes)` +
+    `registrations(full_name,visitor_type,number_of_passes,usn,class,section)` +
     `&verification_token_hash=eq.${hash}&limit=1`;
   const response = await fetch(url, { headers: env.headers });
   if (!response.ok) throw new Error('pass lookup failed');
