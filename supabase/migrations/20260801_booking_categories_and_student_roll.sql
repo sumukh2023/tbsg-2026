@@ -63,4 +63,20 @@ alter table public.registrations
     or (usn is not null and class is not null and section is not null)
   ) not valid;
 
+-- ---------------------------------------------------------------------
+-- 5. Index. The gate and the office look students up by USN; partial so it
+--    indexes only the rows that have one (students) rather than carrying a
+--    null entry for every parent and visitor.
+-- ---------------------------------------------------------------------
+create index if not exists registrations_usn_idx
+  on public.registrations (usn)
+  where usn is not null;
+
+-- ---------------------------------------------------------------------
+-- The passes table needs NO changes. A pass points at its registration and
+-- the APIs read the roll through that join
+-- (api/_shared.ts findPassByToken), so USN, class and section reach the pass
+-- and the gate without being duplicated onto a second table.
+-- ---------------------------------------------------------------------
+
 commit;

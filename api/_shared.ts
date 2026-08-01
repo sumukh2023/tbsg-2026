@@ -93,16 +93,16 @@ export const VISITOR_TYPES = ['student', 'parent', 'other'] as const;
 export type VisitorType = (typeof VISITOR_TYPES)[number];
 
 /**
- * Passes a visitor type may reserve. `null` is deliberately unrestricted:
- * "other" covers stallholders, vendors and visiting troupes, whose party
- * size is not something the form should be guessing at. Mirrored in the Get
- * Passes UI (src/festival/getpasses/GetPassesPage.tsx); the server
+ * Passes a visitor type may reserve. "Other" covers stallholders, vendors and
+ * visiting troupes, so it is not held to a small fixed party size, but it is
+ * capped: an unbounded integer on a public form is an invitation. Mirrored in
+ * the Get Passes UI (src/festival/getpasses/GetPassesPage.tsx); the server
  * re-validates and never trusts the client's copy.
  */
-export const PASS_LIMITS: Record<VisitorType, number | null> = {
+export const PASS_LIMITS: Record<VisitorType, number> = {
   student: 1,
   parent: 2,
-  other: null,
+  other: 50,
 };
 
 /** Classes a student can be in, oldest form of the school roll first. */

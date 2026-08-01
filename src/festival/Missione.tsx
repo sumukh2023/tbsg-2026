@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { AnimatePresence, motion, useInView } from 'framer-motion';
 import { AnimatedNumber } from '@/components/motion/animated-number';
 import { TextEffect } from '@/components/motion/text-effect';
-import { EASE } from '@/utils/motion';
+import { EASE, REVEAL_VIEWPORT } from '@/utils/motion';
 import { Grain } from './materials';
 
 type MeasureData = {
@@ -42,7 +42,7 @@ function Measure({
   delay,
 }: MeasureData & { delay: number }) {
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: false, margin: '-20% 0px' });
+  const inView = useInView(ref, REVEAL_VIEWPORT);
 
   return (
     <motion.div
@@ -85,7 +85,7 @@ function Measure({
 
 export function Missione() {
   const headRef = useRef<HTMLDivElement>(null);
-  const headInView = useInView(headRef, { once: false, margin: '-25% 0px' });
+  const headInView = useInView(headRef, REVEAL_VIEWPORT);
 
   return (
     <section

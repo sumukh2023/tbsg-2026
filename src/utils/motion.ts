@@ -19,6 +19,29 @@ export const DURATION = {
   slow: 0.9,
 } as const;
 
+/**
+ * Viewport rule for every scroll reveal on the site.
+ *
+ * `amount` rather than `margin` on purpose. An asymmetric margin like
+ * '-15% 0px' puts the enter threshold and the leave threshold at different
+ * places on the screen, so a section appears at one point on the way down and
+ * disappears at another on the way up — which is exactly what made the
+ * reverse pass feel less considered than the forward one. A fraction of the
+ * element is symmetric by construction: the same crossing, both directions.
+ */
+export const REVEAL_VIEWPORT = { once: false, amount: 0.25 } as const;
+
+/**
+ * Transition for those reveals. `inOut` rather than `out`: an ease-out curve
+ * played backwards is an ease-in, so a reveal tuned to feel right on the way
+ * down feels wrong on the way up. A symmetric curve reads identically in both
+ * directions, which is the whole point of a reversible animation.
+ */
+export const REVEAL_TRANSITION: Transition = {
+  duration: DURATION.slow,
+  ease: EASE.inOut,
+};
+
 export const springSoft: Transition = {
   type: 'spring',
   stiffness: 120,

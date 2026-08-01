@@ -39,6 +39,11 @@ alter table public.registrations enable row level security;
 create index if not exists registrations_email_created_idx
   on public.registrations (email, created_at desc);
 
+-- Student lookups by USN. Partial: only student rows carry one.
+create index if not exists registrations_usn_idx
+  on public.registrations (usn)
+  where usn is not null;
+
 -- ---------------------------------------------------------------------
 -- Digital passes: one per registration, verified on event day by token.
 -- The QR encodes an opaque token; only its SHA-256 hash is stored here.

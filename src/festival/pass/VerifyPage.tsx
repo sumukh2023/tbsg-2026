@@ -99,8 +99,7 @@ function QrScanner({
                     canvas.width,
                     canvas.height
                   );
-                  raw =
-                    jsqr(image.data, image.width, image.height)?.data ?? '';
+                  raw = jsqr(image.data, image.width, image.height)?.data ?? '';
                 }
               }
             }
@@ -205,6 +204,10 @@ type Guest = {
   name: string;
   visitor_type: string;
   number_of_passes: number;
+  /** School roll, returned for student passes only. */
+  usn?: string | null;
+  class?: string | null;
+  section?: string | null;
 };
 
 type VerifyState =
@@ -212,7 +215,8 @@ type VerifyState =
   | { phase: 'checking' }
   | {
       phase: 'result';
-      result: 'valid' | 'checked_in' | 'already_checked_in' | 'cancelled' | 'invalid';
+      result:
+        'valid' | 'checked_in' | 'already_checked_in' | 'cancelled' | 'invalid';
       reference?: string;
       guest?: Guest;
       checkedInAt?: string | null;
@@ -226,10 +230,12 @@ type VerifyState =
 const visitorLabels: Record<string, string> = {
   student: 'Student',
   parent: 'Parent',
+  other: 'Visitor',
+  // Retired categories, kept so passes issued before the change still read
+  // correctly at the gate.
   guest: 'Guest',
   alumni: 'Alumni',
   faculty: 'Faculty',
-  other: 'Visitor',
 };
 
 function formatTime(iso: string | null | undefined): string {
@@ -374,7 +380,10 @@ export default function VerifyPage() {
                 className="mt-5 w-full rounded-lg border border-border bg-background/40 px-4 py-3.5 font-body text-base text-foreground outline-none transition-[border-color,box-shadow] duration-300 focus:border-primary focus:shadow-[0_0_0_1px_hsl(var(--primary)/0.4)]"
               />
               {state.message && (
-                <p role="alert" className="mt-2 font-body text-sm text-destructive">
+                <p
+                  role="alert"
+                  className="mt-2 font-body text-sm text-destructive"
+                >
                   {state.message}
                 </p>
               )}
@@ -388,7 +397,10 @@ export default function VerifyPage() {
           )}
 
           {state.phase === 'checking' && (
-            <div className="flex flex-col items-center gap-4 text-center" aria-live="polite">
+            <div
+              className="flex flex-col items-center gap-4 text-center"
+              aria-live="polite"
+            >
               <span
                 aria-hidden="true"
                 className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-primary"
@@ -488,6 +500,42 @@ export default function VerifyPage() {
                         {state.reference}
                       </dd>
                     </div>
+                    {/* The school roll, on the same card in the same register,
+                        and only for students: rendering empty cells for a
+                        parent would make every other pass look incomplete. */}
+                    {state.guest.visitor_type === 'student' &&
+                      state.guest.usn && (
+                        <div>
+                          <dt className="font-body text-2xs uppercase tracking-[0.14em] text-muted-foreground">
+                            USN
+                          </dt>
+                          <dd className="mt-1 font-body text-sm tabular-nums tracking-wide text-foreground">
+                            {state.guest.usn}
+                          </dd>
+                        </div>
+                      )}
+                    {state.guest.visitor_type === 'student' &&
+                      state.guest.class && (
+                        <div>
+                          <dt className="font-body text-2xs uppercase tracking-[0.14em] text-muted-foreground">
+                            Class
+                          </dt>
+                          <dd className="mt-1 font-body text-sm text-foreground">
+                            {state.guest.class}
+                          </dd>
+                        </div>
+                      )}
+                    {state.guest.visitor_type === 'student' &&
+                      state.guest.section && (
+                        <div>
+                          <dt className="font-body text-2xs uppercase tracking-[0.14em] text-muted-foreground">
+                            Section
+                          </dt>
+                          <dd className="mt-1 font-body text-sm text-foreground">
+                            {state.guest.section}
+                          </dd>
+                        </div>
+                      )}
                   </dl>
                 </>
               ) : (

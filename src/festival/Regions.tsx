@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { TransitionPanel } from '@/components/motion/transition-panel';
 import { cn } from '@/utils/cn';
-import { EASE } from '@/utils/motion';
+import { EASE, REVEAL_TRANSITION, REVEAL_VIEWPORT } from '@/utils/motion';
 import { ArchFrame, Grain, MarbleVeins } from './materials';
 
 type Region = {
@@ -103,8 +103,8 @@ export function Regions() {
         <motion.div
           initial={{ opacity: 0, y: 32 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: false, margin: '-15% 0px' }}
-          transition={{ duration: 0.9, ease: EASE.out }}
+          viewport={REVEAL_VIEWPORT}
+          transition={REVEAL_TRANSITION}
           className="max-w-2xl"
         >
           <h2

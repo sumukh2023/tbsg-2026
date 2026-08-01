@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { FAQ } from '@/components/FAQ';
-import { EASE } from '@/utils/motion';
+import { EASE, REVEAL_TRANSITION, REVEAL_VIEWPORT } from '@/utils/motion';
 
 const items = [
   {
@@ -43,8 +43,8 @@ export function Domande() {
           <motion.div
             initial={{ opacity: 0, y: 32 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: false, margin: '-15% 0px' }}
-            transition={{ duration: 0.9, ease: EASE.out }}
+            viewport={REVEAL_VIEWPORT}
+            transition={REVEAL_TRANSITION}
             className="md:col-span-4"
           >
             <h2
@@ -67,7 +67,7 @@ export function Domande() {
           <motion.div
             initial={{ opacity: 0, y: 32 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: false, margin: '-15% 0px' }}
+            viewport={REVEAL_VIEWPORT}
             transition={{ duration: 0.9, delay: 0.15, ease: EASE.out }}
             className="md:col-span-8"
           >

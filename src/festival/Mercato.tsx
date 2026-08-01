@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { InfiniteSlider } from '@/components/motion/infinite-slider';
-import { EASE } from '@/utils/motion';
+import { EASE, REVEAL_TRANSITION, REVEAL_VIEWPORT } from '@/utils/motion';
 
 const marqueeDishes = [
   'Cacio e Pepe',
@@ -21,30 +21,78 @@ const courses: Course[] = [
     title: 'La Cucina',
     note: 'Hot, from the pans of the senior brigade',
     dishes: [
-      { name: 'Cacio e Pepe', price: '₹180', body: 'Pecorino, cracked pepper, nothing else.' },
-      { name: 'Arancini di Riso', price: '₹120', body: 'Saffron rice, fried to a shell.' },
-      { name: 'Margherita al Forno', price: '₹160', body: 'Wood-fired, basil torn at the counter.' },
-      { name: 'Polenta e Funghi', price: '₹140', body: 'Soft polenta under pan-dark mushrooms.' },
+      {
+        name: 'Cacio e Pepe',
+        price: '₹180',
+        body: 'Pecorino, cracked pepper, nothing else.',
+      },
+      {
+        name: 'Arancini di Riso',
+        price: '₹120',
+        body: 'Saffron rice, fried to a shell.',
+      },
+      {
+        name: 'Margherita al Forno',
+        price: '₹160',
+        body: 'Wood-fired, basil torn at the counter.',
+      },
+      {
+        name: 'Polenta e Funghi',
+        price: '₹140',
+        body: 'Soft polenta under pan-dark mushrooms.',
+      },
     ],
   },
   {
     title: 'Il Forno',
     note: 'Baked through the morning by Class X',
     dishes: [
-      { name: 'Focaccia al Rosmarino', price: '₹90', body: 'Olive oil pooled in every dimple.' },
-      { name: 'Grissini e Ricotta', price: '₹110', body: 'Hand-rolled sticks, whipped ricotta.' },
-      { name: 'Cornetti alla Crema', price: '₹80', body: 'Custard-filled, dusted warm.' },
-      { name: 'Pane e Pomodoro', price: '₹70', body: 'Grilled bread, crushed tomato, salt.' },
+      {
+        name: 'Focaccia al Rosmarino',
+        price: '₹90',
+        body: 'Olive oil pooled in every dimple.',
+      },
+      {
+        name: 'Grissini e Ricotta',
+        price: '₹110',
+        body: 'Hand-rolled sticks, whipped ricotta.',
+      },
+      {
+        name: 'Cornetti alla Crema',
+        price: '₹80',
+        body: 'Custard-filled, dusted warm.',
+      },
+      {
+        name: 'Pane e Pomodoro',
+        price: '₹70',
+        body: 'Grilled bread, crushed tomato, salt.',
+      },
     ],
   },
   {
     title: 'La Gelateria',
     note: 'Churned in small batches all day',
     dishes: [
-      { name: 'Gelato al Pistacchio', price: '₹100', body: 'The queue you will hear about.' },
-      { name: 'Affogato', price: '₹120', body: 'Espresso poured over vanilla gelato.' },
-      { name: 'Cannoli Siciliani', price: '₹110', body: 'Filled to order so the shell snaps.' },
-      { name: 'Tiramisù', price: '₹130', body: 'Set overnight in the home-science lab.' },
+      {
+        name: 'Gelato al Pistacchio',
+        price: '₹100',
+        body: 'The queue you will hear about.',
+      },
+      {
+        name: 'Affogato',
+        price: '₹120',
+        body: 'Espresso poured over vanilla gelato.',
+      },
+      {
+        name: 'Cannoli Siciliani',
+        price: '₹110',
+        body: 'Filled to order so the shell snaps.',
+      },
+      {
+        name: 'Tiramisù',
+        price: '₹130',
+        body: 'Set overnight in the home-science lab.',
+      },
     ],
   },
 ];
@@ -60,8 +108,8 @@ export function Mercato() {
         <motion.div
           initial={{ opacity: 0, y: 32 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: false, margin: '-15% 0px' }}
-          transition={{ duration: 0.9, ease: EASE.out }}
+          viewport={REVEAL_VIEWPORT}
+          transition={REVEAL_TRANSITION}
           className="max-w-2xl"
         >
           <h2
@@ -97,7 +145,7 @@ export function Mercato() {
             key={course.title}
             initial={{ opacity: 0, y: 32 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: false, margin: '-10% 0px' }}
+            viewport={REVEAL_VIEWPORT}
             transition={{ duration: 0.8, delay: ci * 0.12, ease: EASE.out }}
           >
             <h3 className="font-display text-3xl font-medium italic text-foreground">

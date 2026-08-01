@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom';
 import { motion, useInView } from 'framer-motion';
 import { TextEffect } from '@/components/motion/text-effect';
 import { Magnetic } from '@/components/motion/magnetic';
-import { EASE } from '@/utils/motion';
+import { EASE, REVEAL_VIEWPORT } from '@/utils/motion';
 
 export function Finale() {
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: false, margin: '-15% 0px' });
+  const inView = useInView(ref, REVEAL_VIEWPORT);
 
   return (
     <section
@@ -38,7 +38,9 @@ export function Finale() {
           transition={{ duration: 0.8, delay: 0.9, ease: EASE.out }}
           className="mx-auto mt-8 max-w-xl font-body text-base leading-relaxed text-muted-foreground"
         >
-          <span className="block">Saturday, 14 November 2026, 09:30 to 20:00.</span>
+          <span className="block">
+            Saturday, 14 November 2026, 09:30 to 20:00.
+          </span>
           <span className="block sm:whitespace-nowrap">
             The Brigade School @ Malleswaram, Bengaluru.
           </span>

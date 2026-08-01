@@ -2,7 +2,7 @@ import { InView } from '@/components/motion/in-view';
 import { TextEffect } from '@/components/motion/text-effect';
 import { useRef } from 'react';
 import { motion, useInView } from 'framer-motion';
-import { EASE } from '@/utils/motion';
+import { EASE, REVEAL_TRANSITION, REVEAL_VIEWPORT } from '@/utils/motion';
 import { GoldRule } from './materials';
 
 /** Large serif statement lines that surface one by one as the reader arrives. */
@@ -14,7 +14,7 @@ function Statement({
   className?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: false, margin: '-20% 0px' });
+  const inView = useInView(ref, REVEAL_VIEWPORT);
 
   return (
     <div ref={ref} className={className}>
@@ -58,8 +58,8 @@ export function Overture() {
         <motion.div
           initial={{ opacity: 0, scaleX: 0 }}
           whileInView={{ opacity: 1, scaleX: 1 }}
-          viewport={{ once: false, margin: '-15% 0px' }}
-          transition={{ duration: 0.9, ease: EASE.out }}
+          viewport={REVEAL_VIEWPORT}
+          transition={REVEAL_TRANSITION}
           className="origin-left"
         >
           <GoldRule />
@@ -81,8 +81,8 @@ export function Overture() {
                 hidden: { opacity: 0, y: 32 },
                 visible: { opacity: 1, y: 0 },
               }}
-              transition={{ duration: 0.9, ease: EASE.out }}
-              viewOptions={{ once: false, margin: '-15% 0px' }}
+              transition={REVEAL_TRANSITION}
+              viewOptions={REVEAL_VIEWPORT}
             >
               <p className="font-body text-base leading-relaxed text-muted-foreground">
                 Flash began in November 2023, when Rangeelo Rajasthan turned
@@ -99,7 +99,7 @@ export function Overture() {
                 visible: { opacity: 1, y: 0 },
               }}
               transition={{ duration: 0.9, delay: 0.15, ease: EASE.out }}
-              viewOptions={{ once: false, margin: '-15% 0px' }}
+              viewOptions={REVEAL_VIEWPORT}
             >
               <p className="font-body text-base leading-relaxed text-muted-foreground">
                 The tradition continues; the destination changes. This year the

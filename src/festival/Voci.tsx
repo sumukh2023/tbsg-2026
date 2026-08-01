@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { EASE } from '@/utils/motion';
+import { EASE, REVEAL_VIEWPORT } from '@/utils/motion';
 
 const voices = [
   {
@@ -34,7 +34,7 @@ export function Voci() {
             key={voice.name}
             initial={{ opacity: 0, y: 40 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: false, margin: '-15% 0px' }}
+            viewport={REVEAL_VIEWPORT}
             transition={{ duration: 0.9, delay: (i % 2) * 0.1, ease: EASE.out }}
             className={voice.align}
           >
@@ -42,7 +42,9 @@ export function Voci() {
               {voice.quote}
             </blockquote>
             <figcaption className="mt-6 font-body text-sm text-muted-foreground">
-              <span className="font-semibold text-foreground">{voice.name}</span>
+              <span className="font-semibold text-foreground">
+                {voice.name}
+              </span>
               <span className="mt-0.5 block">{voice.role}</span>
             </figcaption>
           </motion.figure>

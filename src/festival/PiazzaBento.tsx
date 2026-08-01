@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { BorderTrail } from '@/components/motion/border-trail';
 import { cn } from '@/utils/cn';
-import { EASE } from '@/utils/motion';
+import { EASE, REVEAL_TRANSITION, REVEAL_VIEWPORT } from '@/utils/motion';
 import { Grain, MarbleVeins } from './materials';
 
 type Cell = {
@@ -69,7 +69,7 @@ function BentoCell({ cell, index }: { cell: Cell; index: number }) {
     <motion.article
       initial={{ opacity: 0, y: 40 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: false, margin: '-10% 0px' }}
+      viewport={REVEAL_VIEWPORT}
       transition={{ duration: 0.8, delay: (index % 2) * 0.12, ease: EASE.out }}
       className={cn(
         'group relative flex min-h-[300px] flex-col justify-end overflow-hidden rounded-lg p-8 transition-transform duration-500 ease-out hover:-translate-y-1 md:min-h-[340px] md:p-10',
@@ -121,8 +121,8 @@ export function PiazzaBento() {
         <motion.div
           initial={{ opacity: 0, y: 32 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: false, margin: '-15% 0px' }}
-          transition={{ duration: 0.9, ease: EASE.out }}
+          viewport={REVEAL_VIEWPORT}
+          transition={REVEAL_TRANSITION}
           className="max-w-2xl"
         >
           <h2

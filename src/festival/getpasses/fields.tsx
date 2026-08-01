@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { Minus, Plus } from 'lucide-react';
+import { ChevronDown, Minus, Plus } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
 /**
@@ -182,9 +182,13 @@ export function FloatingSelect({
           aria-describedby={error ? errorId : undefined}
           className={cn(
             inputBase,
-            'cursor-pointer appearance-none bg-[length:0.65rem] bg-[right_1rem_center] bg-no-repeat pr-10',
-            "bg-[image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23000' stroke-opacity='.45' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E\")]",
+            // `peer` + appearance-none so the select is styled by exactly the
+            // same base as the text inputs: same height, radius, border,
+            // focus ring and transition. Only the chevron is added.
+            'cursor-pointer appearance-none pr-11',
             error ? 'border-destructive/70' : 'border-border',
+            // Before a choice is made the (empty) value must not show through
+            // where the resting label sits.
             value ? 'text-foreground' : 'text-transparent'
           )}
         >
@@ -195,15 +199,81 @@ export function FloatingSelect({
             </option>
           ))}
         </select>
+        <ChevronDown
+          aria-hidden="true"
+          className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors duration-300 peer-focus:text-primary"
+        />
         <label
           htmlFor={id}
           className={cn(
-            'pointer-events-none absolute left-4 font-body text-muted-foreground transition-all duration-300',
+            // Mirrors labelBase exactly, but driven by `value` instead of
+            // :placeholder-shown, which a select does not have.
+            'pointer-events-none absolute left-4 font-body text-muted-foreground transition-all duration-300 peer-focus:top-3.5 peer-focus:text-xs peer-focus:tracking-wide peer-focus:text-primary',
             value
               ? 'top-3.5 text-xs tracking-wide'
               : 'top-1/2 -translate-y-1/2 text-base'
           )}
         >
+          {label}
+        </label>
+      </div>
+    </FieldShell>
+  );
+}
+
+/**
+ * Ticket count as a typed integer, for booking types with no small fixed
+ * ceiling where a +/- stepper would mean tapping thirty times. Same shell,
+ * same label mechanics and same inline validation as every other field.
+ */
+export function PassCountInput({
+  id = 'passes',
+  label,
+  value,
+  onChange,
+  min = 1,
+  max = 50,
+  error,
+}: {
+  id?: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  min?: number;
+  max?: number;
+  error?: string;
+}) {
+  const errorId = `${id}-error`;
+  return (
+    <FieldShell
+      error={error}
+      hint={`Between ${min} and ${max} tickets in a single booking`}
+      errorId={errorId}
+    >
+      <div className="relative">
+        <input
+          id={id}
+          type="text"
+          // `inputMode` gives phones the numeric keypad; `type=text` with a
+          // digits-only filter keeps the spinner buttons and the browser's
+          // own "e"/"+"/"-" quirks of type=number out of a premium field.
+          inputMode="numeric"
+          pattern="[0-9]*"
+          autoComplete="off"
+          value={value}
+          onChange={(event) =>
+            onChange(event.target.value.replace(/[^0-9]/g, '').slice(0, 3))
+          }
+          placeholder=" "
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? errorId : undefined}
+          className={cn(
+            inputBase,
+            'tabular-nums',
+            error ? 'border-destructive/70' : 'border-border'
+          )}
+        />
+        <label htmlFor={id} className={labelBase}>
           {label}
         </label>
       </div>
@@ -335,7 +405,8 @@ export function PassStepper({
         </button>
       </div>
       <p className="mt-2 font-body text-xs text-muted-foreground/70">
-        {hint ?? `Up to ${max} ${max === 1 ? 'pass' : 'passes'} per registration`}
+        {hint ??
+          `Up to ${max} ${max === 1 ? 'pass' : 'passes'} per registration`}
       </p>
     </div>
   );

@@ -57,15 +57,16 @@ function validate(body: Record<string, unknown>): Payload | string {
     return 'Visitor type is not recognised.';
   }
 
-  // Tiered ceilings; the client mirrors these but is never trusted. A null
-  // limit is unrestricted, so only the lower bound and integrality apply.
+  // Tiered ceilings; the client mirrors these but is never trusted.
   const limit = PASS_LIMITS[visitor_type];
   const passes = Number(body.number_of_passes);
   if (!Number.isInteger(passes) || passes < 1) {
     return 'A registration must include at least one pass.';
   }
-  if (limit !== null && passes > limit) {
-    return `A ${visitor_type} registration can include ${limit} ${limit === 1 ? 'pass' : 'passes'}.`;
+  if (passes > limit) {
+    return visitor_type === 'other'
+      ? `A maximum of ${limit} tickets may be reserved in a single booking.`
+      : `A ${visitor_type} registration can include ${limit} ${limit === 1 ? 'pass' : 'passes'}.`;
   }
 
   // School roll details, required for students and refused for everyone

@@ -1,8 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
 import { TextEffect } from '@/components/motion/text-effect';
+import { cn } from '@/utils/cn';
 import { EASE } from '@/utils/motion';
 import { Grain } from '../materials';
 import { CarnivalMark } from '../CarnivalMark';
@@ -12,6 +20,7 @@ import {
   FloatingTextarea,
   PassStepper,
   FloatingSelect,
+  PassCountInput,
   RadioPills,
 } from './fields';
 
@@ -24,14 +33,14 @@ const VISITOR_TYPES = [
 // Passes each visitor type may reserve; `null` is unrestricted. Mirrors
 // PASS_LIMITS in api/_shared.ts; the server re-validates and never trusts
 // this copy.
-const PASS_LIMITS: Record<string, number | null> = {
+const PASS_LIMITS: Record<string, number> = {
   student: 1,
   parent: 2,
-  other: null,
+  other: 50,
 };
 
-/** Ceiling for the stepper: unrestricted types still need a sane top stop. */
-const OPEN_LIMIT = 20;
+/** Above this a stepper is the wrong control: typing beats fifty taps. */
+const STEPPER_MAX = 4;
 
 const CLASSES = [
   'Nursery',
@@ -59,7 +68,7 @@ type FormState = {
   fullName: string;
   email: string;
   phone: string;
-  passes: number;
+  passes: string;
   visitorType: string;
   usn: string;
   studentClass: string;
@@ -74,7 +83,7 @@ const initialForm: FormState = {
   fullName: '',
   email: '',
   phone: '',
-  passes: 1,
+  passes: '1',
   visitorType: '',
   usn: '',
   studentClass: '',
@@ -82,6 +91,65 @@ const initialForm: FormState = {
   accessibility: '',
   comments: '',
 };
+
+/**
+ * Page masthead. Extracted and memoised because it depends on no state: left
+ * inline it re-rendered — TextEffect included, which is one element per word —
+ * on every keystroke and every category switch in the form below it.
+ */
+const PageHeader = memo(function PageHeader() {
+  return (
+    <header className="pb-10 pt-14 md:pb-14 md:pt-20">
+      <TextEffect
+        as="h1"
+        per="word"
+        preset="fade-in-blur"
+        delay={0.2}
+        className="font-display text-5xl font-medium tracking-tight text-foreground sm:text-6xl md:text-7xl"
+      >
+        Reserve Your Passes
+      </TextEffect>
+      <motion.p
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, delay: 0.7, ease: EASE.out }}
+        className="mt-5 max-w-lg font-body text-base leading-relaxed text-muted-foreground"
+      >
+        A minute of your time helps the student committee plan gates, seating
+        and the mercato for the right crowd, so the day feels effortless for
+        everyone.
+      </motion.p>
+    </header>
+  );
+});
+
+/**
+ * Collapsible region driven entirely by CSS: `grid-template-rows` animates
+ * between 0fr and 1fr, so the browser owns the whole transition and React
+ * renders nothing while it plays. `inert` keeps the collapsed content out of
+ * the tab order and off screen readers without unmounting it, which is what
+ * lets the student roll keep its values across a category switch.
+ */
+function Reveal({ show, children }: { show: boolean; children: ReactNode }) {
+  return (
+    <div
+      className={cn(
+        'grid transition-[grid-template-rows] duration-500 ease-out motion-reduce:transition-none',
+        show ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+      )}
+    >
+      <div
+        className={cn(
+          'overflow-hidden transition-opacity duration-300',
+          show ? 'opacity-100' : 'opacity-0'
+        )}
+        {...(show ? {} : { inert: '' })}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
 
 function validateStep(step: number, form: FormState): Errors {
   const errors: Errors = {};
@@ -100,11 +168,14 @@ function validateStep(step: number, form: FormState): Errors {
     if (!VISITOR_TYPES.some((t) => t.value === form.visitorType)) {
       errors.visitorType = 'Choose the option that fits you best.';
     } else {
-      const limit = PASS_LIMITS[form.visitorType] ?? OPEN_LIMIT;
-      if (form.passes < 1 || form.passes > limit) {
+      const limit = PASS_LIMITS[form.visitorType] ?? 1;
+      const count = Number(form.passes);
+      if (!form.passes.trim() || !Number.isInteger(count) || count < 1) {
+        errors.passes = 'Please enter the number of tickets.';
+      } else if (count > limit) {
         errors.passes =
-          PASS_LIMITS[form.visitorType] === null
-            ? 'Please enter at least one pass.'
+          limit > STEPPER_MAX
+            ? `A maximum of ${limit} tickets may be reserved in a single booking.`
             : `A ${form.visitorType} registration includes ${limit} ${limit === 1 ? 'pass' : 'passes'}.`;
       }
       if (form.visitorType === 'student') {
@@ -265,7 +336,7 @@ function SuccessView({ pass, form }: { pass: MintedPass; form: FormState }) {
               status: 'valid',
               guestName: form.fullName.trim(),
               visitorType: form.visitorType,
-              numberOfPasses: form.passes,
+              numberOfPasses: Number(form.passes) || 1,
               usn: form.visitorType === 'student' ? form.usn.trim() : null,
               studentClass:
                 form.visitorType === 'student' ? form.studentClass : null,
@@ -351,10 +422,20 @@ export default function GetPassesPage() {
     if (submit.phase === 'success') window.scrollTo({ top: 0 });
   }, [submit.phase]);
 
-  const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
-    setForm((f) => ({ ...f, [key]: value }));
-    setErrors((e) => ({ ...e, [key]: undefined }));
-  };
+  // Stable across renders so the memoised field components below are not
+  // invalidated by a new callback identity on every keystroke.
+  const set = useCallback(
+    <K extends keyof FormState>(key: K, value: FormState[K]) => {
+      setForm((f) => (f[key] === value ? f : { ...f, [key]: value }));
+      setErrors((e) => (e[key] === undefined ? e : { ...e, [key]: undefined }));
+    },
+    []
+  );
+
+  // Ticket control follows the ceiling: a stepper for one or two, a typed
+  // integer once tapping "+" fifty times would be the alternative.
+  const ticketLimit = PASS_LIMITS[form.visitorType] ?? 1;
+  const ticketsAsField = ticketLimit > STEPPER_MAX;
 
   const goTo = (next: number) => {
     setDirection(next > step ? 1 : -1);
@@ -388,7 +469,7 @@ export default function GetPassesPage() {
           email: form.email.trim().toLowerCase(),
           phone: form.phone.replace(/\s/g, ''),
           visitor_type: form.visitorType,
-          number_of_passes: form.passes,
+          number_of_passes: Number(form.passes) || 1,
           // Only students carry a school roll; the server refuses these
           // fields on any other visitor type.
           usn: form.visitorType === 'student' ? form.usn.trim() : null,
@@ -470,28 +551,7 @@ export default function GetPassesPage() {
       </motion.nav>
 
       <div className="relative z-10 mx-auto flex min-h-[100dvh] max-w-3xl flex-col px-6 pb-[env(safe-area-inset-bottom)] pt-16 md:px-8">
-        {/* Hero */}
-        <header className="pb-10 pt-14 md:pb-14 md:pt-20">
-          <TextEffect
-            as="h1"
-            per="word"
-            preset="fade-in-blur"
-            delay={0.2}
-            className="font-display text-5xl font-medium tracking-tight text-foreground sm:text-6xl md:text-7xl"
-          >
-            Reserve Your Passes
-          </TextEffect>
-          <motion.p
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.7, ease: EASE.out }}
-            className="mt-5 max-w-lg font-body text-base leading-relaxed text-muted-foreground"
-          >
-            A minute of your time helps the student committee plan gates,
-            seating and the mercato for the right crowd, so the day feels
-            effortless for everyone.
-          </motion.p>
-        </header>
+        <PageHeader />
 
         {/* Form panel */}
         <motion.section
@@ -584,78 +644,72 @@ export default function GetPassesPage() {
                           onChange={(v) => {
                             set('visitorType', v);
                             // Clamp into the new ceiling. Student roll values
-                            // are deliberately NOT cleared here: switching away
-                            // and back preserves whatever was typed.
-                            const limit = PASS_LIMITS[v] ?? OPEN_LIMIT;
-                            if (form.passes > limit) set('passes', limit);
+                            // are deliberately NOT cleared: switching away and
+                            // back preserves whatever was typed.
+                            const limit = PASS_LIMITS[v] ?? 1;
+                            if (Number(form.passes) > limit) {
+                              set('passes', String(limit));
+                            }
                           }}
                           error={errors.visitorType}
                         />
-                        {form.visitorType ? (
-                          <motion.div
-                            initial={{ opacity: 0, y: 12 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.4, ease: EASE.out }}
-                          >
-                            <PassStepper
-                              label="Number of passes"
+                        {/* Both controls and the school roll stay MOUNTED and
+                            are revealed with a pure CSS grid-row transition.
+                            The previous version animated `height: auto`
+                            through Framer, which re-rendered this whole
+                            (large) page on every frame of every category
+                            switch and measured layout each time; that is what
+                            made switching feel heavy. Nothing here re-renders
+                            while the reveal plays: the browser animates it. */}
+                        <Reveal show={Boolean(form.visitorType)}>
+                          {ticketsAsField ? (
+                            <PassCountInput
+                              label="Number of tickets"
                               value={form.passes}
                               onChange={(v) => set('passes', v)}
-                              max={PASS_LIMITS[form.visitorType] ?? OPEN_LIMIT}
-                              hint={
-                                PASS_LIMITS[form.visitorType] === null
-                                  ? 'As many as your party needs'
-                                  : undefined
-                              }
+                              max={ticketLimit}
+                              error={errors.passes}
                             />
-                          </motion.div>
-                        ) : null}
-                        {/* School roll: revealed for students, folded away
-                            cleanly for everyone else. Values survive the
-                            round trip because they live in the same form
-                            state, which is never reset on type change. */}
-                        <AnimatePresence initial={false}>
-                          {form.visitorType === 'student' && (
-                            <motion.div
-                              key="student-roll"
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: 'auto' }}
-                              exit={{ opacity: 0, height: 0 }}
-                              transition={{ duration: 0.45, ease: EASE.out }}
-                              className="overflow-hidden"
-                            >
-                              <div className="space-y-1 pt-2">
-                                <FloatingInput
-                                  id="usn"
-                                  label="USN"
-                                  value={form.usn}
-                                  onChange={(v) => set('usn', v)}
-                                  error={errors.usn}
-                                  maxLength={20}
-                                  autoComplete="off"
-                                />
-                                <div className="grid gap-1 sm:grid-cols-2">
-                                  <FloatingSelect
-                                    id="studentClass"
-                                    label="Class"
-                                    value={form.studentClass}
-                                    onChange={(v) => set('studentClass', v)}
-                                    error={errors.studentClass}
-                                    options={CLASSES}
-                                  />
-                                  <FloatingSelect
-                                    id="section"
-                                    label="Section"
-                                    value={form.section}
-                                    onChange={(v) => set('section', v)}
-                                    error={errors.section}
-                                    options={SECTIONS}
-                                  />
-                                </div>
-                              </div>
-                            </motion.div>
+                          ) : (
+                            <PassStepper
+                              label="Number of passes"
+                              value={Number(form.passes) || 1}
+                              onChange={(v) => set('passes', String(v))}
+                              max={ticketLimit}
+                            />
                           )}
-                        </AnimatePresence>
+                        </Reveal>
+                        <Reveal show={form.visitorType === 'student'}>
+                          <div className="space-y-1">
+                            <FloatingInput
+                              id="usn"
+                              label="USN"
+                              value={form.usn}
+                              onChange={(v) => set('usn', v)}
+                              error={errors.usn}
+                              maxLength={20}
+                              autoComplete="off"
+                            />
+                            <div className="grid gap-1 sm:grid-cols-2">
+                              <FloatingSelect
+                                id="studentClass"
+                                label="Class"
+                                value={form.studentClass}
+                                onChange={(v) => set('studentClass', v)}
+                                error={errors.studentClass}
+                                options={CLASSES}
+                              />
+                              <FloatingSelect
+                                id="section"
+                                label="Section"
+                                value={form.section}
+                                onChange={(v) => set('section', v)}
+                                error={errors.section}
+                                options={SECTIONS}
+                              />
+                            </div>
+                          </div>
+                        </Reveal>
                       </div>
                     )}
 
