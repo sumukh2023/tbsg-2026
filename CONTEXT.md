@@ -158,7 +158,18 @@ every engine on purpose, so Safari on a Mac feels like Chrome on a Mac.
    `created_at` + nullsLast ordering.
 6. Voci's staggered 12-col grid overflows below ~1150px (96px gaps) — it is
    `lg:` only. Footer email needs `break-all`.
-7. Committer identity must be `Claude <noreply@anthropic.com>`; commits are
+7. **Safari 27 (iPadOS) can refuse to LOAD media until the page has seen a
+   real gesture.** Signature: `networkState` 0 EMPTY, `currentSrc` empty, and
+   **no MediaError** — it never tried, so nothing failed — plus `play()`
+   rejected `NotAllowedError` on a muted inline video. Same network, same
+   files (all 206 with ranges), same codec support as a device that works; a
+   standalone page with none of the site's code reproduces it. That is how
+   Safari behaves with a site set to "Never Auto-Play", and it suppresses
+   preloading along with playback. A scroll does not count as the gesture; a
+   tap does. `onFirstGesture` in `ScrollHero.tsx` waits for the first tap and
+   releases every film on the page at once. Diagnose with `/diag.html`
+   (`public/diag.html`, delete when no longer needed).
+8. Committer identity must be `Claude <noreply@anthropic.com>`; commits are
    SSH-signed (`commit.gpgsign=true` already configured in the cloud clone).
    Commit trailer: `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
 

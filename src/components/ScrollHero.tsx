@@ -45,6 +45,40 @@ const MAX_CLOSE_SHARE = 0.65;
 const BLEND = 0.86;
 
 /**
+ * Some browsers refuse to load media AT ALL until the page has seen a real
+ * user gesture. The element sits at networkState EMPTY with no source chosen
+ * and — tellingly — no MediaError: it never tried, so nothing failed. Safari
+ * with a site set to "Never Auto-Play" does this, and it suppresses
+ * preloading along with playback.
+ *
+ * A scroll is not a gesture for this purpose; a tap or a key is. One shared
+ * listener therefore waits for the reader's first real interaction and
+ * releases every film on the page at once, so a page with two of them needs
+ * one tap rather than one each. It removes itself as soon as it fires.
+ */
+const GESTURES = ['pointerdown', 'touchend', 'keydown'] as const;
+const waitingForGesture = new Set<() => void>();
+let gestureArmed = false;
+
+function onFirstGesture(fn: () => void): () => void {
+  waitingForGesture.add(fn);
+  if (!gestureArmed) {
+    gestureArmed = true;
+    const fire = () => {
+      gestureArmed = false;
+      for (const type of GESTURES) document.removeEventListener(type, fire);
+      const pending = [...waitingForGesture];
+      waitingForGesture.clear();
+      for (const cb of pending) cb();
+    };
+    for (const type of GESTURES) {
+      document.addEventListener(type, fire, { passive: true });
+    }
+  }
+  return () => waitingForGesture.delete(fn);
+}
+
+/**
  * Apple-product-page scroll scrubber: a tall runway with a sticky,
  * viewport-filling video whose playhead is driven by scroll position.
  *
@@ -102,6 +136,11 @@ const BLEND = 0.86;
  *   buffer, so it must never fire against a film that is already scrubbing.
  * - The element only fades in once the decoder actually holds a frame; if
  *   every source fails, the marble veil simply remains — no black box.
+ * - Safari 27 on iPadOS was observed refusing to begin resource selection at
+ *   all until the page had seen a real gesture (networkState EMPTY, no source
+ *   chosen, no MediaError, play() rejected NotAllowedError), which is how a
+ *   site set to "Never Auto-Play" behaves. The reader's first tap releases
+ *   every film on the page; see `onFirstGesture` above.
  *
  * Under prefers-reduced-motion the film holds its first frame as a still —
  * but the loop STILL RUNS and progress still tracks the scroll. Every veil
@@ -268,8 +307,11 @@ export function ScrollHero({
     // on data that was never fetched. Restart the fetch when the section
     // approaches and the element has gone idle short of usable data. Capped,
     // and never once real data exists, so a buffer is never thrown away.
-    const ensureLoading = () => {
+    const ensureLoading = (forced = false) => {
       if (video.preload !== 'auto') video.preload = 'auto';
+      // A gesture-driven retry is not churn, so the restart cap does not
+      // apply to it: this is the one attempt that is allowed to work.
+      if (forced) restarts = 0;
       // Latched on `shown` for the same reason as prime(), and because load()
       // is destructive: it resets the playhead and discards the buffer. Before
       // the first frame there is nothing to lose; after it, never.
@@ -447,6 +489,15 @@ export function ScrollHero({
       reveal();
       if (active) ensureLoading();
     };
+    // If the browser would not start on its own, the reader's first tap is
+    // the moment it will. Harmless when the film loaded normally: by then
+    // `revealed` is true and this does nothing.
+    const releaseGesture = onFirstGesture(() => {
+      if (revealed || video.error) return;
+      ensureLoading(true);
+      prime();
+    });
+
     video.addEventListener('loadedmetadata', onLoadedMetadata);
     video.addEventListener('loadeddata', reveal);
     video.addEventListener('canplay', reveal);
@@ -458,6 +509,7 @@ export function ScrollHero({
     observer.observe(container);
 
     return () => {
+      releaseGesture();
       video.removeEventListener('loadedmetadata', onLoadedMetadata);
       video.removeEventListener('loadeddata', reveal);
       video.removeEventListener('canplay', reveal);
