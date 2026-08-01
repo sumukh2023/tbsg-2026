@@ -11,7 +11,7 @@ export interface ScaleInProps extends HTMLMotionProps<'div'> {
 export function ScaleIn({
   children,
   delay = 0,
-  once = false,
+  once = true,
   amount = 0.3,
   ...props
 }: ScaleInProps) {

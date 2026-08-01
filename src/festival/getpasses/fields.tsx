@@ -185,7 +185,10 @@ export function FloatingSelect({
             // `peer` + appearance-none so the select is styled by exactly the
             // same base as the text inputs: same height, radius, border,
             // focus ring and transition. Only the chevron is added.
-            'cursor-pointer appearance-none pr-11',
+            // Extra top padding over the shared base: a raised label sitting
+            // directly on the chosen value read as cramped in a way it does
+            // not in a text field, where the caret gives the eye a gap.
+            'cursor-pointer appearance-none pb-3 pr-11 pt-8',
             error ? 'border-destructive/70' : 'border-border',
             // Before a choice is made the (empty) value must not show through
             // where the resting label sits.
@@ -208,9 +211,9 @@ export function FloatingSelect({
           className={cn(
             // Mirrors labelBase exactly, but driven by `value` instead of
             // :placeholder-shown, which a select does not have.
-            'pointer-events-none absolute left-4 font-body text-muted-foreground transition-all duration-300 peer-focus:top-3.5 peer-focus:text-xs peer-focus:tracking-wide peer-focus:text-primary',
+            'pointer-events-none absolute left-4 font-body text-muted-foreground transition-all duration-300 peer-focus:top-3 peer-focus:text-xs peer-focus:tracking-wide peer-focus:text-primary',
             value
-              ? 'top-3.5 text-xs tracking-wide'
+              ? 'top-3 text-xs tracking-wide'
               : 'top-1/2 -translate-y-1/2 text-base'
           )}
         >
@@ -231,7 +234,6 @@ export function PassCountInput({
   label,
   value,
   onChange,
-  min = 1,
   max = 50,
   error,
 }: {
@@ -239,17 +241,14 @@ export function PassCountInput({
   label: string;
   value: string;
   onChange: (value: string) => void;
-  min?: number;
+  /** Kept for the caller's benefit; the ceiling is enforced on validation,
+   *  so a reader typing "5" out of an intended "50" is never interrupted. */
   max?: number;
   error?: string;
 }) {
   const errorId = `${id}-error`;
   return (
-    <FieldShell
-      error={error}
-      hint={`Between ${min} and ${max} tickets in a single booking`}
-      errorId={errorId}
-    >
+    <FieldShell error={error} errorId={errorId}>
       <div className="relative">
         <input
           id={id}
@@ -264,6 +263,7 @@ export function PassCountInput({
           onChange={(event) =>
             onChange(event.target.value.replace(/[^0-9]/g, '').slice(0, 3))
           }
+          aria-valuemax={max}
           placeholder=" "
           aria-invalid={Boolean(error)}
           aria-describedby={error ? errorId : undefined}

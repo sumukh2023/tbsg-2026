@@ -15,7 +15,7 @@ export function SlideUp({
   delay = 0,
   distance = 28,
   direction = 'up',
-  once = false,
+  once = true,
   amount = 0.3,
   ...props
 }: SlideUpProps) {

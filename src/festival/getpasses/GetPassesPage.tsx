@@ -1,16 +1,8 @@
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
 import { TextEffect } from '@/components/motion/text-effect';
-import { cn } from '@/utils/cn';
 import { EASE } from '@/utils/motion';
 import { Grain } from '../materials';
 import { CarnivalMark } from '../CarnivalMark';
@@ -62,6 +54,18 @@ const CLASSES = [
 
 const SECTIONS = ['A', 'B', 'C', 'D'] as const;
 
+const VISITOR_DETAILS = [
+  'Guest',
+  'Faculty',
+  'Alumni',
+  'Sponsor',
+  'Vendor',
+  'Media',
+] as const;
+
+/** Visitor types that supply school-roll details: their own, or their child's. */
+const ROLL_REQUIRED = ['student', 'parent'];
+
 const STEPS = ['Visitor', 'Booking', 'Details', 'Confirm'] as const;
 
 type FormState = {
@@ -70,9 +74,12 @@ type FormState = {
   phone: string;
   passes: string;
   visitorType: string;
+  studentName: string;
   usn: string;
   studentClass: string;
   section: string;
+  visitorDetail: string;
+  organisation: string;
   accessibility: string;
   comments: string;
 };
@@ -85,9 +92,12 @@ const initialForm: FormState = {
   phone: '',
   passes: '1',
   visitorType: '',
+  studentName: '',
   usn: '',
   studentClass: '',
   section: '',
+  visitorDetail: '',
+  organisation: '',
   accessibility: '',
   comments: '',
 };
@@ -123,37 +133,12 @@ const PageHeader = memo(function PageHeader() {
   );
 });
 
-/**
- * Collapsible region driven entirely by CSS: `grid-template-rows` animates
- * between 0fr and 1fr, so the browser owns the whole transition and React
- * renders nothing while it plays. `inert` keeps the collapsed content out of
- * the tab order and off screen readers without unmounting it, which is what
- * lets the student roll keep its values across a category switch.
- */
-function Reveal({ show, children }: { show: boolean; children: ReactNode }) {
-  return (
-    <div
-      className={cn(
-        'grid transition-[grid-template-rows] duration-500 ease-out motion-reduce:transition-none',
-        show ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
-      )}
-    >
-      <div
-        className={cn(
-          'overflow-hidden transition-opacity duration-300',
-          show ? 'opacity-100' : 'opacity-0'
-        )}
-        {...(show ? {} : { inert: '' })}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
-
 function validateStep(step: number, form: FormState): Errors {
   const errors: Errors = {};
   if (step === 0) {
+    if (!VISITOR_TYPES.some((t) => t.value === form.visitorType)) {
+      errors.visitorType = 'Choose the option that fits you best.';
+    }
     if (form.fullName.trim().length < 2) {
       errors.fullName = 'Please tell us your full name.';
     }
@@ -165,28 +150,35 @@ function validateStep(step: number, form: FormState): Errors {
     }
   }
   if (step === 1) {
-    if (!VISITOR_TYPES.some((t) => t.value === form.visitorType)) {
-      errors.visitorType = 'Choose the option that fits you best.';
-    } else {
-      const limit = PASS_LIMITS[form.visitorType] ?? 1;
-      const count = Number(form.passes);
-      if (!form.passes.trim() || !Number.isInteger(count) || count < 1) {
-        errors.passes = 'Please enter the number of tickets.';
-      } else if (count > limit) {
-        errors.passes =
-          limit > STEPPER_MAX
-            ? `A maximum of ${limit} tickets may be reserved in a single booking.`
-            : `A ${form.visitorType} registration includes ${limit} ${limit === 1 ? 'pass' : 'passes'}.`;
+    const limit = PASS_LIMITS[form.visitorType] ?? 1;
+    const count = Number(form.passes);
+    if (!form.passes.trim() || !Number.isInteger(count) || count < 1) {
+      // Only a value ABOVE the ceiling earns the ceiling message; an empty or
+      // nonsensical entry gets its own.
+      errors.passes = 'Please enter the number of tickets.';
+    } else if (count > limit) {
+      errors.passes =
+        limit > STEPPER_MAX
+          ? `A maximum of ${limit} tickets may be reserved in a single booking.`
+          : `A ${form.visitorType} registration includes ${limit} ${limit === 1 ? 'pass' : 'passes'}.`;
+    }
+    if (ROLL_REQUIRED.includes(form.visitorType)) {
+      if (form.visitorType === 'parent' && form.studentName.trim().length < 2) {
+        errors.studentName = "Please enter the student's name.";
       }
-      if (form.visitorType === 'student') {
-        if (!form.usn.trim()) errors.usn = 'Please enter the student USN.';
-        if (!CLASSES.includes(form.studentClass as (typeof CLASSES)[number])) {
-          errors.studentClass = 'Choose the class.';
-        }
-        if (!SECTIONS.includes(form.section as (typeof SECTIONS)[number])) {
-          errors.section = 'Choose the section.';
-        }
+      if (!form.usn.trim()) errors.usn = 'Please enter the student USN.';
+      if (!CLASSES.includes(form.studentClass as (typeof CLASSES)[number])) {
+        errors.studentClass = 'Choose the class.';
       }
+      if (!SECTIONS.includes(form.section as (typeof SECTIONS)[number])) {
+        errors.section = 'Choose the section.';
+      }
+    } else if (
+      !VISITOR_DETAILS.includes(
+        form.visitorDetail as (typeof VISITOR_DETAILS)[number]
+      )
+    ) {
+      errors.visitorDetail = 'Choose the option that describes you best.';
     }
   }
   if (step === 2) {
@@ -337,10 +329,15 @@ function SuccessView({ pass, form }: { pass: MintedPass; form: FormState }) {
               guestName: form.fullName.trim(),
               visitorType: form.visitorType,
               numberOfPasses: Number(form.passes) || 1,
-              usn: form.visitorType === 'student' ? form.usn.trim() : null,
-              studentClass:
-                form.visitorType === 'student' ? form.studentClass : null,
-              section: form.visitorType === 'student' ? form.section : null,
+              usn: ROLL_REQUIRED.includes(form.visitorType)
+                ? form.usn.trim()
+                : null,
+              studentClass: ROLL_REQUIRED.includes(form.visitorType)
+                ? form.studentClass
+                : null,
+              section: ROLL_REQUIRED.includes(form.visitorType)
+                ? form.section
+                : null,
             }}
           />
           <p className="mx-auto mt-5 max-w-sm font-body text-xs leading-relaxed text-muted-foreground">
@@ -436,6 +433,7 @@ export default function GetPassesPage() {
   // integer once tapping "+" fifty times would be the alternative.
   const ticketLimit = PASS_LIMITS[form.visitorType] ?? 1;
   const ticketsAsField = ticketLimit > STEPPER_MAX;
+  const needsRoll = ROLL_REQUIRED.includes(form.visitorType);
 
   const goTo = (next: number) => {
     setDirection(next > step ? 1 : -1);
@@ -472,9 +470,23 @@ export default function GetPassesPage() {
           number_of_passes: Number(form.passes) || 1,
           // Only students carry a school roll; the server refuses these
           // fields on any other visitor type.
-          usn: form.visitorType === 'student' ? form.usn.trim() : null,
-          class: form.visitorType === 'student' ? form.studentClass : null,
-          section: form.visitorType === 'student' ? form.section : null,
+          student_name:
+            form.visitorType === 'parent' ? form.studentName.trim() : null,
+          usn: ROLL_REQUIRED.includes(form.visitorType)
+            ? form.usn.trim()
+            : null,
+          class: ROLL_REQUIRED.includes(form.visitorType)
+            ? form.studentClass
+            : null,
+          section: ROLL_REQUIRED.includes(form.visitorType)
+            ? form.section
+            : null,
+          visitor_detail:
+            form.visitorType === 'other' ? form.visitorDetail : null,
+          organisation:
+            form.visitorType === 'other'
+              ? form.organisation.trim() || null
+              : null,
           accessibility_requirements: form.accessibility.trim() || null,
           comments: form.comments.trim() || null,
           website: '', // honeypot, stays empty for humans
@@ -628,6 +640,26 @@ export default function GetPassesPage() {
                           autoComplete="tel"
                           maxLength={16}
                         />
+                        {/* The category selector lives at the END of step 1.
+                            Step 2 then renders one form, chosen once, instead
+                            of swapping sections in and out under the reader
+                            while they are looking at them. */}
+                        <div className="pt-4">
+                          <RadioPills
+                            legend="I am a"
+                            name="visitorType"
+                            options={VISITOR_TYPES}
+                            value={form.visitorType}
+                            onChange={(v) => {
+                              set('visitorType', v);
+                              const limit = PASS_LIMITS[v] ?? 1;
+                              if (Number(form.passes) > limit) {
+                                set('passes', String(limit));
+                              }
+                            }}
+                            error={errors.visitorType}
+                          />
+                        </div>
                       </div>
                     )}
 
@@ -636,80 +668,101 @@ export default function GetPassesPage() {
                         <h2 className="font-display text-2xl font-medium text-foreground">
                           Booking details
                         </h2>
-                        <RadioPills
-                          legend="I am a"
-                          name="visitorType"
-                          options={VISITOR_TYPES}
-                          value={form.visitorType}
-                          onChange={(v) => {
-                            set('visitorType', v);
-                            // Clamp into the new ceiling. Student roll values
-                            // are deliberately NOT cleared: switching away and
-                            // back preserves whatever was typed.
-                            const limit = PASS_LIMITS[v] ?? 1;
-                            if (Number(form.passes) > limit) {
-                              set('passes', String(limit));
-                            }
-                          }}
-                          error={errors.visitorType}
-                        />
-                        {/* Both controls and the school roll stay MOUNTED and
-                            are revealed with a pure CSS grid-row transition.
-                            The previous version animated `height: auto`
-                            through Framer, which re-rendered this whole
-                            (large) page on every frame of every category
-                            switch and measured layout each time; that is what
-                            made switching feel heavy. Nothing here re-renders
-                            while the reveal plays: the browser animates it. */}
-                        <Reveal show={Boolean(form.visitorType)}>
-                          {ticketsAsField ? (
-                            <PassCountInput
-                              label="Number of tickets"
-                              value={form.passes}
-                              onChange={(v) => set('passes', v)}
-                              max={ticketLimit}
-                              error={errors.passes}
-                            />
-                          ) : (
-                            <PassStepper
-                              label="Number of passes"
-                              value={Number(form.passes) || 1}
-                              onChange={(v) => set('passes', String(v))}
-                              max={ticketLimit}
-                            />
-                          )}
-                        </Reveal>
-                        <Reveal show={form.visitorType === 'student'}>
-                          <div className="space-y-1">
-                            <FloatingInput
-                              id="usn"
-                              label="USN"
-                              value={form.usn}
-                              onChange={(v) => set('usn', v)}
-                              error={errors.usn}
-                              maxLength={20}
-                              autoComplete="off"
-                            />
-                            <div className="grid gap-1 sm:grid-cols-2">
-                              <FloatingSelect
-                                id="studentClass"
-                                label="Class"
-                                value={form.studentClass}
-                                onChange={(v) => set('studentClass', v)}
-                                error={errors.studentClass}
-                                options={CLASSES}
+
+                        {ticketsAsField ? (
+                          <PassCountInput
+                            label="Number of tickets"
+                            value={form.passes}
+                            onChange={(v) => set('passes', v)}
+                            max={ticketLimit}
+                            error={errors.passes}
+                          />
+                        ) : (
+                          <PassStepper
+                            label={`Number of passes (maximum ${ticketLimit})`}
+                            value={Number(form.passes) || 1}
+                            onChange={(v) => set('passes', String(v))}
+                            max={ticketLimit}
+                          />
+                        )}
+
+                        {needsRoll && (
+                          <div className="space-y-4">
+                            <div>
+                              <h3 className="font-display text-xl font-medium text-foreground">
+                                Student details
+                              </h3>
+                              {form.visitorType === 'parent' && (
+                                <p className="mt-2 font-body text-sm leading-relaxed text-muted-foreground">
+                                  Please enter the details of your child
+                                  studying at The Brigade School.
+                                </p>
+                              )}
+                            </div>
+                            <div className="space-y-2">
+                              {form.visitorType === 'parent' && (
+                                <FloatingInput
+                                  id="studentName"
+                                  label="Student name"
+                                  value={form.studentName}
+                                  onChange={(v) => set('studentName', v)}
+                                  error={errors.studentName}
+                                  maxLength={120}
+                                  autoComplete="off"
+                                />
+                              )}
+                              <FloatingInput
+                                id="usn"
+                                label="USN"
+                                value={form.usn}
+                                onChange={(v) => set('usn', v)}
+                                error={errors.usn}
+                                maxLength={20}
+                                autoComplete="off"
                               />
-                              <FloatingSelect
-                                id="section"
-                                label="Section"
-                                value={form.section}
-                                onChange={(v) => set('section', v)}
-                                error={errors.section}
-                                options={SECTIONS}
-                              />
+                              <div className="grid gap-2 sm:grid-cols-2">
+                                <FloatingSelect
+                                  id="studentClass"
+                                  label="Class"
+                                  value={form.studentClass}
+                                  onChange={(v) => set('studentClass', v)}
+                                  error={errors.studentClass}
+                                  options={CLASSES}
+                                />
+                                <FloatingSelect
+                                  id="section"
+                                  label="Section"
+                                  value={form.section}
+                                  onChange={(v) => set('section', v)}
+                                  error={errors.section}
+                                  options={SECTIONS}
+                                />
+                              </div>
                             </div>
                           </div>
-                        </Reveal>
+                        )}
+
+                        {form.visitorType === 'other' && (
+                          <div className="space-y-2">
+                            <FloatingSelect
+                              id="visitorDetail"
+                              label="Visitor details"
+                              value={form.visitorDetail}
+                              onChange={(v) => set('visitorDetail', v)}
+                              error={errors.visitorDetail}
+                              options={VISITOR_DETAILS}
+                            />
+                            <FloatingInput
+                              id="organisation"
+                              label="Organisation / company (optional)"
+                              value={form.organisation}
+                              onChange={(v) => set('organisation', v)}
+                              error={errors.organisation}
+                              maxLength={160}
+                              autoComplete="organization"
+                            />
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -758,13 +811,34 @@ export default function GetPassesPage() {
                             value={`${form.passes} · ${visitorLabel}`}
                             onEdit={() => goTo(1)}
                           />
-                          {form.visitorType === 'student' && (
+                          {needsRoll && (
                             <SummaryRow
                               label="Student"
-                              value={`${form.usn.trim()} · ${form.studentClass} ${form.section}`}
+                              value={[
+                                form.visitorType === 'parent'
+                                  ? form.studentName.trim()
+                                  : null,
+                                form.usn.trim(),
+                                `${form.studentClass} ${form.section}`,
+                              ]
+                                .filter(Boolean)
+                                .join(' · ')}
                               onEdit={() => goTo(1)}
                             />
                           )}
+                          {form.visitorType === 'other' &&
+                            form.visitorDetail && (
+                              <SummaryRow
+                                label="Visitor"
+                                value={[
+                                  form.visitorDetail,
+                                  form.organisation.trim(),
+                                ]
+                                  .filter(Boolean)
+                                  .join(' · ')}
+                                onEdit={() => goTo(1)}
+                              />
+                            )}
                           {form.accessibility.trim() && (
                             <SummaryRow
                               label="Access"

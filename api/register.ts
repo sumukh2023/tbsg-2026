@@ -15,10 +15,12 @@ import {
   PASS_LIMITS,
   passReference,
   randomToken,
+  ROLL_REQUIRED,
   SECTIONS,
   send,
   sha256Hex,
   supabaseEnv,
+  VISITOR_DETAILS,
   VISITOR_TYPES,
   type VisitorType,
 } from './_shared.js';
@@ -29,9 +31,12 @@ type Payload = {
   phone: string;
   visitor_type: VisitorType;
   number_of_passes: number;
+  student_name: string | null;
   usn: string | null;
   class: string | null;
   section: string | null;
+  visitor_detail: string | null;
+  organisation: string | null;
   accessibility_requirements: string | null;
   comments: string | null;
 };
@@ -69,22 +74,48 @@ function validate(body: Record<string, unknown>): Payload | string {
       : `A ${visitor_type} registration can include ${limit} ${limit === 1 ? 'pass' : 'passes'}.`;
   }
 
-  // School roll details, required for students and refused for everyone
-  // else so a stray client cannot attach them to a non-student record.
+  // School roll. Students give their own details; parents give their child's.
+  // Refused for anyone else, so a stray client cannot attach a roll to a
+  // record that has no business carrying one.
+  let student_name: string | null = null;
   let usn: string | null = null;
   let className: string | null = null;
   let section: string | null = null;
-  if (visitor_type === 'student') {
+  let visitor_detail: string | null = null;
+  let organisation: string | null = null;
+
+  if (ROLL_REQUIRED.includes(visitor_type)) {
+    if (visitor_type === 'parent') {
+      student_name = cleanText(body.student_name, 120);
+      if (!student_name || student_name.length < 2) {
+        return "The student's name is required.";
+      }
+    }
     usn = cleanText(body.usn, 20);
-    if (!usn) return 'A USN is required for student registrations.';
+    if (!usn) return 'A USN is required.';
     className = cleanText(body.class, 20);
-    if (!className || !CLASSES.includes(className as (typeof CLASSES)[number])) {
+    if (
+      !className ||
+      !CLASSES.includes(className as (typeof CLASSES)[number])
+    ) {
       return 'Choose the class the student is in.';
     }
     section = cleanText(body.section, 2);
     if (!section || !SECTIONS.includes(section as (typeof SECTIONS)[number])) {
-      return 'Choose the student\'s section.';
+      return "Choose the student's section.";
     }
+  } else {
+    visitor_detail = cleanText(body.visitor_detail, 20);
+    if (
+      !visitor_detail ||
+      !VISITOR_DETAILS.includes(
+        visitor_detail as (typeof VISITOR_DETAILS)[number]
+      )
+    ) {
+      return 'Choose the option that describes you best.';
+    }
+    // Optional throughout: plenty of visitors represent nobody but themselves.
+    organisation = cleanText(body.organisation, 160);
   }
 
   return {
@@ -93,9 +124,12 @@ function validate(body: Record<string, unknown>): Payload | string {
     phone,
     visitor_type,
     number_of_passes: passes,
+    student_name,
     usn,
     class: className,
     section,
+    visitor_detail,
+    organisation,
     accessibility_requirements: cleanText(body.accessibility_requirements, 500),
     comments: cleanText(body.comments, 500),
   };

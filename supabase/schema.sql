@@ -15,14 +15,27 @@ create table if not exists public.registrations (
   -- an unrestricted booking is not silently truncated at the database.
   number_of_passes integer not null
     check (number_of_passes >= 1),
-  -- School roll, populated for students only.
+  -- School roll. Students give their own; parents give their child's, and
+  -- name them. Neither applies to an 'other' visitor.
+  student_name varchar(120),
   usn varchar(20),
   class text,
   section text,
   constraint registrations_student_details check (
-    visitor_type <> 'student'
-    or (usn is not null and class is not null and section is not null)
+    case visitor_type
+      when 'student' then usn is not null and class is not null and section is not null
+      when 'parent' then student_name is not null and usn is not null
+                        and class is not null and section is not null
+      else true
+    end
   ),
+  -- Who an 'other' visitor is, and who they represent (optional).
+  visitor_detail text
+    check (
+      visitor_detail is null
+      or visitor_detail in ('Guest', 'Faculty', 'Alumni', 'Sponsor', 'Vendor', 'Media')
+    ),
+  organisation varchar(160),
   accessibility_requirements text,
   comments text,
   status text not null default 'received'

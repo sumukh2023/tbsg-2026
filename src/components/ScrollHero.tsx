@@ -29,6 +29,13 @@ export interface ScrollHeroProps {
 }
 
 /**
+ * Per-frame decay applied to the opening's leftover offset: ~0.35s to close
+ * the gap. Fast enough to read as a transition rather than a drift, slow
+ * enough not to read as a cut.
+ */
+const BLEND = 0.88;
+
+/**
  * Apple-product-page scroll scrubber: a tall runway with a sticky,
  * viewport-filling video whose playhead is driven by scroll position.
  *
@@ -56,11 +63,12 @@ export interface ScrollHeroProps {
  *   was told.
  *
  * WebKit-only opening (opt in with `autoplayUntilScroll`):
- * - Safari, iOS and iPadOS get a film that plays and loops from load. It
- *   keeps playing while the reader starts to scroll, and the timeline takes
- *   over at the instant the scroll position catches the playhead — where the
- *   two agree by definition, so nothing jumps and no point on the runway
- *   behaves differently from any other. Blink and Gecko never enter this
+ * - Safari, iOS and iPadOS get a film that plays and loops from load. The
+ *   reader's first scroll takes control immediately, from the frame then on
+ *   screen, and the playhead eases onto the timeline over a few hundred
+ *   milliseconds. Waiting instead for the scroll to catch the playhead left
+ *   the film ignoring the scroll until the two converged, which is what made
+ *   the transition read as unresponsive. Blink and Gecko never enter this
  *   mode and scrub from the first frame exactly as before.
  * - It doubles as the sturdiest fix for the iPad: a video that has never
  *   played may hold no decoded frame and no buffered media, and so cannot
@@ -129,7 +137,7 @@ export function ScrollHero({
     let current = 0;
     let frame = 0;
     let active = false;
-    let shown = false;
+    let revealed = false;
     let restarts = 0;
 
     // WebKit only: the film plays and loops until the reader's first scroll,
@@ -145,6 +153,10 @@ export function ScrollHero({
       profile.fastSeek && typeof video.fastSeek === 'function';
     let mode: 'play' | 'scrub' =
       autoplayUntilScroll && engine === 'webkit' && !reduced ? 'play' : 'scrub';
+    // Gap, in seconds, between where the opening left the playhead and where
+    // the timeline wants it. Decays to zero over a few hundred milliseconds
+    // and is then gone for good.
+    let offset = 0;
 
     // Readiness is READ FROM THE ELEMENT, never inferred from an event
     // having fired. iOS may never fire `loadeddata` for a video that is
@@ -156,8 +168,8 @@ export function ScrollHero({
       video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
 
     const reveal = () => {
-      if (shown || !hasFrame()) return;
-      shown = true;
+      if (revealed || !hasFrame()) return;
+      revealed = true;
       setReady(true);
     };
 
@@ -221,7 +233,7 @@ export function ScrollHero({
       // `shown`, not hasFrame(): readyState can dip back below HAVE_CURRENT_DATA
       // while re-buffering mid-scrub, and waking the decoder then would shove
       // the playhead. Once a frame has ever existed, initialisation is over.
-      if (shown) return;
+      if (revealed) return;
       const played = video.play();
       if (played && typeof played.then === 'function') {
         played.then(() => video.pause()).catch(() => {});
@@ -241,7 +253,7 @@ export function ScrollHero({
       // Latched on `shown` for the same reason as prime(), and because load()
       // is destructive: it resets the playhead and discards the buffer. Before
       // the first frame there is nothing to lose; after it, never.
-      if (video.error || shown || restarts >= 3) return;
+      if (video.error || revealed || restarts >= 3) return;
       const idle =
         video.networkState === HTMLMediaElement.NETWORK_EMPTY ||
         video.networkState === HTMLMediaElement.NETWORK_IDLE;
@@ -283,31 +295,44 @@ export function ScrollHero({
         // ONE TIMELINE. The film's position is the scroll position, always:
         // runway top is frame 0, runway end is the last frame, and there is
         // no second mapping anywhere. Scrolling up therefore runs the film
-        // back to frame 0 like any other point on it.
-        //
-        // The autoplay opening does not get its own mapping either. While it
-        // plays, the reader may already be scrolling; control changes hands
-        // at the instant the scroll position CATCHES the playhead, and
-        // because the two are equal at that instant, the timeline below is
-        // already showing precisely the frame on screen. There is no jump to
-        // hide, nothing to carry across, and no point on the runway where
-        // the behaviour changes — which is what makes the seam invisible
-        // rather than merely small.
+        // back to frame 0 like any other point on it, and scrolling down
+        // finishes on the last frame.
         const time = current * duration;
+
         if (mode === 'play') {
           keepPlaying();
-          // `current > 0` keeps the load-time state (playhead at 0, scroll at
-          // 0) from reading as an instant catch-up before the film has run.
-          if (current > 0 && time >= video.currentTime) {
+          // The reader's FIRST scroll takes control, immediately. Waiting for
+          // the scroll to catch the playhead left the film playing on,
+          // ignoring the scroll for as long as it took to converge, which is
+          // what made the transition read as unresponsive on Safari.
+          if (current > 0.002) {
             mode = 'scrub';
             video.loop = false;
             video.pause();
+            // Hand over from the frame that is on screen, not the one the
+            // timeline wants. Carrying the difference as an OFFSET, rather
+            // than easing the playhead toward a moving target, is what keeps
+            // the film locked 1:1 to the scroll from the very first frame:
+            // only the gap decays, never the tracking.
+            offset = video.currentTime - time;
           }
+        }
+
+        // The gap closes over a few hundred milliseconds instead of cutting
+        // shut. Bounded in time rather than in scroll distance, and it ends
+        // for good: from then on the film IS the timeline, in both
+        // directions, which is what lets an upward scroll run back to frame 0
+        // and a downward one finish on the last frame.
+        let shown = time;
+        if (offset !== 0) {
+          offset *= BLEND;
+          if (Math.abs(offset) < 0.05) offset = 0;
+          else shown = Math.max(0, Math.min(duration, time + offset));
         }
         // At the very top of the runway the target time is 0 — exactly where
         // the playhead already sits — so nothing would ever ask the decoder
         // for a frame and iOS would show an empty box until the first scroll.
-        const seekTo = !shown && time < 0.001 ? 0.001 : time;
+        const seekTo = !revealed && shown < 0.001 ? 0.001 : shown;
         const drift = Math.abs(video.currentTime - seekTo);
         // Skip sub-frame micro-seeks, and never stack a new seek on a
         // decoder that is still seeking unless we have fallen well behind.

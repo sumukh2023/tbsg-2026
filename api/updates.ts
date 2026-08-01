@@ -26,7 +26,9 @@ export default async function handler(
       `&published=eq.true&order=published_at.desc.nullslast&limit=50`;
     const response = await fetch(url, { headers: env.headers });
     if (!response.ok) {
-      console.error(`[updates] stage=select supabase_status=${response.status}`);
+      console.error(
+        `[updates] stage=select supabase_status=${response.status}`
+      );
       throw new Error('updates lookup failed');
     }
     const updates = await response.json();

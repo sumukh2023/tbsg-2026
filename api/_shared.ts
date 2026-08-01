@@ -126,6 +126,23 @@ export const CLASSES = [
 
 export const SECTIONS = ['A', 'B', 'C', 'D'] as const;
 
+/** Who an "other" visitor is, in the order the form offers them. */
+export const VISITOR_DETAILS = [
+  'Guest',
+  'Faculty',
+  'Alumni',
+  'Sponsor',
+  'Vendor',
+  'Media',
+] as const;
+
+/**
+ * Visitor types that must supply school-roll details. Students give their
+ * own; parents give their child's, which is why the roll columns are not
+ * named after either party.
+ */
+export const ROLL_REQUIRED: readonly VisitorType[] = ['student', 'parent'];
+
 /** Human-friendly pass reference, e.g. FB26-K7M3Q (no confusable glyphs). */
 export function passReference(): string {
   const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -149,6 +166,7 @@ export type PassRow = {
     full_name: string;
     visitor_type: string;
     number_of_passes: number;
+    student_name: string | null;
     usn: string | null;
     class: string | null;
     section: string | null;
@@ -164,7 +182,7 @@ export async function findPassByToken(
   const url =
     `${env.url}/rest/v1/passes` +
     `?select=id,registration_id,pass_reference,status,issued_at,checked_in_at,checked_in_by,` +
-    `registrations(full_name,visitor_type,number_of_passes,usn,class,section)` +
+    `registrations(full_name,visitor_type,number_of_passes,student_name,usn,class,section)` +
     `&verification_token_hash=eq.${hash}&limit=1`;
   const response = await fetch(url, { headers: env.headers });
   if (!response.ok) throw new Error('pass lookup failed');
