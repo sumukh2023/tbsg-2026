@@ -213,6 +213,8 @@ type Guest = {
 type VerifyState =
   | { phase: 'code'; message?: string }
   | { phase: 'checking' }
+  // Signed in at /verify-pass with no pass yet: choose scan or type.
+  | { phase: 'portal' }
   | {
       phase: 'result';
       result:
@@ -255,6 +257,16 @@ function formatTime(iso: string | null | undefined): string {
 export default function VerifyPage() {
   const { token = '' } = useParams<{ token: string }>();
   const navigate = useNavigate();
+  const ground = useRef<HTMLDivElement>(null);
+  // Typed ticket code, used when no token came in through the URL.
+  const [reference, setReference] = useState('');
+  const [typing, setTyping] = useState(false);
+  // Which pass the current result belongs to. Check-in is a second call and
+  // must name the SAME pass the verify named — a pass reached by typed
+  // reference has no token to fall back on.
+  const subjectRef = useRef<{ token?: string; reference?: string } | null>(
+    null
+  );
   const [scanning, setScanning] = useState(false);
   const [code, setCode] = useState(() => {
     try {
@@ -269,8 +281,15 @@ export default function VerifyPage() {
   );
 
   const call = useCallback(
-    async (action: 'verify' | 'checkin', accessCode: string) => {
+    async (
+      action: 'authenticate' | 'verify' | 'checkin',
+      accessCode: string,
+      subject?: { token?: string; reference?: string }
+    ) => {
       setState({ phase: 'checking' });
+      if (subject) subjectRef.current = subject;
+      const identify =
+        subject ?? subjectRef.current ?? (token ? { token } : {});
 
       // Only a failed fetch is a network problem; everything else is an
       // answer from the service and gets its own state.
@@ -279,7 +298,11 @@ export default function VerifyPage() {
         response = await fetch('/api/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token, action, access_code: accessCode }),
+          body: JSON.stringify({
+            action,
+            access_code: accessCode,
+            ...identify,
+          }),
         });
       } catch {
         setState({ phase: 'network' });
@@ -298,6 +321,17 @@ export default function VerifyPage() {
       }
 
       const data = await response.json().catch(() => null);
+
+      // The portal signs in without a pass in hand; a plain ok lands it on
+      // the two choices rather than on a result it does not have yet.
+      if (action === 'authenticate') {
+        if (response.ok) {
+          setState({ phase: 'portal' });
+          return;
+        }
+        setState({ phase: 'code', message: 'Access code incorrect.' });
+        return;
+      }
 
       // 200 valid/checked_in · 404 invalid · 409 already checked in ·
       // 410 cancelled: all carry a `result` the volunteer can act on.
@@ -326,8 +360,35 @@ export default function VerifyPage() {
   );
 
   useEffect(() => {
-    if (code) void call('verify', code);
-  }, [code, call]);
+    if (!code) return;
+    // With a token in the URL this page is the single-pass verifier it has
+    // always been. Without one it is the portal, and the access code is
+    // checked on its own before anything else is offered.
+    if (token) subjectRef.current = { token };
+    void call(token ? 'verify' : 'authenticate', code);
+  }, [code, call, token]);
+
+  // The page paints its own dark ground; `body` behind it is the site's light
+  // marble, which shows as a pale band whenever the root is shorter than the
+  // visual viewport — a phone retracting its URL bar, a rubber-band
+  // overscroll. Painting the document the same colour removes the seam.
+  useEffect(() => {
+    const el = ground.current;
+    if (!el) return;
+    const { body } = document;
+    const previous = body.style.backgroundColor;
+    body.style.backgroundColor = getComputedStyle(el).backgroundColor;
+    return () => {
+      body.style.backgroundColor = previous;
+    };
+  }, []);
+
+  const submitReference = (event: React.FormEvent) => {
+    event.preventDefault();
+    const value = reference.trim().toUpperCase();
+    if (!value) return;
+    void call('verify', code, { reference: value });
+  };
 
   const submitCode = (event: React.FormEvent) => {
     event.preventDefault();
@@ -342,7 +403,10 @@ export default function VerifyPage() {
   };
 
   return (
-    <div className="dark relative min-h-[100dvh] overflow-hidden bg-background text-foreground">
+    <div
+      ref={ground}
+      className="dark relative min-h-[100dvh] overflow-hidden bg-background text-foreground"
+    >
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(70%_45%_at_50%_-5%,hsl(var(--accent)/0.12),transparent_70%)]" />
         <Grain className="opacity-[0.04]" />
@@ -394,6 +458,68 @@ export default function VerifyPage() {
                 Continue
               </button>
             </motion.form>
+          )}
+
+          {state.phase === 'portal' && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, ease: EASE.out }}
+              className="liquid-glass rounded-xl border border-white/10 p-6"
+            >
+              <h1 className="font-display text-3xl font-medium tracking-tight text-foreground">
+                Verify a pass
+              </h1>
+              <p className="mt-2 font-body text-sm leading-relaxed text-muted-foreground">
+                Scan the QR on the guest's pass, or type the reference printed
+                beneath it.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setScanning(true)}
+                className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-full bg-accent px-8 py-3.5 font-body text-sm font-medium text-accent-foreground transition-all duration-300 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98]"
+              >
+                Scan QR code
+              </button>
+
+              {typing ? (
+                <form onSubmit={submitReference} className="mt-3">
+                  <label
+                    htmlFor="reference"
+                    className="font-body text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground"
+                  >
+                    Ticket code
+                  </label>
+                  <input
+                    id="reference"
+                    value={reference}
+                    onChange={(event) => setReference(event.target.value)}
+                    autoFocus
+                    autoComplete="off"
+                    autoCapitalize="characters"
+                    spellCheck={false}
+                    placeholder="FB26-XXXXX"
+                    className="mt-2 w-full rounded-lg border border-border bg-background/40 px-4 py-3.5 font-body text-base uppercase tracking-[0.12em] text-foreground outline-none transition-[border-color,box-shadow] duration-300 placeholder:tracking-normal placeholder:text-muted-foreground/50 focus:border-primary focus:shadow-[0_0_0_1px_hsl(var(--primary)/0.4)]"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!reference.trim()}
+                    className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-full bg-primary px-8 py-3.5 font-body text-sm font-medium text-primary-foreground transition-all duration-300 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Verify pass
+                  </button>
+                </form>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setTyping(true)}
+                  className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-full border border-border px-8 py-3.5 font-body text-sm font-medium text-foreground transition-all duration-300 hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98]"
+                >
+                  Enter ticket code
+                </button>
+              )}
+            </motion.div>
           )}
 
           {state.phase === 'checking' && (
@@ -580,10 +706,21 @@ export default function VerifyPage() {
                     primary action is the check-in itself. */}
                 {state.result !== 'valid' && (
                   <button
-                    onClick={() => setScanning(true)}
+                    onClick={() => {
+                      // Back to the portal when the volunteer came in through
+                      // it (no token in the URL), so the typed-code route is
+                      // reachable again and not just the camera.
+                      if (token) setScanning(true);
+                      else {
+                        setReference('');
+                        setTyping(false);
+                        subjectRef.current = null;
+                        setState({ phase: 'portal' });
+                      }
+                    }}
                     className="inline-flex w-full items-center justify-center rounded-full bg-primary px-8 py-4 font-body text-base font-medium text-primary-foreground transition-all duration-300 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98]"
                   >
-                    Scan Next Guest
+                    {token ? 'Scan Next Guest' : 'Verify Next Guest'}
                   </button>
                 )}
               </div>

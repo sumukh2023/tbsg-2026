@@ -141,6 +141,17 @@ export default function App() {
                 </Suspense>
               }
             />
+            {/* The central portal and the single-pass verifier are the same
+                page: with a token it checks that pass, without one it offers
+                the scan-or-type choices. Both sit behind the access code. */}
+            <Route
+              path="/verify-pass"
+              element={
+                <Suspense fallback={<PageFallback />}>
+                  <VerifyPage />
+                </Suspense>
+              }
+            />
             <Route
               path="/verify-pass/:token"
               element={

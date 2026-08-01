@@ -95,8 +95,10 @@ export function PassCard({ pass }: { pass: PassData }) {
                 {pass.numberOfPasses}
               </dd>
             </div>
-            {/* The gate reads the roll straight off a student pass. */}
-            {pass.usn && (
+            {/* Students only. A PARENT's pass carries their child's roll in
+                the record, but the ticket belongs to the parent and printing
+                the child's USN on it says nothing about who is at the gate. */}
+            {pass.visitorType === 'student' && pass.usn && (
               <div>
                 <dt className="font-body text-2xs uppercase tracking-[0.16em] text-muted-foreground">
                   USN
@@ -106,16 +108,19 @@ export function PassCard({ pass }: { pass: PassData }) {
                 </dd>
               </div>
             )}
-            {(pass.studentClass || pass.section) && (
-              <div>
-                <dt className="font-body text-2xs uppercase tracking-[0.16em] text-muted-foreground">
-                  Class
-                </dt>
-                <dd className="mt-1 font-body text-sm text-foreground">
-                  {[pass.studentClass, pass.section].filter(Boolean).join(' ')}
-                </dd>
-              </div>
-            )}
+            {pass.visitorType === 'student' &&
+              (pass.studentClass || pass.section) && (
+                <div>
+                  <dt className="font-body text-2xs uppercase tracking-[0.16em] text-muted-foreground">
+                    Class
+                  </dt>
+                  <dd className="mt-1 font-body text-sm text-foreground">
+                    {[pass.studentClass, pass.section]
+                      .filter(Boolean)
+                      .join(' ')}
+                  </dd>
+                </div>
+              )}
           </dl>
         </div>
 

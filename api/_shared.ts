@@ -173,19 +173,43 @@ export type PassRow = {
   };
 };
 
+const PASS_SELECT =
+  `select=id,registration_id,pass_reference,status,issued_at,checked_in_at,checked_in_by,` +
+  `registrations(full_name,visitor_type,number_of_passes,student_name,usn,class,section)`;
+
+async function findPass(
+  env: { url: string; headers: Record<string, string> },
+  filter: string
+): Promise<PassRow | null> {
+  const response = await fetch(
+    `${env.url}/rest/v1/passes?${PASS_SELECT}&${filter}&limit=1`,
+    { headers: env.headers }
+  );
+  if (!response.ok) throw new Error('pass lookup failed');
+  const rows = (await response.json()) as PassRow[];
+  return rows[0] ?? null;
+}
+
 /** Fetch a pass (joined with its registration) by hashed token. */
 export async function findPassByToken(
   env: { url: string; headers: Record<string, string> },
   token: string
 ): Promise<PassRow | null> {
-  const hash = await sha256Hex(token);
-  const url =
-    `${env.url}/rest/v1/passes` +
-    `?select=id,registration_id,pass_reference,status,issued_at,checked_in_at,checked_in_by,` +
-    `registrations(full_name,visitor_type,number_of_passes,student_name,usn,class,section)` +
-    `&verification_token_hash=eq.${hash}&limit=1`;
-  const response = await fetch(url, { headers: env.headers });
-  if (!response.ok) throw new Error('pass lookup failed');
-  const rows = (await response.json()) as PassRow[];
-  return rows[0] ?? null;
+  return findPass(env, `verification_token_hash=eq.${await sha256Hex(token)}`);
+}
+
+/** Human-readable pass reference, as printed on the pass: FB26-XXXXX. */
+export const REFERENCE_PATTERN = /^FB26-[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{5}$/;
+
+/**
+ * Fetch a pass by the reference a volunteer can read off the pass and type
+ * in. Unlike the token this is short enough to guess at, so it is only ever
+ * reachable behind the verifier access code — see api/verify.ts, which checks
+ * the code before any lookup happens.
+ */
+export async function findPassByReference(
+  env: { url: string; headers: Record<string, string> },
+  reference: string
+): Promise<PassRow | null> {
+  return findPass(env, `pass_reference=eq.${encodeURIComponent(reference)}`);
 }

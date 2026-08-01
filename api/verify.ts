@@ -2,7 +2,8 @@
  * POST /api/verify — event-day verification and check-in, used by the
  * /verify-pass/<token> volunteer interface.
  *
- * Body: { token, action: 'verify' | 'checkin', access_code, operator? }
+ * Body: { action: 'authenticate' | 'verify' | 'checkin', access_code,
+ *         token? | reference?, operator? }
  *
  * Classic Vercel Node.js (req, res) signature; env vars are read
  * dynamically at request time. Everything used here (fetch, WebCrypto,
@@ -22,8 +23,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import {
   cleanText,
+  findPassByReference,
   findPassByToken,
   jsonBody,
+  REFERENCE_PATTERN,
   send,
   supabaseEnv,
   type PassRow,
@@ -89,14 +92,32 @@ export default async function handler(
     return send(res, 503, { error: 'Verification service unavailable.' });
   }
 
+  // The portal signs in before it has a pass to check, so the access code
+  // alone is a complete request. Nothing is looked up and nothing leaks: the
+  // answer is only whether the code was right, which the caller already knows.
+  if (body.action === 'authenticate') {
+    return send(res, 200, { ok: true });
+  }
+
+  // A pass is identified EITHER by the opaque token the QR carries, or by the
+  // short reference printed on it, which is what a volunteer can type. Both
+  // are already behind the access code checked above.
   const token = typeof body.token === 'string' ? body.token : '';
-  if (!/^[A-Za-z0-9_-]{20,64}$/.test(token)) {
+  const reference =
+    typeof body.reference === 'string'
+      ? body.reference.trim().toUpperCase()
+      : '';
+  const byToken = /^[A-Za-z0-9_-]{20,64}$/.test(token);
+  const byReference = REFERENCE_PATTERN.test(reference);
+  if (!byToken && !byReference) {
     return send(res, 404, { result: 'invalid', error: 'Pass not found.' });
   }
+  const lookup = () =>
+    byToken ? findPassByToken(env, token) : findPassByReference(env, reference);
   const action = body.action === 'checkin' ? 'checkin' : 'verify';
 
   try {
-    const pass = await findPassByToken(env, token);
+    const pass = await lookup();
     if (!pass) {
       return send(res, 404, { result: 'invalid', error: 'Pass not found.' });
     }
@@ -138,7 +159,7 @@ export default async function handler(
 
     if (updated.length === 0) {
       // Someone got there first, or the pass was cancelled meanwhile.
-      const fresh = await findPassByToken(env, token);
+      const fresh = await lookup();
       const freshPresentation = {
         ...presentation,
         checked_in_at: fresh?.checked_in_at ?? null,
