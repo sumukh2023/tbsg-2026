@@ -103,7 +103,12 @@ const BLEND = 0.86;
  * - The element only fades in once the decoder actually holds a frame; if
  *   every source fails, the marble veil simply remains — no black box.
  *
- * Under prefers-reduced-motion the film holds its first frame as a still.
+ * Under prefers-reduced-motion the film holds its first frame as a still —
+ * but the loop STILL RUNS and progress still tracks the scroll. Every veil
+ * and cover layered over these films is driven by that value, and at zero
+ * they sit at full opacity: skipping the loop did not calm the film down, it
+ * hid it behind an opaque panel for the whole page. Reduced motion suppresses
+ * the SCRUBBING, not the reader's position in the section.
  */
 export function ScrollHero({
   src,
@@ -379,7 +384,13 @@ export function ScrollHero({
         // At the very top of the runway the target time is 0 — exactly where
         // the playhead already sits — so nothing would ever ask the decoder
         // for a frame and iOS would show an empty box until the first scroll.
-        const seekTo = !revealed && shown < 0.001 ? 0.001 : shown;
+        // Under reduced motion the playhead is only ever nudged off zero to
+        // force a first frame; it is never driven by the scroll.
+        const seekTo = reduced
+          ? 0.001
+          : !revealed && shown < 0.001
+            ? 0.001
+            : shown;
         const drift = Math.abs(video.currentTime - seekTo);
         // Skip sub-frame micro-seeks, and never stack a new seek on a
         // decoder that is still seeking unless we have fallen well behind.
@@ -390,6 +401,8 @@ export function ScrollHero({
         // stutter.
         if (
           mode === 'scrub' &&
+          // Reduced motion seeks exactly once, to surface a still frame.
+          (!reduced || !revealed) &&
           drift > profile.minSeek &&
           video.paused &&
           (!video.seeking || drift > profile.stackedSeek)
@@ -417,7 +430,7 @@ export function ScrollHero({
           prime();
           // Reduced motion still loads and paints the still first frame —
           // it just never scrubs.
-          if (!reduced) frame = requestAnimationFrame(tick);
+          frame = requestAnimationFrame(tick);
         } else if (!near && active) {
           active = false;
           cancelAnimationFrame(frame);
