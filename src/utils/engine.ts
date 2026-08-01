@@ -45,6 +45,11 @@ export type ScrubProfile = {
    * nearest keyframe instead of decoding to an exact frame.
    */
   fastSeek: boolean;
+  /**
+   * Playhead lerp factor. Higher tracks the scroll more tightly at the cost
+   * of showing more of the scroll's own jitter.
+   */
+  smoothing: number;
 };
 
 /**
@@ -65,10 +70,14 @@ export type ScrubProfile = {
  *   a scrub into a freeze.
  */
 export const SCRUB_PROFILES: Record<Engine, ScrubProfile> = {
-  blink: { minSeek: 0.02, stackedSeek: 0.3, fastSeek: false },
-  gecko: { minSeek: 0.02, stackedSeek: 0.3, fastSeek: false },
-  edge: { minSeek: 0.05, stackedSeek: 0.45, fastSeek: false },
-  webkit: { minSeek: 0.04, stackedSeek: 0.6, fastSeek: true },
+  blink: { minSeek: 0.02, stackedSeek: 0.3, fastSeek: false, smoothing: 0.22 },
+  gecko: { minSeek: 0.02, stackedSeek: 0.3, fastSeek: false, smoothing: 0.22 },
+  edge: { minSeek: 0.05, stackedSeek: 0.45, fastSeek: false, smoothing: 0.22 },
+  // WebKit tracks the scroll harder. Safari's own momentum scrolling is
+  // already smooth, so a heavy lerp on top of it reads as the film lagging
+  // the finger rather than as polish — and fastSeek makes the extra seeks
+  // this costs cheap enough to afford.
+  webkit: { minSeek: 0.04, stackedSeek: 0.6, fastSeek: true, smoothing: 0.34 },
 };
 
 /** The scrub tuning for the engine currently running. */

@@ -12,7 +12,10 @@ export interface ScrollHeroProps {
   mobileSrc?: string;
   /** Total scroll runway; the sticky viewport stays pinned through it. */
   heightVh?: number;
-  /** Smoothing factor for the playhead lerp (0..1, higher = snappier). */
+  /**
+   * Overrides the engine profile's playhead lerp (0..1, higher = snappier).
+   * Left unset, each engine gets the factor tuned for it.
+   */
   smoothing?: number;
   /**
    * WebKit only: play and loop the film until the reader's first scroll, then
@@ -29,11 +32,34 @@ export interface ScrollHeroProps {
 }
 
 /**
- * Per-frame decay applied to the opening's leftover offset: ~0.35s to close
- * the gap. Fast enough to read as a transition rather than a drift, slow
- * enough not to read as a cut.
+ * How much of the film the WebKit opening loops over, in seconds.
+ *
+ * This is the number that makes the handover invisible, and it is a
+ * structural choice rather than a tuning knob. A film looping over its whole
+ * length is, on average, half its duration away from frame 0 when the reader
+ * first scrolls — and the timeline at the top of the runway wants frame 0, so
+ * that whole distance had to be travelled somewhere and could be seen. An
+ * opening bounded to its first couple of seconds is never more than that far
+ * from where the timeline wants it, and a normal scroll gesture advances the
+ * timeline faster than the remaining gap closes, so the film only ever
+ * advances on screen.
  */
-const BLEND = 0.88;
+const OPENING_SECONDS = 1.8;
+
+/**
+ * Share of the reader's own forward scrolling spent on closing the handover
+ * gap while they are descending. At 0.3 the film still advances at 70% of
+ * the scroll rate — slightly slower than the timeline for a moment, never
+ * backwards, which is the whole point.
+ */
+const CLOSE_SHARE = 0.3;
+
+/**
+ * Per-frame decay used only when the reader is still or scrolling UP. The
+ * film is already travelling backwards in that direction, so closing the gap
+ * there costs nothing visually and can be quick.
+ */
+const BLEND = 0.86;
 
 /**
  * Apple-product-page scroll scrubber: a tall runway with a sticky,
@@ -63,13 +89,13 @@ const BLEND = 0.88;
  *   was told.
  *
  * WebKit-only opening (opt in with `autoplayUntilScroll`):
- * - Safari, iOS and iPadOS get a film that plays and loops from load. The
- *   reader's first scroll takes control immediately, from the frame then on
- *   screen, and the playhead eases onto the timeline over a few hundred
- *   milliseconds. Waiting instead for the scroll to catch the playhead left
- *   the film ignoring the scroll until the two converged, which is what made
- *   the transition read as unresponsive. Blink and Gecko never enter this
- *   mode and scrub from the first frame exactly as before.
+ * - Safari, iOS and iPadOS get a film that plays on load, looping over its
+ *   first OPENING_SECONDS rather than its whole length. The reader's first
+ *   scroll takes control immediately, from the frame then on screen, and the
+ *   small remaining gap closes while the film continues to move FORWARDS —
+ *   never backwards under a reader scrolling down, which is the reverse
+ *   nudge that used to be visible. Blink and Gecko never enter this mode and
+ *   scrub from the first frame exactly as before.
  * - It doubles as the sturdiest fix for the iPad: a video that has never
  *   played may hold no decoded frame and no buffered media, and so cannot
  *   serve a seek at all. One that is genuinely playing has both.
@@ -99,7 +125,7 @@ export function ScrollHero({
   webmSrc,
   mobileSrc,
   heightVh = 300,
-  smoothing = 0.22,
+  smoothing,
   autoplayUntilScroll = false,
   className,
   children,
@@ -151,12 +177,17 @@ export function ScrollHero({
     // as well as the profile asking for it.
     const useFastSeek =
       profile.fastSeek && typeof video.fastSeek === 'function';
+    const lerp = smoothing ?? profile.smoothing;
     let mode: 'play' | 'scrub' =
       autoplayUntilScroll && engine === 'webkit' && !reduced ? 'play' : 'scrub';
     // Gap, in seconds, between where the opening left the playhead and where
     // the timeline wants it. Decays to zero over a few hundred milliseconds
     // and is then gone for good.
     let offset = 0;
+    // Previous frame's timeline position, so the loop can tell which way the
+    // reader is going and close the handover gap in the direction where it
+    // cannot be seen.
+    let lastTime = 0;
 
     // Readiness is READ FROM THE ELEMENT, never inferred from an event
     // having fired. iOS may never fire `loadeddata` for a video that is
@@ -279,7 +310,7 @@ export function ScrollHero({
       const target =
         runway > 0 ? Math.min(1, Math.max(0, -rect.top / runway)) : 0;
 
-      current += (target - current) * smoothing;
+      current += (target - current) * lerp;
       if (Math.abs(target - current) < 0.0005) current = target;
       progress.set(current);
 
@@ -301,6 +332,13 @@ export function ScrollHero({
 
         if (mode === 'play') {
           keepPlaying();
+          // The opening loops over the film's first seconds rather than its
+          // whole length, so the playhead is never far from where the
+          // timeline wants it when the reader takes over. `loop` cannot
+          // express a partial range, so the wrap is done here.
+          if (video.currentTime >= OPENING_SECONDS) {
+            video.currentTime = 0;
+          }
           // The reader's FIRST scroll takes control, immediately. Waiting for
           // the scroll to catch the playhead left the film playing on,
           // ignoring the scroll for as long as it took to converge, which is
@@ -315,6 +353,7 @@ export function ScrollHero({
             // the film locked 1:1 to the scroll from the very first frame:
             // only the gap decays, never the tracking.
             offset = video.currentTime - time;
+            lastTime = time;
           }
         }
 
@@ -325,10 +364,25 @@ export function ScrollHero({
         // and a downward one finish on the last frame.
         let shown = time;
         if (offset !== 0) {
-          offset *= BLEND;
-          if (Math.abs(offset) < 0.05) offset = 0;
+          // The gap is never closed by running the film BACKWARDS under a
+          // reader scrolling forwards — that reverse nudge is exactly what
+          // was visible. Descending, it is paid for out of their own forward
+          // motion: the film keeps advancing, just a little slower than the
+          // timeline, until the two meet. Ascending or standing still, the
+          // film is already moving backwards (or not at all), so the gap can
+          // simply be dropped there at no visual cost — which also means an
+          // upward scroll has closed it long before frame 0.
+          const advance = time - lastTime;
+          if (advance > 0) {
+            const close = Math.min(Math.abs(offset), advance * CLOSE_SHARE);
+            offset -= Math.sign(offset) * close;
+          } else {
+            offset *= BLEND;
+          }
+          if (Math.abs(offset) < 0.03) offset = 0;
           else shown = Math.max(0, Math.min(duration, time + offset));
         }
+        lastTime = time;
         // At the very top of the runway the target time is 0 — exactly where
         // the playhead already sits — so nothing would ever ask the decoder
         // for a frame and iOS would show an empty box until the first scroll.

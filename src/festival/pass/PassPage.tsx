@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
@@ -43,8 +43,31 @@ function Chrome() {
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
+  // The page paints its own dark ground, but `body` behind it stays the
+  // site's light marble. Any moment the root is shorter than the visual
+  // viewport — a phone retracting its URL bar, a rubber-band overscroll —
+  // that marble shows as a pale band under the page. Painting the same dark
+  // ground onto the document while this route is mounted means there is
+  // nothing paler anywhere behind it, whatever the viewport does.
+  const ground = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ground.current;
+    if (!el) return;
+    const { body } = document;
+    const previous = body.style.backgroundColor;
+    // Copied off the element rather than restating the token, so it cannot
+    // drift from `--background` in globals.css.
+    body.style.backgroundColor = getComputedStyle(el).backgroundColor;
+    return () => {
+      body.style.backgroundColor = previous;
+    };
+  }, []);
+
   return (
-    <div className="dark relative min-h-[100dvh] overflow-hidden bg-background text-foreground">
+    <div
+      ref={ground}
+      className="dark relative min-h-[100dvh] overflow-hidden bg-background text-foreground"
+    >
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(70%_45%_at_50%_-5%,hsl(var(--accent)/0.14),transparent_70%)]" />
         <Grain className="opacity-[0.04]" />
