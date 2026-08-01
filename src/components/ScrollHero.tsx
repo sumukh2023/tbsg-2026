@@ -32,27 +32,12 @@ export interface ScrollHeroProps {
 }
 
 /**
- * How much of the film the WebKit opening loops over, in seconds.
- *
- * This is the number that makes the handover invisible, and it is a
- * structural choice rather than a tuning knob. A film looping over its whole
- * length is, on average, half its duration away from frame 0 when the reader
- * first scrolls — and the timeline at the top of the runway wants frame 0, so
- * that whole distance had to be travelled somewhere and could be seen. An
- * opening bounded to its first couple of seconds is never more than that far
- * from where the timeline wants it, and a normal scroll gesture advances the
- * timeline faster than the remaining gap closes, so the film only ever
- * advances on screen.
+ * Most of the reader's forward motion that may be spent closing the handover
+ * gap. The film keeps at least the remaining 35% of the scroll rate, so it
+ * always visibly advances even when the opening handed over near the end of
+ * the film and the gap to close is nearly its whole length.
  */
-const OPENING_SECONDS = 1.8;
-
-/**
- * Share of the reader's own forward scrolling spent on closing the handover
- * gap while they are descending. At 0.3 the film still advances at 70% of
- * the scroll rate — slightly slower than the timeline for a moment, never
- * backwards, which is the whole point.
- */
-const CLOSE_SHARE = 0.3;
+const MAX_CLOSE_SHARE = 0.65;
 
 /**
  * Per-frame decay used only when the reader is still or scrolling UP. The
@@ -89,13 +74,15 @@ const BLEND = 0.86;
  *   was told.
  *
  * WebKit-only opening (opt in with `autoplayUntilScroll`):
- * - Safari, iOS and iPadOS get a film that plays on load, looping over its
- *   first OPENING_SECONDS rather than its whole length. The reader's first
- *   scroll takes control immediately, from the frame then on screen, and the
- *   small remaining gap closes while the film continues to move FORWARDS —
- *   never backwards under a reader scrolling down, which is the reverse
- *   nudge that used to be visible. Blink and Gecko never enter this mode and
- *   scrub from the first frame exactly as before.
+ * - Safari, iOS and iPadOS get a film that plays and loops from load. The
+ *   reader's first scroll takes control immediately, from the frame then on
+ *   screen, and the gap between that frame and the one the timeline wants is
+ *   closed out of their own scrolling: proportionally on the way down, so
+ *   the film always advances and lands on the last frame, and outright on
+ *   the way up, where backwards motion is what the reader asked for anyway.
+ *   The film is never dragged backwards under a downward scroll, which is
+ *   the settling that used to be visible. Blink and Gecko never enter this
+ *   mode and scrub from the first frame exactly as before.
  * - It doubles as the sturdiest fix for the iPad: a video that has never
  *   played may hold no decoded frame and no buffered media, and so cannot
  *   serve a seek at all. One that is genuinely playing has both.
@@ -332,13 +319,6 @@ export function ScrollHero({
 
         if (mode === 'play') {
           keepPlaying();
-          // The opening loops over the film's first seconds rather than its
-          // whole length, so the playhead is never far from where the
-          // timeline wants it when the reader takes over. `loop` cannot
-          // express a partial range, so the wrap is done here.
-          if (video.currentTime >= OPENING_SECONDS) {
-            video.currentTime = 0;
-          }
           // The reader's FIRST scroll takes control, immediately. Waiting for
           // the scroll to catch the playhead left the film playing on,
           // ignoring the scroll for as long as it took to converge, which is
@@ -374,9 +354,25 @@ export function ScrollHero({
           // upward scroll has closed it long before frame 0.
           const advance = time - lastTime;
           if (advance > 0) {
-            const close = Math.min(Math.abs(offset), advance * CLOSE_SHARE);
+            // Descending: shrink the gap IN PROPORTION to the runway still
+            // ahead, so it reaches zero exactly as the runway does and the
+            // film lands on the last frame. Spread that way the film always
+            // advances — just fractionally slower than the timeline — and is
+            // never dragged backwards under a reader scrolling down, which
+            // is the settling that was visible.
+            const runwayLeft = duration - lastTime;
+            const share =
+              runwayLeft > 0.001 ? Math.abs(offset) / runwayLeft : 1;
+            const close = Math.min(
+              Math.abs(offset),
+              advance * Math.min(share, MAX_CLOSE_SHARE)
+            );
             offset -= Math.sign(offset) * close;
-          } else {
+          } else if (advance < 0) {
+            // Ascending: the film is travelling backwards anyway, so the gap
+            // costs nothing to drop here — which is also why an upward scroll
+            // has closed it long before frame 0. Standing still, nothing
+            // moves and nothing would mask a change, so the gap is left be.
             offset *= BLEND;
           }
           if (Math.abs(offset) < 0.03) offset = 0;
