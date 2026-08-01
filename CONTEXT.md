@@ -73,48 +73,57 @@ system with QR + gate verification, and realtime Live Updates.
 
 ## Hero section: the two setups (SETUP A / SETUP B)
 
-The hero film has two behaviours. Which one runs is decided by DEVICE CLASS,
-not by browser: `(pointer: coarse)` in `src/components/ScrollHero.tsx`.
+Two behaviours exist for the hero film. **SETUP A is what ships, everywhere,
+on every device and browser** (since 01 Aug 2026). Setup B is implemented and
+kept working, but nothing opts into it today.
 
-**SETUP A — direct scrub.** Runs on every DESKTOP browser, Safari on macOS
-included. The film is a plain scroll-scrub from the first frame: no autoplay,
-no opening, scroll position is the playhead and nothing else ever touches it.
-Runway top is frame 0, runway end is the last frame, both directions.
+**SETUP A — direct scrub. CURRENTLY LIVE EVERYWHERE.** The film is a plain
+scroll-scrub from the first frame: no autoplay, no opening, scroll position is
+the playhead and nothing else ever touches it. Runway top is frame 0, runway
+end is the last frame, both directions, desktop and mobile alike.
 
-**SETUP B — autoplay opening, then scrub.** Runs on every PHONE AND TABLET,
-on every engine and OS (iOS Safari, iOS Chrome, Android Chrome, iPadOS). The
-film plays and loops from load. The reader's first scroll takes control
-immediately from the frame then on screen, and the gap between that frame and
-the one the timeline wants is closed out of their own scrolling —
-proportionally on the way down so the film always advances and lands on the
-last frame, and outright on the way up where backwards motion is what they
-asked for. It doubles as the fix for iOS/iPadOS, where a video that has never
-played may hold no decoded frame and cannot serve a seek at all.
+**SETUP B — autoplay opening, then scrub. IMPLEMENTED, NOT ENABLED.** The film
+plays and loops from load; the reader's first scroll takes control immediately
+from the frame then on screen, and the gap between that frame and the one the
+timeline wants is closed out of their own scrolling — proportionally on the
+way down so the film always advances and lands on the last frame, and outright
+on the way up where backwards motion is what they asked for. It is gated on
+`(pointer: coarse)` inside `ScrollHero.tsx`, so were it re-enabled it would
+run on phones and tablets only.
 
 ### Changing your mind later
 
-One prop, one line, `src/festival/Hero.tsx`:
+The switch is the `autoplayUntilScroll` prop on `<ScrollHero>`:
 
-- **Setup B everywhere (including desktop Safari and Chrome):** in
-  `ScrollHero.tsx`, drop `touch &&` from the `mode` initialiser.
-- **Setup B on WebKit only** (what shipped before 01 Aug 2026): replace
-  `touch` with `detectEngine() === 'webkit'`.
-- **Setup A everywhere, no autoplay at all:** remove the
-  `autoplayUntilScroll` prop from `<ScrollHero>` in `Hero.tsx`.
-- **Setup B on the ground film too:** add `autoplayUntilScroll` to the
-  `<ScrollHero>` in `GroundFilm.tsx` (it is Setup A everywhere today).
+- **Setup B on phones and tablets** (what shipped 01 Aug 2026, before Setup A
+  went everywhere): add `autoplayUntilScroll` back to `<ScrollHero>` in
+  `src/festival/Hero.tsx`.
+- **Setup B on WebKit only** (what shipped before that): add the prop back,
+  and in `ScrollHero.tsx` replace `touch` in the `mode` initialiser with
+  `detectEngine() === 'webkit'`.
+- **Setup B on every device including desktop:** add the prop back and drop
+  `touch &&` from the `mode` initialiser.
+- **Setup B on the ground film too:** add the prop to the `<ScrollHero>` in
+  `GroundFilm.tsx`.
 
 Tuning knobs for Setup B, both in `ScrollHero.tsx` and commented at the site:
 `MAX_CLOSE_SHARE` (how much of a forward scroll may be spent closing the
 handover gap; the film keeps the rest) and `BLEND` (how fast the gap drops
 while scrolling up or standing still).
 
-Known limitation of Setup B: a handover very late in the loop leaves little
-film between there and the end, so the descent shows that short tail
-stretched over the runway and the hero moves slowly. Nothing jumps or
-freezes. The alternative is to treat the offset as circular and let the film
-wrap forward through the loop point, trading this for a visible wrap partway
-down — a product call, not a technical one.
+Known limitation of Setup B, and part of why Setup A now ships everywhere: a
+handover very late in the loop leaves little film between there and the end,
+so the descent shows that short tail stretched over the runway and the hero
+moves slowly. Nothing jumps or freezes. The alternative is to treat the offset
+as circular and let the film wrap forward through the loop point, trading this
+for a visible wrap partway down — a product call, not a technical one.
+
+Setup B was originally introduced as the iOS/iPadOS decoder workaround, since
+a video that has never played may hold no decoded frame. Setup A covers that
+ground by other means: the `preload` escalation, the muted play()→pause()
+prime, the nudge off zero, and `onFirstGesture` (gotcha 7 below). An iPad Air
+3 running the Setup A path was measured at readyState 4 with the whole film
+buffered, which is what made dropping the opening safe.
 
 Engine profiles (`src/utils/engine.ts`) are a SEPARATE axis and apply to both
 setups: they govern how a seek is issued (coalescing thresholds, `fastSeek`

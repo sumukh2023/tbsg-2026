@@ -679,7 +679,7 @@ export default function GetPassesPage() {
                           />
                         ) : (
                           <PassStepper
-                            label={`Number of passes (maximum ${ticketLimit})`}
+                            label="Number of passes"
                             value={Number(form.passes) || 1}
                             onChange={(v) => set('passes', String(v))}
                             max={ticketLimit}
