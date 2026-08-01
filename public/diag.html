@@ -85,6 +85,7 @@
       actually does with it. Wait for it to finish, then tap Copy and paste the
       result back.
     </p>
+    <button id="gesture">Tap here to test playback (do this first)</button>
     <button id="copy">Copy report</button>
     <div id="panels"></div>
     <pre id="out"></pre>
@@ -243,6 +244,23 @@
         }
         await wait(1500);
 
+        // Safari can decline to start resource selection on its own. An
+        // explicit load() is the only way to tell "would not start" apart
+        // from "started and failed".
+        const beforeLoad = v.networkState + '/' + v.readyState;
+        try {
+          v.load();
+        } catch (e) {
+          row(host, 'load() threw', e.name + ' ' + e.message, 'bad');
+        }
+        await wait(2500);
+        row(
+          host,
+          'explicit load()',
+          'networkState/readyState ' + beforeLoad + ' -> ' + v.networkState + '/' + v.readyState,
+          v.readyState >= 2 ? 'ok' : 'bad'
+        );
+
         const buffered = [];
         for (let i = 0; i < v.buffered.length; i++) {
           buffered.push(
@@ -283,6 +301,50 @@
         row(done, 'finished at', new Date().toISOString());
         document.getElementById('out').textContent = lines.join('\n');
       })();
+
+      document.getElementById('gesture').addEventListener('click', async () => {
+        const btn = document.getElementById('gesture');
+        btn.textContent = 'Testing under your tap...';
+        const host = section('Playback under a real user tap');
+        const v = document.createElement('video');
+        v.muted = true;
+        v.playsInline = true;
+        v.setAttribute('webkit-playsinline', '');
+        v.preload = 'auto';
+        const g1 = document.createElement('source');
+        g1.src = '/hero.mp4';
+        g1.type = 'video/mp4';
+        const g2 = document.createElement('source');
+        g2.src = '/hero.webm';
+        g2.type = 'video/webm';
+        v.append(g1, g2);
+        host.appendChild(v);
+        let result = '';
+        try {
+          v.load();
+          // play() can hang rather than settle when nothing is loadable, so
+          // the wait is bounded: a stuck promise is itself a finding.
+          result = await Promise.race([
+            v.play().then(() => 'PLAYED (a tap lifts the block)'),
+            new Promise((r) =>
+              setTimeout(() => r('NO ANSWER: play() never settled in 8s'), 8000)
+            ),
+          ]);
+        } catch (e) {
+          result = 'STILL REFUSED: ' + e.name + ' — ' + e.message;
+        }
+        await new Promise((r) => setTimeout(r, 2500));
+        row(host, 'with user gesture', result,
+            result.startsWith('PLAYED') ? 'ok' : 'bad');
+        row(host, 'readyState', v.readyState, v.readyState >= 2 ? 'ok' : 'bad');
+        row(host, 'networkState', v.networkState);
+        row(host, 'currentSrc', v.currentSrc || '(none chosen)',
+            v.currentSrc ? 'ok' : 'bad');
+        row(host, 'currentTime', v.currentTime.toFixed(2));
+        v.pause();
+        btn.textContent = 'Tap test done — now Copy report';
+        document.getElementById('out').textContent = lines.join('\n');
+      });
 
       document.getElementById('copy').addEventListener('click', async () => {
         const text = lines.join('\n');
