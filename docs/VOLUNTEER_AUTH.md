@@ -31,6 +31,19 @@ It creates `volunteers`, `volunteer_sessions`, `volunteer_login_attempts` and
 preserved in `passes.checked_in_by_name`, so nothing that already happened is
 lost. Safe to run twice.
 
+Then run the second file:
+
+```
+supabase/migrations/20260802_restrict_volunteer_views.sql
+```
+
+The first migration's two reporting views arrive **UNRESTRICTED** — a view has
+no RLS of its own, and Supabase grants `anon` select on new objects in
+`public` by default, so the gate's activity log and volunteer roster would be
+readable with the public anon key. This revokes that grant and sets
+`security_invoker` so the underlying tables' RLS applies. The API is
+unaffected: it reads with the service-role key.
+
 ### 2. Create the first administrator
 
 There is no sign-up, so the first account is made by hand — there is no
@@ -207,6 +220,7 @@ from verification_activity where action = 'undo' order by created_at desc;
 | Secret exposure | The service-role key is server-only. No hash, token or lockout field appears in any response |
 | IP privacy | Rate limiting stores a SHA-256 of the address, never the address |
 | Caching | `Cache-Control: no-store, private` on session and admin reads, so a shared gate tablet cannot serve one volunteer's identity to the next |
+| Database exposure | RLS on every table with no anon policies, **plus** explicit `revoke` from `anon`/`authenticated` and `security_invoker` on both views — RLS alone does not cover a view |
 
 ### Deliberately not built
 

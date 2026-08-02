@@ -175,6 +175,11 @@ create index if not exists passes_checked_in_by_idx
 -- ---------------------------------------------------------------------
 -- Reporting views. The display name is JOINED, never duplicated into the
 -- event rows, so renaming a volunteer corrects every past report at once.
+--
+-- WARNING: a view has no RLS of its own, and Supabase grants `anon` select on
+-- new objects in `public` by default — so these two arrive UNRESTRICTED and
+-- readable with the public anon key. `20260802_restrict_volunteer_views.sql`
+-- revokes that grant and sets security_invoker. RUN IT TOO.
 -- ---------------------------------------------------------------------
 create or replace view public.verification_activity as
   select
