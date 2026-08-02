@@ -889,7 +889,7 @@ export default function GetPassesPage() {
                             onChange={(v) => set('termsAccepted', v)}
                             error={errors.termsAccepted}
                           >
-                            I have read and agree to the{' '}
+                            I have read and agreed to the{' '}
                             <Link
                               to="/terms"
                               target="_blank"
@@ -912,8 +912,7 @@ export default function GetPassesPage() {
                             checked={form.bookingEmails}
                             onChange={(v) => set('bookingEmails', v)}
                           >
-                            Send me important updates regarding my booking and
-                            Flash @ Brigade 2026.{' '}
+                            Send me important updates regarding my booking.{' '}
                             <span className="text-muted-foreground/70">
                               (Recommended)
                             </span>
@@ -923,7 +922,7 @@ export default function GetPassesPage() {
                             checked={form.marketingEmails}
                             onChange={(v) => set('marketingEmails', v)}
                           >
-                            Keep me informed about updates related to Flash @
+                            Keep me informed about news related to Flash @
                             Brigade.
                           </Consent>
                         </fieldset>

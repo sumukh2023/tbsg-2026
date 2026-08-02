@@ -28,11 +28,14 @@ const socials = [
 export function SiteFooter() {
   return (
     <footer className="border-t border-border bg-background text-foreground">
+      {/* Two roomy columns through tablet, four only once there is width for
+          them: the email address needs about 300px to sit unbroken, which a
+          twelfth of a 1024px page cannot give it. */}
       <div
         id="contact"
-        className="mx-auto grid max-w-6xl scroll-mt-20 gap-12 px-6 py-16 md:grid-cols-12 md:px-10"
+        className="mx-auto grid max-w-6xl scroll-mt-20 gap-12 px-6 py-16 md:grid-cols-2 md:px-10 xl:grid-cols-12"
       >
-        <div className="md:col-span-4">
+        <div className="xl:col-span-3">
           <CarnivalMark className="h-9 w-auto text-foreground" />
           <p className="mt-4 font-body text-xs font-semibold uppercase tracking-[0.22em]">
             Flash <span className="text-primary">@</span> Brigade
@@ -41,7 +44,7 @@ export function SiteFooter() {
             Namma Mia Carpisa
           </p>
         </div>
-        <div className="md:col-span-3">
+        <div className="xl:col-span-3">
           <h3 className="font-body text-sm font-semibold">Visit</h3>
           <address className="mt-3 font-body text-sm not-italic leading-relaxed text-muted-foreground">
             The Brigade School @ Malleswaram
@@ -55,7 +58,10 @@ export function SiteFooter() {
             Bangalore - 560055
           </address>
         </div>
-        <div className="md:col-span-3">
+        {/* Four columns, not three: the email address is the longest string in
+            the footer, and at three it ran out of its track and crowded the
+            Legal column beside it. */}
+        <div className="xl:col-span-4">
           <h3 className="font-body text-sm font-semibold">Contact Us</h3>
           <p className="mt-3 font-body text-sm leading-relaxed text-muted-foreground">
             Landline:{' '}
@@ -74,18 +80,19 @@ export function SiteFooter() {
               +91 96866 69805
             </a>
             <br />
-            <span className="lg:whitespace-nowrap">
-              Email:{' '}
-              <a
-                href="mailto:bfcommunication@brigadeschools.edu.in"
-                className="break-all underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                bfcommunication@brigadeschools.edu.in
-              </a>
-            </span>
+            {/* The address is the longest string in the footer. Only the space
+                after "Email:" may break, so the address itself is never split
+                mid-word and never spills into the Legal column beside it. */}
+            Email:{' '}
+            <a
+              href="mailto:bfcommunication@brigadeschools.edu.in"
+              className="break-all underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:whitespace-nowrap"
+            >
+              bfcommunication@brigadeschools.edu.in
+            </a>
           </p>
         </div>
-        <div className="md:col-span-2">
+        <div className="xl:col-span-2">
           <h3 className="font-body text-sm font-semibold">Legal</h3>
           <ul className="mt-3 space-y-2 font-body text-sm text-muted-foreground">
             <li>
