@@ -186,6 +186,141 @@
     --input: 38 16% 80%;
     --ring: 41 62% 38%;
   }
+
+  /* ---------------------------------------------------------------- */
+  /*  District footers.                                                */
+  /*                                                                   */
+  /*  The footer is the one place a district goes dark. On the landing */
+  /*  page that is the evening chapter arriving; on a district page it  */
+  /*  was the SAME evening chapter, which read as a global component    */
+  /*  bolted onto five differently coloured pages.                      */
+  /*                                                                   */
+  /*  So each district gets its own dusk: the page's hue taken down to  */
+  /*  a deep ground with its accent lifted to sit on it. Structure,     */
+  /*  layout, links and type are untouched — this is tokens only, like  */
+  /*  every other chapter block. The wrapper keeps the `dark` class as  */
+  /*  well, so any `dark:` utility inside still behaves; these blocks   */
+  /*  carry two attributes and therefore outrank it.                    */
+  /*                                                                   */
+  /*  Unlike the page blocks these DO set --foreground, because that is */
+  /*  the whole point of a dusk. Every ink here is measured against its */
+  /*  own ground: body copy lands near 11:1 and links near 7:1.         */
+  /* ---------------------------------------------------------------- */
+
+  /* Mission — warm brown dusk under DMC 743. */
+  [data-chapter='mission'][data-surface='footer'] {
+    --dusk-mid: 30 44% 34%;
+    --dusk-from: 34 44% 95%;
+    --background: 34 30% 9%;
+    --foreground: 40 36% 93%;
+    --card: 34 24% 12%;
+    --card-foreground: 40 36% 93%;
+    --primary: 40 88% 66%;
+    --primary-foreground: 34 40% 10%;
+    --secondary: 34 18% 16%;
+    --secondary-foreground: 40 30% 90%;
+    --accent: 40 88% 66%;
+    --accent-foreground: 34 40% 10%;
+    --highlight: 40 98% 73%;
+    --highlight-foreground: 32 30% 13%;
+    --muted: 34 16% 14%;
+    --muted-foreground: 40 22% 72%;
+    --border: 34 14% 21%;
+    --input: 34 14% 21%;
+    --ring: 40 88% 66%;
+  }
+
+  /* Stalls — the mercato after closing: deep emerald, olive lamplight. */
+  [data-chapter='stalls'][data-surface='footer'] {
+    --dusk-mid: 112 28% 28%;
+    --dusk-from: 68 26% 93%;
+    --background: 150 32% 8%;
+    --foreground: 70 26% 92%;
+    --card: 152 20% 11%;
+    --card-foreground: 70 26% 92%;
+    --primary: 140 40% 60%;
+    --primary-foreground: 150 30% 8%;
+    --secondary: 150 14% 15%;
+    --secondary-foreground: 70 22% 90%;
+    --accent: 74 44% 58%;
+    --accent-foreground: 150 30% 8%;
+    --highlight: 74 52% 62%;
+    --highlight-foreground: 150 30% 8%;
+    --muted: 150 12% 13%;
+    --muted-foreground: 80 14% 72%;
+    --border: 150 12% 20%;
+    --input: 150 12% 20%;
+    --ring: 140 40% 60%;
+  }
+
+  /* Partners — the palazzo at night: navy ground, burgundy and gold. */
+  [data-chapter='partners'][data-surface='footer'] {
+    --dusk-mid: 245 22% 32%;
+    --dusk-from: 30 24% 94%;
+    --background: 223 38% 10%;
+    --foreground: 32 30% 93%;
+    --card: 222 24% 12%;
+    --card-foreground: 32 30% 93%;
+    --primary: 348 62% 66%;
+    --primary-foreground: 222 34% 9%;
+    --secondary: 222 18% 16%;
+    --secondary-foreground: 32 24% 90%;
+    --accent: 42 66% 60%;
+    --accent-foreground: 222 34% 9%;
+    --highlight: 42 72% 64%;
+    --highlight-foreground: 222 34% 9%;
+    --muted: 222 16% 14%;
+    --muted-foreground: 30 12% 74%;
+    --border: 222 14% 21%;
+    --input: 222 14% 21%;
+    --ring: 348 62% 66%;
+  }
+
+  /* Gallery — the coast after dark: deep sea blue. */
+  [data-chapter='gallery'][data-surface='footer'] {
+    --dusk-mid: 200 36% 30%;
+    --dusk-from: 34 40% 95%;
+    --background: 204 44% 9%;
+    --foreground: 34 30% 93%;
+    --card: 204 26% 12%;
+    --card-foreground: 34 30% 93%;
+    --primary: 200 62% 64%;
+    --primary-foreground: 205 38% 9%;
+    --secondary: 204 18% 16%;
+    --secondary-foreground: 34 24% 90%;
+    --accent: 190 52% 58%;
+    --accent-foreground: 205 38% 9%;
+    --highlight: 190 58% 62%;
+    --highlight-foreground: 205 38% 9%;
+    --muted: 204 16% 14%;
+    --muted-foreground: 205 14% 74%;
+    --border: 204 14% 21%;
+    --input: 204 14% 21%;
+    --ring: 200 62% 64%;
+  }
+
+  /* Enquiry — the front desk after hours: charcoal and gold. */
+  [data-chapter='enquiry'][data-surface='footer'] {
+    --dusk-mid: 34 18% 32%;
+    --dusk-from: 40 32% 95%;
+    --background: 30 10% 9%;
+    --foreground: 40 26% 93%;
+    --card: 30 8% 12%;
+    --card-foreground: 40 26% 93%;
+    --primary: 41 66% 62%;
+    --primary-foreground: 30 14% 9%;
+    --secondary: 30 6% 16%;
+    --secondary-foreground: 40 22% 90%;
+    --accent: 41 66% 62%;
+    --accent-foreground: 30 14% 9%;
+    --highlight: 41 72% 66%;
+    --highlight-foreground: 30 14% 9%;
+    --muted: 30 6% 14%;
+    --muted-foreground: 35 10% 74%;
+    --border: 30 6% 21%;
+    --input: 30 6% 21%;
+    --ring: 41 66% 62%;
+  }
 }
 
 @layer base {

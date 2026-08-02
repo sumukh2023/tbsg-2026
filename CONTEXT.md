@@ -118,6 +118,19 @@ separate CTA, the seagull is a `<Link to="/">`.
 - `CanvasBackground` in `App.tsx` must know a route's colour BEFORE the page
   mounts — that is what stops a white flash on navigation and during
   rubber-band overscroll. Hence the canvas value living in `chapters.ts`.
+- **Every district has its OWN dusk.** `PageShell` puts `data-chapter` plus
+  `data-surface="footer"` on the footer wrapper, which selects a second block
+  per district in `globals.css`. Same footer, same layout, same links, same
+  type; only the tokens differ, so Mission ends in warm brown, Stalls in deep
+  emerald, Partners in navy, Gallery in sea blue, Enquiry in charcoal. Those
+  blocks DO set `--foreground` (the page blocks never do) and they also carry
+  `--dusk-from` (the page's own ground) and `--dusk-mid`, which the 96px
+  gradient strip above the footer uses so the page falls into its footer
+  instead of meeting it at a hard edge. The `dark` class stays on the wrapper
+  so any `dark:` utility still behaves; a two-attribute selector outranks it.
+  `--dusk-mid` exists because sRGB interpolation from a light ground to a
+  dark one passes through muddy grey; the explicit warm/green/navy midpoint
+  is what makes the strip read as a sunset.
 - **Only Our Mission has full content.** The other four render
   `ComingSoonPage`; replace them one at a time.
 - `/donate` is where every "Support Us" button leads (`SUPPORT_PATH` in
@@ -146,9 +159,13 @@ page is correct today and becomes richer the moment they land:
   hero rather than a black box. Add `public/carnival.webm` too if you have it:
   the source list is mp4-first, and the webm is what makes the film verifiable
   in the sandbox Chromium (gotcha 3).
-- `public/carnivalg3.jpg` — the photograph beside section 02. NOT in the repo.
-  `Plate` in `MissionPage.tsx` catches the load error and leaves a toned frame
-  in its place, so the section still composes; drop the file in and it appears.
+- `public/carnivalg3.jpg` — the photograph beside section 02. IN the repo
+  since 2 Aug 2026. It is LANDSCAPE (roughly 16:9, the Rangeelo Rajasthan main
+  stage), which is why that section splits seven columns to five and only
+  splits at `lg`: a twelve-column track with a 56px gutter leaves about 260px
+  of measure at 768px, so tablets stack and the picture runs full width.
+  `Plate` still catches a load error and leaves a toned frame, so a missing or
+  renamed file degrades rather than showing a broken-image glyph.
 - Rangeelo Rajasthan photographs — add `src` to a record in `RANGEELO`
   (`MissionPage.tsx`) and that plate becomes a photograph. The carousel takes
   any number. `alt` is the accessible name only: the plates carry no visible
@@ -176,6 +193,19 @@ Traps found while building these pages, all worth remembering:
 - Carousel rotation is governed by VISIBILITY ALONE. Hover/wheel/touch holds
   look like a bug, because scrolling the page past a section fires those
   events on the track and parks it long after the reader stopped.
+- **`whileInView` cannot observe an element that starts translated out of its
+  own `overflow-hidden` parent.** Intersection observers clip against
+  ancestor overflow, so a child at `y: '110%'` inside a clip box reports a
+  ratio of ZERO for ever: the reveal never fires and the content is invisible
+  on the live site. Watch the wrapper with `useInView` and drive `animate`
+  from it, as `Rise` in `MissionPage.tsx` now does. This shipped broken for
+  two rounds — every display heading on Our Mission was missing and it read
+  as nothing worse than too much whitespace under each section marker.
+  **Playwright hides this bug**: `locator.scrollIntoViewIfNeeded()` will
+  scroll the `overflow-hidden` container itself, which pulls the clipped
+  content into view and makes the screenshot look correct. Verify reveals
+  with `page.mouse.wheel()` and assert the computed `transform`, never with
+  a screenshot taken after `scrollIntoViewIfNeeded`.
 - **Legibility over a background film is bought with shape, weight and a
   halo, not with more white.** The Mission hero scrim is a four-stop gradient
   measured from the bottom edge, so the wash sits under the words and the top

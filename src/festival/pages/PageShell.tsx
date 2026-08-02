@@ -90,9 +90,26 @@ export function PageShell({
 
       <main>{children}</main>
 
-      {/* The footer keeps its own evening chapter, exactly as on the landing
-          page, so every route ends in the same place. */}
-      <div className="dark bg-background text-foreground">
+      {/* Every route ends in a dusk, but in ITS OWN dusk. `data-chapter`
+          plus `data-surface="footer"` selects the district's footer palette
+          in globals.css; the `dark` class stays so any `dark:` utility
+          inside still behaves, and the two-attribute block outranks it.
+          Layout, links, structure and type are identical to the landing
+          page's footer. Only the tokens differ. */}
+      <div
+        data-chapter={chapter.key}
+        data-surface="footer"
+        className="dark bg-background text-foreground"
+      >
+        {/* Dusk falling, rather than a light page meeting a dark block at a
+            hard edge. `--dusk-from` is the PAGE's own ground, carried into
+            the footer scope by the same CSS block, so this strip runs from
+            the colour immediately above it to the colour immediately below
+            without either side having to know about the other. */}
+        <div
+          aria-hidden="true"
+          className="h-24 bg-[linear-gradient(to_bottom,hsl(var(--dusk-from))_0%,hsl(var(--dusk-mid))_52%,hsl(var(--background))_100%)]"
+        />
         <SiteFooter />
       </div>
     </div>
@@ -118,7 +135,10 @@ export function Band({
   return (
     <section
       className={
-        'relative overflow-hidden py-24 md:py-36 ' +
+        // Tightened from py-24/py-36. The pages were reading as a stack of
+        // very tall, very empty rooms; this keeps the air between sections
+        // generous while bringing each section's own content closer together.
+        'relative overflow-hidden py-20 md:py-28 ' +
         (tone === 'raised' ? 'border-y border-border/60 bg-card ' : '') +
         (className ?? '')
       }

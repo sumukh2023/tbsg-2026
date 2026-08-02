@@ -1,12 +1,13 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion, useInView, useScroll, useTransform } from 'framer-motion';
-import { ArrowRight, Plus, X } from 'lucide-react';
+import { ArrowDown, ArrowRight, Plus, X } from 'lucide-react';
 import { AnimatedNumber } from '@/components/motion/animated-number';
+import { Magnetic } from '@/components/motion/magnetic';
 import { TextEffect } from '@/components/motion/text-effect';
 import { cn } from '@/utils/cn';
 import { EASE, REVEAL_VIEWPORT } from '@/utils/motion';
-import { GoldRule, Grain, MarbleVeins } from '../materials';
+import { FilmVeil, GoldRule, Grain, MarbleVeins } from '../materials';
 import { FlashWordmark } from '../FlashWordmark';
 import { BrigadeSchoolsMark } from '../BrigadeSchoolsMark';
 import { Band, PageShell } from './PageShell';
@@ -100,17 +101,37 @@ const ghostButton =
 /* -------------------------------------------------------------------- */
 
 /**
- * Legibility for dark type sitting on a moving picture, without putting a
- * sheet of white over the picture to get it.
+ * The hero, rebuilt on the landing page's.
  *
- * The page ground is a warm near white, so a halo in that same colour reads
- * as light spilling around the letterforms rather than as a shadow. Two
- * stops: a tight one that keeps the edges crisp against high frequency
- * detail, and a wide soft one that lifts the whole word off a busy frame.
- * This is what buys back the scrim opacity the brief asked us to spend.
+ * Same construction, the same way round: a full-bleed film, the shared
+ * `FilmVeil` over it, one radial pool of page ground that TRAVELS WITH THE
+ * COPY so the words are protected without dulling the footage at the edges,
+ * grain on top, and the type centred in the middle of the frame. Eyebrow,
+ * a two-part display line where the second half turns italic in the
+ * chapter's primary, a short standing paragraph, then the actions.
+ *
+ * What it deliberately does NOT take is the scroll-scrub engine. That one
+ * seeks a playhead from scroll position and is the most fragile code in the
+ * repo (see the SETUP A notes in CONTEXT.md). This film simply autoplays and
+ * loops, through `HeroFilm`, which is a far easier contract and cannot
+ * regress the landing page.
+ *
+ * The arch colonnade also stays behind. It is the landing page's signature,
+ * and a district that redrew it would read as the same page in a different
+ * colour rather than as a place of its own.
  */
-const heroInk =
-  '[text-shadow:0_1px_2px_hsl(var(--background)/0.95),0_0_26px_hsl(var(--background)/0.75)]';
+
+/** The veil, at the strength the landing page opens on, eased back.
+ *
+ * `FilmVeil` is a fixed gradient (0.92 / 0.72 / 0.62 / 0.85 of the page
+ * ground, top to bottom) whose OPACITY is the dial. The landing page holds
+ * it at 1 through its opening beats. Here it sits lower, so the effective
+ * wash across the middle of the frame is about 0.44 rather than 0.62 and
+ * appreciably more of the carnival comes through; the copy is covered by
+ * the radial pool underneath it instead, which is exactly how the landing
+ * page keeps its own centred type readable.
+ */
+const HERO_VEIL = 0.7;
 
 function MissionHero() {
   const ref = useRef<HTMLDivElement>(null);
@@ -120,19 +141,20 @@ function MissionHero() {
   });
   // Two speeds: the film drifts slowly, the words leave faster. That
   // difference IS the depth. No blur, no scale, nothing expensive.
-  const filmY = useTransform(scrollYProgress, [0, 1], ['0%', '18%']);
-  const copyY = useTransform(scrollYProgress, [0, 1], ['0%', '46%']);
-  const copyFade = useTransform(scrollYProgress, [0, 0.75], [1, 0]);
+  const filmY = useTransform(scrollYProgress, [0, 1], ['0%', '16%']);
+  const copyY = useTransform(scrollYProgress, [0.35, 0.85], [0, -80]);
+  const copyFade = useTransform(scrollYProgress, [0.35, 0.8], [1, 0]);
 
   return (
     <header
       ref={ref}
-      className="relative isolate flex min-h-[92svh] items-end overflow-hidden"
+      aria-label="Our Mission"
+      className="relative isolate flex min-h-[100svh] items-center overflow-hidden"
     >
       <motion.div
         aria-hidden="true"
         style={{ y: filmY }}
-        className="pointer-events-none absolute -inset-x-0 -bottom-[18%] -top-0 -z-10"
+        className="pointer-events-none absolute -inset-x-0 -bottom-[16%] -top-0 -z-10"
       >
         <HeroFilm
           src="/carnival.mp4"
@@ -147,84 +169,96 @@ function MissionHero() {
             </div>
           }
         />
-        {/* Scrim, rebuilt to spend as little of the picture as possible.
-            It used to be an even wash: 70% opaque across the middle of the
-            frame and still 25% at the very top, where nothing is written.
-            This one is shaped to the words instead. Four stops, measured
-            from the bottom edge:
-
-              0%   solid, so the hero melts into the page
-              26%  0.62, under the standing paragraph, which is small type
-                   and needs the most help
-              58%  0.22, across the headline, which is huge and semibold and
-                   needs far less
-              82%+ nothing at all
-
-            Everything above the headline now plays at full strength, and
-            the busiest part of the picture is the part the reader can see.
-            The rest of the legibility is bought with weight and the halo
-            in `heroInk` rather than with more white.
-
-            Phones get the stops pushed higher up the frame. The same copy
-            occupies a much taller share of a 390x844 viewport than of a
-            desktop one, so the paragraph would otherwise sit above the part
-            of the gradient that was built to protect it. Both versions are
-            still far lighter than the wash they replaced. */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_top,hsl(var(--background))_0%,hsl(var(--background)/0.72)_38%,hsl(var(--background)/0.28)_66%,transparent_86%)] md:bg-[linear-gradient(to_top,hsl(var(--background))_0%,hsl(var(--background)/0.62)_26%,hsl(var(--background)/0.22)_58%,transparent_82%)]" />
-        {/* The navigation sits on bare film now that the top of the scrim is
-            clear, so it gets a band of its own. 144px costs the composition
-            nothing and keeps the links readable over any frame. */}
-        <div className="absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-background/75 via-background/30 to-transparent" />
+        <FilmVeil opacity={HERO_VEIL} />
+        <div className="absolute inset-0 bg-[radial-gradient(90%_60%_at_50%_-5%,hsl(var(--accent)/0.14),transparent_70%)]" />
+        {/* The last stretch melts into the page below, so the section change
+            is a dissolve rather than an edge. */}
         <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-background" />
-        <Grain className="opacity-[0.045]" />
+        <Grain />
       </motion.div>
 
       <motion.div
         style={{ y: copyY, opacity: copyFade }}
-        className="mx-auto w-full max-w-6xl px-6 pb-24 pt-40 md:px-10 md:pb-32 md:pt-52"
+        className="relative z-10 mx-auto w-full max-w-4xl px-6 pt-16 text-center"
       >
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: EASE.out }}
-          className="drop-shadow-[0_2px_18px_hsl(var(--background)/0.85)]"
-        >
-          <FlashWordmark />
-        </motion.div>
+        {/* Travels with the copy: keeps the wordmark, title and standing
+            paragraph readable without dulling the footage at the edges. */}
+        <div
+          aria-hidden="true"
+          className="absolute -inset-x-48 -inset-y-24 bg-[radial-gradient(60%_58%_at_50%_48%,hsl(var(--background)/0.9),hsl(var(--background)/0.55)_55%,transparent_80%)]"
+        />
+        <div className="relative">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.3, ease: EASE.out }}
+            className="flex justify-center"
+          >
+            <FlashWordmark />
+          </motion.div>
 
-        {/* Semibold rather than medium: on a moving picture the extra stem
-            weight does more for legibility than any amount of extra scrim,
-            and it costs the film nothing. */}
-        <TextEffect
-          as="h1"
-          per="word"
-          preset="fade-in-blur"
-          delay={0.2}
-          className={cn(
-            'mt-6 max-w-[14ch] font-display text-6xl font-semibold leading-[0.98] tracking-tight sm:text-7xl md:text-8xl lg:text-9xl',
-            heroInk
-          )}
-        >
-          Our Mission
-        </TextEffect>
+          {/* The landing page's exact display treatment: two halves, the
+              second italic in the chapter's primary. It sets on one line on
+              a desktop and folds to two on a phone, which is where the
+              italic half earns its keep. */}
+          {/* The gap is generous because the second half is ITALIC: its left
+              side bearing eats into the space and a normal word gap reads as
+              no gap at all. */}
+          <h1 className="mt-8 flex flex-wrap items-baseline justify-center gap-x-[0.42em]">
+            <TextEffect
+              as="span"
+              per="char"
+              preset="fade-in-blur"
+              delay={0.7}
+              speedReveal={1.4}
+              className="block font-display text-[17vw] font-medium leading-[0.98] tracking-tight text-foreground sm:text-7xl md:text-8xl lg:text-9xl"
+            >
+              Our
+            </TextEffect>
+            <TextEffect
+              as="span"
+              per="char"
+              preset="fade-in-blur"
+              delay={1.1}
+              speedReveal={1.4}
+              className="block pb-2 font-display text-[17vw] font-medium italic leading-[1.08] tracking-tight text-primary sm:text-7xl md:text-8xl lg:text-9xl"
+            >
+              Mission
+            </TextEffect>
+          </h1>
 
-        <motion.p
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.9, delay: 0.55, ease: EASE.out }}
-          className={cn(
-            // `text-foreground/85` instead of `text-muted-foreground`: the
-            // standing copy needs more contrast over film than it does over
-            // paper, and the halo does the rest.
-            'mt-8 max-w-2xl font-body text-lg font-medium leading-relaxed text-foreground/85 md:text-xl',
-            heroInk
-          )}
-        >
-          Once every three years, The Brigade School @ Malleswaram transforms.
-          The corridors become streets, the ground becomes a piazza, and
-          everything the day earns supports the cause of underprivileged
-          children.
-        </motion.p>
+          <TextEffect
+            as="p"
+            per="line"
+            preset="fade-in-blur"
+            delay={1.8}
+            className="mx-auto mt-8 max-w-xl font-body text-base leading-relaxed text-muted-foreground md:text-lg"
+          >
+            Once every three years our campus becomes a piazza, and everything
+            the day earns supports the education and healthcare of
+            underprivileged children.
+          </TextEffect>
+
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 2.3, ease: EASE.out }}
+            className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row"
+          >
+            <Magnetic intensity={0.2} range={80}>
+              <Link to={SUPPORT_PATH} className={primaryButton}>
+                Support Us
+              </Link>
+            </Magnetic>
+            <a
+              href="#mission-story"
+              className="group inline-flex items-center gap-2 rounded-full px-4 py-3.5 font-body text-sm font-medium text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Read the story
+              <ArrowDown className="h-4 w-4 transition-transform duration-300 group-hover:translate-y-0.5" />
+            </a>
+          </motion.div>
+        </div>
       </motion.div>
     </header>
   );
@@ -238,6 +272,18 @@ function MissionHero() {
  * A line of type that rises as it enters. Deliberately NOT the landing
  * page's block fade: each line arrives on its own beat, which is what makes
  * long-form reading feel composed rather than dumped.
+ *
+ * The observer watches the CLIP BOX, not the thing that moves, and that is
+ * load-bearing rather than stylistic. `whileInView` observes the element it
+ * is written on; this one starts translated a full 110% of its own height,
+ * which puts it entirely outside its `overflow-hidden` parent. Intersection
+ * observers clip against ancestor overflow, so that element reports a ratio
+ * of zero for ever, the reveal never fires, and every heading built on this
+ * stays invisible. Watching the wrapper, which never moves, is the fix.
+ *
+ * The symptom was subtle enough to survive two rounds of review: the page
+ * looked like it merely had too much air under each section marker. It was
+ * a missing headline.
  */
 function Rise({
   children,
@@ -248,12 +294,13 @@ function Rise({
   delay?: number;
   className?: string;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, REVEAL_VIEWPORT);
   return (
-    <div className={cn('overflow-hidden', className)}>
+    <div ref={ref} className={cn('overflow-hidden', className)}>
       <motion.div
         initial={{ y: '110%' }}
-        whileInView={{ y: '0%' }}
-        viewport={REVEAL_VIEWPORT}
+        animate={inView ? { y: '0%' } : undefined}
         transition={{ duration: 1, delay, ease: EASE.out }}
       >
         {children}
@@ -472,6 +519,15 @@ function FactCard({
  * to recede instead. The backdrop blurs the whole page, the panel scales up
  * from just under its resting size, and both leave together so the close
  * reads as one gesture rather than two.
+ *
+ * The two halves run on SEPARATE clocks, and that is the whole trick to how
+ * responsive this feels. The backdrop is the reader's acknowledgement that
+ * the click landed, so it takes 140ms and starts at 0.35 opacity rather than
+ * 0 — the blur is already legible on the very first frame instead of ramping
+ * up from nothing. The panel keeps its slower 480ms arrival, which is what
+ * makes the whole thing read as elegant rather than abrupt. Wrapping both in
+ * one fading container, as this did before, forced the blur to wait out the
+ * panel's timing and put a beat of nothing between click and response.
  */
 function FactDialog({ fact, onClose }: { fact: Fact | null; onClose: () => void }) {
   const titleId = useId();
@@ -499,19 +555,26 @@ function FactDialog({ fact, onClose }: { fact: Fact | null; onClose: () => void 
 
   return (
     <AnimatePresence>
+      {/* The wrapper is a motion element with NO animation props of its own.
+          It has to be one so AnimatePresence propagates `exit` down to the
+          backdrop and the panel and holds the unmount until they finish;
+          giving it its own opacity, as it had before, is what made the blur
+          wait for the panel's timing. */}
       {fact && (
-        <motion.div
-          className="fixed inset-0 z-[70] flex items-end justify-center p-4 sm:items-center sm:p-6"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.35, ease: EASE.out }}
-        >
-          <button
+        <motion.div className="fixed inset-0 z-[70] flex items-end justify-center p-4 sm:items-center sm:p-6">
+          <motion.button
             type="button"
             aria-label="Close"
             tabIndex={-1}
             onClick={onClose}
+            initial={{ opacity: 0.35 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.14, ease: 'linear' }}
+            // `will-change` gets the compositor to prepare the backdrop
+            // filter before the first painted frame, which is the other half
+            // of why the blur now appears immediately.
+            style={{ willChange: 'opacity, backdrop-filter' }}
             className="absolute inset-0 cursor-default bg-background/70 backdrop-blur-xl"
           />
           <motion.div
@@ -521,7 +584,7 @@ function FactDialog({ fact, onClose }: { fact: Fact | null; onClose: () => void 
             initial={{ opacity: 0, y: 28, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 18, scale: 0.97 }}
-            transition={{ duration: 0.5, ease: EASE.out }}
+            transition={{ duration: 0.48, ease: EASE.out }}
             className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-card p-8 shadow-[0_50px_110px_-40px_hsl(var(--foreground)/0.55)] md:p-12"
           >
             <div
@@ -573,11 +636,13 @@ export default function MissionPage() {
   return (
     <PageShell chapter={chapter} hero={<MissionHero />}>
       {/* 01 · Brigade Foundation ----------------------------------- */}
-      <Band>
+      {/* The hero's "Read the story" cue lands here; the scroll margin keeps
+          the marker clear of the fixed navigation. */}
+      <Band id="mission-story" className="scroll-mt-16">
         <div className="grid items-center gap-14 md:grid-cols-12 md:gap-16">
           <div className="md:col-span-6">
             <Marker n="01" label="Who stands behind it" />
-            <Rise delay={0.1} className="mt-7">
+            <Rise delay={0.1} className="mt-5">
               <h2 className="font-display text-4xl font-medium leading-[1.08] tracking-tight sm:text-5xl md:text-6xl">
                 A trust built for
               </h2>
@@ -592,7 +657,7 @@ export default function MissionPage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={REVEAL_VIEWPORT}
               transition={{ duration: 0.9, delay: 0.3, ease: EASE.out }}
-              className="mt-6 space-y-4 font-body text-base leading-relaxed text-muted-foreground md:text-lg"
+              className="mt-4 space-y-4 font-body text-base leading-relaxed text-muted-foreground md:text-lg"
             >
               <p>
                 Flash @ Brigade is run under Brigade Foundation, a
@@ -602,8 +667,8 @@ export default function MissionPage() {
               <p>
                 The Foundation looks for partners rather than patrons:
                 individuals, organisations and groups who share the same
-                concerns and want to put weight behind them. A carnival turns
-                out to be a remarkably good way to find them.
+                concerns and want to put weight behind them. A carnival is a
+                remarkably good way to find them.
               </p>
             </motion.div>
           </div>
@@ -624,21 +689,33 @@ export default function MissionPage() {
 
       {/* 02 · What the carnival is --------------------------------- */}
       <Band tone="raised">
-        <div className="grid items-center gap-14 md:grid-cols-12 md:gap-16">
+        {/* Splits at `lg`, not `md`. A twelve-column track with a 56px
+            gutter has very little column left at 768px, and a 260px measure
+            beside the picture is exactly the cramped text the brief warned
+            about. Tablets stack instead, which a landscape photograph is
+            perfectly happy with: it simply runs the full width. */}
+        <div className="grid items-center gap-12 lg:grid-cols-12 lg:gap-14">
           {/* The photograph leads on the left, and the writing answers it on
               the right. Section 01 runs the other way round, so the page
-              alternates rather than settling into a column. */}
-          <Drift className="md:col-span-5 md:row-start-1" distance={30}>
+              alternates rather than settling into a column. Seven columns to
+              five, because this frame is LANDSCAPE: at an even split it
+              would have been a postage stamp beside a wall of type. */}
+          <Drift className="lg:col-span-7 lg:row-start-1" distance={30}>
             <Plate
               src="/carnivalg3.jpg"
-              alt="Students performing on the main stage at Rangeelo Rajasthan, the first edition of Flash @ Brigade"
-              className="aspect-[4/5]"
+              alt="Students singing on the main stage at Rangeelo Rajasthan, the first edition of Flash @ Brigade"
+              // 16:9 from `sm` up, which is the frame the photograph was
+              // shot in, so the full stage survives. Phones take a slightly
+              // tighter 3:2 for presence; the crop is centre-weighted, so
+              // what it trims is the outer edge of the banners rather than
+              // anything happening on the stage.
+              className="aspect-[3/2] sm:aspect-[16/9]"
             />
           </Drift>
 
-          <div className="md:col-span-6 md:col-start-7 md:row-start-1">
+          <div className="lg:col-span-5 lg:col-start-8 lg:row-start-1">
             <Marker n="02" label="What it is" />
-            <Rise delay={0.1} className="mt-7">
+            <Rise delay={0.1} className="mt-5">
               <h2 className="font-display text-4xl font-medium leading-[1.08] tracking-tight sm:text-5xl md:text-6xl">
                 Built by students,
               </h2>
@@ -654,7 +731,7 @@ export default function MissionPage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={REVEAL_VIEWPORT}
               transition={{ duration: 0.9, delay: 0.28, ease: EASE.out }}
-              className="mt-6 space-y-5 font-body text-base leading-relaxed text-muted-foreground md:text-lg"
+              className="mt-4 space-y-5 font-body text-base leading-relaxed text-muted-foreground md:text-lg"
             >
               <p>
                 Flash is a student-led carnival: a day of food, performance,
@@ -681,7 +758,7 @@ export default function MissionPage() {
       {/* 03 · The charity goal ------------------------------------- */}
       <Band>
         <Marker n="03" label="Our charity goal" />
-        <Rise delay={0.1} className="mt-7">
+        <Rise delay={0.1} className="mt-5">
           <h2 className="max-w-[18ch] font-display text-4xl font-medium leading-[1.08] tracking-tight sm:text-5xl md:text-6xl">
             A day of ours,
           </h2>
@@ -697,7 +774,7 @@ export default function MissionPage() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={REVEAL_VIEWPORT}
           transition={{ duration: 0.9, delay: 0.3, ease: EASE.out }}
-          className="mt-6 max-w-2xl space-y-4 font-body text-base leading-relaxed text-muted-foreground md:text-lg"
+          className="mt-4 max-w-2xl space-y-4 font-body text-base leading-relaxed text-muted-foreground md:text-lg"
         >
           <p>
             Passion with Compassion pays school fees, buys books and uniforms,
@@ -712,7 +789,7 @@ export default function MissionPage() {
           </p>
         </motion.div>
 
-        <div className="mt-16 grid gap-10 border-t border-border pt-12 sm:grid-cols-3">
+        <div className="mt-12 grid gap-10 border-t border-border pt-10 sm:grid-cols-3">
           {HIGHLIGHTS.map((h, i) => (
             <Figure key={h.label} {...h} delay={i * 0.12} />
           ))}
@@ -737,7 +814,7 @@ export default function MissionPage() {
         <div className="flex flex-wrap items-end justify-between gap-8">
           <div>
             <Marker n="04" label="Flash 1.0 · 2023" />
-            <Rise delay={0.1} className="mt-7">
+            <Rise delay={0.1} className="mt-5">
               <h2
                 id="flash-one"
                 className="font-display text-5xl font-medium italic leading-[1.05] tracking-tight text-primary sm:text-6xl md:text-7xl"
@@ -770,7 +847,7 @@ export default function MissionPage() {
         <div className="grid gap-14 md:grid-cols-12 md:gap-16">
           <div className="md:col-span-6 md:row-start-1">
             <Marker n="05" label="Why Italy" />
-            <Rise delay={0.1} className="mt-7">
+            <Rise delay={0.1} className="mt-5">
               <h2 className="font-display text-4xl font-medium leading-[1.08] tracking-tight sm:text-5xl md:text-6xl">
                 A country that built
               </h2>
@@ -785,7 +862,7 @@ export default function MissionPage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={REVEAL_VIEWPORT}
               transition={{ duration: 0.9, delay: 0.3, ease: EASE.out }}
-              className="mt-6 space-y-4 font-body text-base leading-relaxed text-muted-foreground md:text-lg"
+              className="mt-4 space-y-4 font-body text-base leading-relaxed text-muted-foreground md:text-lg"
             >
               <p>
                 We wanted a theme that was already about gathering in public.
@@ -826,8 +903,8 @@ export default function MissionPage() {
       <Band tone="raised">
         <div className="grid gap-12 md:grid-cols-12 md:gap-16">
           <div className="md:col-span-4">
-            <Marker n="06" label="Did you know" />
-            <Rise delay={0.1} className="mt-7">
+            <Marker n="06" label="Did you know?" />
+            <Rise delay={0.1} className="mt-5">
               <h2 className="font-display text-4xl font-medium leading-[1.08] tracking-tight sm:text-5xl">
                 Before you
               </h2>
