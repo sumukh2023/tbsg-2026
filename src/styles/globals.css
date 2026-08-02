@@ -39,6 +39,10 @@
     --input: 38 20% 80%;
     --ring: 16 52% 43%;
 
+    /* Bright fill + the ink that sits on it. Never used for small text. */
+    --highlight: 41 60% 52%;
+    --highlight-foreground: 32 25% 12%;
+
     --radius: 0.25rem;
   }
 
@@ -68,6 +72,9 @@
     --border: 158 12% 20%;
     --input: 158 12% 20%;
     --ring: 42 52% 58%;
+
+    --highlight: 42 52% 58%;
+    --highlight-foreground: 160 25% 8%;
   }
 
   /* ---------------------------------------------------------------- */
@@ -85,19 +92,39 @@
   /*  temperature of the surfaces.                                     */
   /* ---------------------------------------------------------------- */
 
-  /* Our Mission — Tuscany at sunset: terracotta, gold, cream. */
+  /* ---------------------------------------------------------------- */
+  /*  Our Mission — DMC 743 (Medium Yellow, #FED376).                  */
+  /*                                                                   */
+  /*  Deliberately NOT the landing page's terracotta: the homepage is  */
+  /*  orange throughout, and this page is a district of its own.       */
+  /*                                                                   */
+  /*  A medium yellow cannot be used for text. Measured on this page's */
+  /*  own background, #FED376 as small type gives 1.29:1 — WCAG asks   */
+  /*  for 4.5. The same ink ON a #FED376 fill gives 11.49:1. So the    */
+  /*  colour is split in two, by role rather than by taste:            */
+  /*                                                                   */
+  /*    --highlight  the true DMC 743, for FILLS and decoration only   */
+  /*    --primary / --accent  the same hue darkened to 30% lightness,  */
+  /*                 which measures 5.01:1 on the background and       */
+  /*                 5.22:1 on cards, so every label and heading is    */
+  /*                 comfortably AA.                                   */
+  /* ---------------------------------------------------------------- */
   [data-chapter='mission'] {
     --background: 34 44% 95%;
     --card: 36 50% 97%;
-    --primary: 14 58% 46%;
-    --secondary: 40 34% 90%;
-    --secondary-foreground: 24 22% 18%;
-    --accent: 38 64% 40%;
-    --muted: 36 30% 91%;
-    --muted-foreground: 26 12% 34%;
-    --border: 34 24% 81%;
-    --input: 34 24% 81%;
-    --ring: 14 58% 46%;
+    --primary: 40 80% 30%;
+    --primary-foreground: 42 60% 97%;
+    --secondary: 42 46% 90%;
+    --secondary-foreground: 30 24% 18%;
+    --accent: 40 80% 30%;
+    --accent-foreground: 42 60% 97%;
+    --highlight: 40 98% 73%;
+    --highlight-foreground: 32 30% 13%;
+    --muted: 40 34% 91%;
+    --muted-foreground: 32 12% 32%;
+    --border: 38 28% 80%;
+    --input: 38 28% 80%;
+    --ring: 40 80% 30%;
   }
 
   /* Stalls — the mercato: market greens, olive, deep emerald. */

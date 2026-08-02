@@ -31,6 +31,16 @@ const config: Config = {
           DEFAULT: 'hsl(var(--accent))',
           foreground: 'hsl(var(--accent-foreground))',
         },
+        /**
+         * A saturated FILL colour, for surfaces rather than for text.
+         * `accent` has to stay dark enough to read as small type on a light
+         * page; `highlight` is free to be as bright as the palette wants,
+         * because it is only ever used behind `highlight-foreground`.
+         */
+        highlight: {
+          DEFAULT: 'hsl(var(--highlight))',
+          foreground: 'hsl(var(--highlight-foreground))',
+        },
         muted: {
           DEFAULT: 'hsl(var(--muted))',
           foreground: 'hsl(var(--muted-foreground))',

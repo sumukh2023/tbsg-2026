@@ -5,7 +5,11 @@ import { cn } from '@/utils/cn';
 import { EASE, REVEAL_VIEWPORT } from '@/utils/motion';
 import { Grain } from '../materials';
 
-export type Photo = { caption: string; year?: string; src?: string };
+/**
+ * `alt` never appears on screen. The plates carry no captions by design, so
+ * this is purely the accessible name for the photograph.
+ */
+export type Photo = { alt: string; src?: string };
 
 /** Matches Il Programma's cadence, so the site has one rhythm. */
 const ROTATION_MS = 3000;
@@ -40,9 +44,10 @@ function reenterLoop(el: HTMLElement, g: Geometry, dir: 1 | -1) {
  * A continuously rotating strip built FOR PHOTOGRAPHS.
  *
  * Visually the opposite of Il Programma, which is a row of equal upright
- * cards: this runs wide cinematic plates, lets the centre one stand at full
- * strength while its neighbours sit back dimmed and slightly smaller, and
- * carries the caption beneath rather than inside it. Same 3s cadence, so the
+ * cards: this runs wide cinematic plates and lets the centre one stand at
+ * full strength while its neighbours sit back dimmed and slightly smaller.
+ * Nothing is written under them. The photographs are the section, and a row
+ * of captions would only ask the eye to leave them. Same 3s cadence, so the
  * page shares the site's pulse without repeating its look.
  *
  * The MECHANICS are Il Programma's, deliberately: several identical copies
@@ -178,7 +183,7 @@ export function PhotoCarousel({ photos }: { photos: Photo[] }) {
             const isActive = i === active;
             return (
               <figure
-                key={`${copy}-${photo.caption}`}
+                key={`${copy}-${photo.alt}`}
                 aria-hidden={copy > 0}
                 className="w-[78vw] flex-none snap-center sm:w-[52vw] lg:w-[38vw] xl:w-[34rem]"
               >
@@ -193,13 +198,17 @@ export function PhotoCarousel({ photos }: { photos: Photo[] }) {
                   {photo.src ? (
                     <img
                       src={photo.src}
-                      alt={photo.caption}
+                      alt={photo.alt}
                       loading="lazy"
                       decoding="async"
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <div className="absolute inset-0 bg-secondary/60">
+                    <div
+                      role="img"
+                      aria-label={photo.alt}
+                      className="absolute inset-0 bg-secondary/60"
+                    >
                       <div className="absolute inset-0 bg-[radial-gradient(65%_60%_at_50%_25%,hsl(var(--accent)/0.18),transparent_75%)]" />
                       <Grain className="opacity-[0.06]" />
                     </div>
@@ -211,19 +220,6 @@ export function PhotoCarousel({ photos }: { photos: Photo[] }) {
                     className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-b from-transparent to-background/25"
                   />
                 </div>
-                <figcaption
-                  className={cn(
-                    'mt-4 flex items-baseline gap-3 font-body text-sm transition-opacity duration-700',
-                    isActive ? 'opacity-100' : 'opacity-55'
-                  )}
-                >
-                  {photo.year && (
-                    <span className="font-semibold uppercase tracking-[0.18em] text-accent">
-                      {photo.year}
-                    </span>
-                  )}
-                  <span className="text-muted-foreground">{photo.caption}</span>
-                </figcaption>
               </figure>
             );
           })

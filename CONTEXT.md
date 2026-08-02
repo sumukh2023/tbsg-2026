@@ -120,20 +120,39 @@ separate CTA, the seagull is a `<Link to="/">`.
   rubber-band overscroll. Hence the canvas value living in `chapters.ts`.
 - **Only Our Mission has full content.** The other four render
   `ComingSoonPage`; replace them one at a time.
+- `/donate` is where every "Support Us" button leads (`SUPPORT_PATH` in
+  `chapters.ts`). It is NOT a district: it is an evening page built on the
+  Get Passes / Your Pass shell, and it is listed in `DARK_ROUTES`.
 - Rangeelo Rajasthan photographs are not in the repo. `RANGEELO` in
   `MissionPage.tsx` renders an elegant frame per plate; add `src` to a record
   and it becomes a photograph, no other change.
 
-**Assets the Mission page is waiting for.** Both degrade gracefully, so the
+**Two-tier yellow on the Mission chapter (2 Aug 2026).** The brief asked for
+DMC 743 (Medium Yellow, `#FED376`) as the page's accent. Measured against the
+chapter background it is 1.29:1, so it can never carry text. The chapter
+therefore runs two tokens:
+- `--highlight` / `--highlight-foreground` — the true DMC 743 as a FILL, with
+  dark ink on it (11.49:1). Section-number tiles, the primary button, card
+  hover washes, decorative rules.
+- `--primary` / `--accent` — the same hue at 30% lightness (5.01:1 on the page
+  ground, 5.22:1 on cards), for anything that is TYPE.
+`highlight` exists in `tailwind.config.ts` and in `:root`, `.dark` and the
+mission block in `globals.css`. Never set type in `text-highlight`.
+
+**Assets the Mission page is waiting for.** All degrade gracefully, so the
 page is correct today and becomes richer the moment they land:
 - `public/carnival.mp4` — the hero film. `HeroFilm` renders the marble
   backdrop until it loads and if it never does, so a missing file is a still
   hero rather than a black box. Add `public/carnival.webm` too if you have it:
   the source list is mp4-first, and the webm is what makes the film verifiable
   in the sandbox Chromium (gotcha 3).
+- `public/carnivalg3.jpg` — the photograph beside section 02. NOT in the repo.
+  `Plate` in `MissionPage.tsx` catches the load error and leaves a toned frame
+  in its place, so the section still composes; drop the file in and it appears.
 - Rangeelo Rajasthan photographs — add `src` to a record in `RANGEELO`
   (`MissionPage.tsx`) and that plate becomes a photograph. The carousel takes
-  any number.
+  any number. `alt` is the accessible name only: the plates carry no visible
+  captions by design.
 - `BrigadeSchoolsMark.tsx` draws the institutional lockup from the vector
   seagull rather than a bitmap. Its olive is the SCHOOL's brand colour and is
   deliberately NOT a theme token — an institutional mark must not re-tint per
@@ -157,6 +176,16 @@ Traps found while building these pages, all worth remembering:
 - Carousel rotation is governed by VISIBILITY ALONE. Hover/wheel/touch holds
   look like a bug, because scrolling the page past a section fires those
   events on the track and parks it long after the reader stopped.
+- **Legibility over a background film is bought with shape, weight and a
+  halo, not with more white.** The Mission hero scrim is a four-stop gradient
+  measured from the bottom edge, so the wash sits under the words and the top
+  of the frame is clear; the nav gets its own 144px band because that top is
+  now bare film; and `heroInk` sets a two-stop `text-shadow` in the PAGE
+  GROUND colour, which on a light page reads as light spilling around dark
+  letterforms. Phones use higher stops: the same copy fills far more of a
+  390x844 viewport. Verify by injecting a hostile stand-in frame over the
+  `<video>` (high-contrast stripes, both very bright and very dark) — the
+  sandbox Chromium cannot decode the real H.264 (gotcha 3).
 
 ## Hero section: the two setups (SETUP A / SETUP B)
 

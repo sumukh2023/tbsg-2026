@@ -42,6 +42,7 @@ const StallsPage = lazy(() => import('./festival/pages/StallsPage'));
 const PartnersPage = lazy(() => import('./festival/pages/PartnersPage'));
 const GalleryPage = lazy(() => import('./festival/pages/GalleryPage'));
 const EnquiryPage = lazy(() => import('./festival/pages/EnquiryPage'));
+const DonatePage = lazy(() => import('./festival/pages/DonatePage'));
 const TermsPage = lazy(() => import('./festival/legal/TermsPage'));
 const PrivacyPage = lazy(() => import('./festival/legal/PrivacyPage'));
 
@@ -52,7 +53,7 @@ const PrivacyPage = lazy(() => import('./festival/legal/PrivacyPage'));
  * that reads as a white strip. Match the canvas to the route's chapter so
  * overscroll always reveals the page's own colour.
  */
-const DARK_ROUTES = /^\/(get-passes|pass|verify-pass|terms|privacy)(\/|$)/;
+const DARK_ROUTES = /^\/(get-passes|pass|verify-pass|terms|privacy|donate)(\/|$)/;
 
 /** Route -> page for the five districts. Order follows the navigation. */
 const DISTRICTS = [
@@ -247,6 +248,16 @@ export default function App() {
                 }
               />
             ))}
+            {/* Where every "Support Us" button leads (SUPPORT_PATH). An
+                evening page like the pass flow, not a district. */}
+            <Route
+              path="/donate"
+              element={
+                <Suspense fallback={<PageFallback />}>
+                  <DonatePage />
+                </Suspense>
+              }
+            />
             {/* Reachable from the footer and from the booking consent, but
                 deliberately not in the main navigation. */}
             <Route

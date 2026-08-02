@@ -59,3 +59,25 @@ Fonts: `Cormorant Garamond` (display/heading, 400-700 + italic) and
   Slots where real photography/video can later be dropped are listed in the PR.
 - No gradient text, no aurora blobs, zero em-dashes, eyebrows rationed,
   one marquee max, one theme flip (day to evening) executed once, deliberately.
+
+## Mission chapter: DMC 743 (added 2 Aug 2026)
+
+The landing page already spends its terracotta freely, so Our Mission takes a
+yellow identity of its own: **DMC 743, Medium Yellow, `#FED376`**.
+
+Measured, not assumed. As type on the chapter background (`hsl(34 44% 95%)`)
+DMC 743 gives **1.29:1**, far under the 4.5:1 floor. Dark ink ON a DMC 743
+fill gives **11.49:1**. The same hue darkened to `hsl(40 80% 30%)` gives
+**5.01:1** on the page ground and **5.22:1** on cards.
+
+So the chapter runs the colour at two tiers:
+
+| Token | Value | Used for |
+| --- | --- | --- |
+| `--highlight` | `hsl(40 98% 73%)` (DMC 743) | fills only: section-number tiles, primary button, card hover wash, decorative rules |
+| `--highlight-foreground` | `hsl(32 30% 13%)` | the ink that sits on those fills |
+| `--primary` / `--accent` | `hsl(40 80% 30%)` | every piece of TYPE in the accent colour |
+
+`highlight` is a real Tailwind colour (`tailwind.config.ts`) and is defined in
+`:root` and `.dark` as well, so a component that uses it does not break outside
+the chapter. Nothing sets type in `text-highlight`.

@@ -56,8 +56,8 @@ export function chapterFor(pathname: string): Chapter | undefined {
 }
 
 /**
- * Where "Support Us" points until donations exist. A single constant so the
- * day that page is built, every button moves at once — and so nothing ships
- * a dead `#` that looks like a working control.
+ * Where every "Support Us" button leads. A single constant so the day direct
+ * giving goes live, every button on the site moves at once, and so nothing
+ * ships a dead `#` that looks like a working control.
  */
-export const SUPPORT_PATH = '/enquiry';
+export const SUPPORT_PATH = '/donate';
