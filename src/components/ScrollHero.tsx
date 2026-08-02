@@ -216,10 +216,6 @@ export function ScrollHero({
     // reader is going and close the handover gap in the direction where it
     // cannot be seen.
     let lastTime = 0;
-    // Playhead position last ASKED FOR, which is not where the playhead ends
-    // up under fastSeek. Negative until the first seek, so that one always
-    // fires. See the seek guard in tick().
-    let requested = -1;
 
     // Readiness is READ FROM THE ELEMENT, never inferred from an event
     // having fired. iOS may never fire `loadeddata` for a video that is
@@ -333,8 +329,6 @@ export function ScrollHero({
       restarts += 1;
       try {
         video.load();
-        // load() resets the playhead, so nothing was asked for any more.
-        requested = -1;
       } catch {
         // NETWORK_NO_SOURCE: the fade-in gate keeps the veil instead.
       }
@@ -439,24 +433,10 @@ export function ScrollHero({
           : !revealed && shown < 0.001
             ? 0.001
             : shown;
-        // Two separate questions, and conflating them is what stalled Safari.
-        //
-        // "Has the reader moved far enough to be worth a seek?" is a question
-        // about the TARGET, and has to be measured against the last target we
-        // asked for. Measuring it against the playhead assumes the playhead
-        // ends up where it was sent, which is true of an exact seek and false
-        // of fastSeek: fastSeek may only land on a keyframe, so with these
-        // files (one every four frames, 0.167s apart) it can settle up to
-        // 0.083s from what was asked — twice WebKit's own minSeek. The
-        // threshold was therefore never satisfied at rest, and the loop
-        // re-seeked every single frame, for ever, each time to the very same
-        // keyframe it was already parked on. That is the Safari stutter.
-        //
-        // "Is the decoder badly behind?" is a question about the playhead, and
-        // stays on currentTime: it is what re-seeks a film whose seek was
-        // dropped, and what overrides the still-seeking guard.
-        const moved = Math.abs(seekTo - requested);
-        const stale = Math.abs(video.currentTime - seekTo) > profile.stackedSeek;
+        const drift = Math.abs(video.currentTime - seekTo);
+        // Skip sub-frame micro-seeks, and never stack a new seek on a
+        // decoder that is still seeking unless we have fallen well behind.
+        // Both thresholds come from the engine profile (src/utils/engine.ts).
         // The `paused` guard covers the frames just after a WebKit handoff:
         // the element has been told to pause but has not stopped yet, and
         // seeking a still-playing decoder is what made that transition
@@ -465,11 +445,10 @@ export function ScrollHero({
           mode === 'scrub' &&
           // Reduced motion seeks exactly once, to surface a still frame.
           (!reduced || !revealed) &&
-          (moved > profile.minSeek || stale) &&
+          drift > profile.minSeek &&
           video.paused &&
-          (!video.seeking || stale)
+          (!video.seeking || drift > profile.stackedSeek)
         ) {
-          requested = seekTo;
           if (useFastSeek) {
             video.fastSeek(seekTo);
           } else {

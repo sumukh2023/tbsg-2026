@@ -186,20 +186,26 @@ every engine on purpose, so Safari on a Mac feels like Chrome on a Mac.
    tap does. `onFirstGesture` in `ScrollHero.tsx` waits for the first tap and
    releases every film on the page at once. Diagnose with `/diag.html`
    (`public/diag.html`, delete when no longer needed).
-8. **A seek threshold must be measured against the last position ASKED FOR,
-   never against `currentTime`.** `fastSeek` (WebKit only) may land only on a
-   keyframe; with these files that is 4/24 = 0.167s apart, so it can settle up
-   to 0.083s from the request — twice WebKit's `minSeek`. Comparing the
-   threshold to the playhead therefore never went quiet on Safari: the loop
-   re-seeked EVERY animation frame, for ever, to the keyframe it was already
-   parked on. Measured 120 seeks during 2 seconds of standing perfectly still,
-   and 176 seeks to show 39 distinct frames on a slow scroll. The fixed guard
-   does the same scroll in 49 seeks for 37 frames, and 0 at rest. Chromium
-   never shows this because an exact seek lands where it was sent — you cannot
-   find this bug without emulating WebKit's `fastSeek` semantics (override
-   `navigator.vendor` and stub `fastSeek` to snap to the keyframe grid).
-   WebKit's `minSeek` is 0.12 for the related reason that a request finer than
-   the keyframe grid cannot put a different frame on screen.
+8. **DO NOT "optimise" the scrub seek guard against `fastSeek` keyframe
+   snapping. It was tried on 2 Aug 2026 and it broke Safari badly on Mac,
+   iPhone and iPad; reverted in full the same day.** The reasoning looked
+   sound and the measurements were real: `fastSeek` may land only on a
+   keyframe (4/24 = 0.167s apart in these files), so it can settle up to
+   0.083s from the request — twice WebKit's `minSeek` — which means the
+   `drift > minSeek` test never goes quiet and the loop re-seeks every
+   animation frame to the keyframe it is already parked on. Emulating WebKit
+   inside Chromium (override `navigator.vendor`, stub `fastSeek` to snap to
+   the keyframe grid) reproduced it: 120 seeks during 2s of standing still,
+   176 seeks to show 39 frames on a slow scroll, against 0 and 49 for the
+   "fixed" guard. **All of that was measured against a stub, and real WebKit
+   does not behave like the stub.** On real Safari the change made both films
+   far worse on every Apple device. The repeated seeking is evidently doing
+   necessary work — a fastSeek that does not land, a `currentTime` that has
+   not settled — that a request-based guard skips. Treat the seek rate on
+   WebKit as load-bearing, not as waste. Anything in this area needs a real
+   Safari device before it goes anywhere near `main`; the container cannot
+   install WebKit (Playwright's download is blocked by the egress policy), so
+   a Chromium measurement is not evidence about Safari.
 9. Committer identity must be `Claude <noreply@anthropic.com>`; commits are
    SSH-signed (`commit.gpgsign=true` already configured in the cloud clone).
    Commit trailer: `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.

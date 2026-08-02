@@ -63,20 +63,12 @@ export type ScrubProfile = {
  *   decode that makes Safari stall. Its stacked threshold is the highest of
  *   the four because piling a seek onto a busy WebKit decoder is what turns
  *   a scrub into a freeze.
- *
- *   Its `minSeek` is the highest for a reason that follows from fastSeek
- *   rather than from taste: fastSeek may only land on a keyframe, and with
- *   these files the keyframes are 4/24 = 0.167s apart. Asking for a position
- *   finer than that grid cannot put a different frame on screen — it only
- *   re-enters the decoder's seek path to arrive where it already was. 0.12
- *   sits just under the spacing, so consecutive requests still resolve to
- *   consecutive keyframes while the redundant ones in between are dropped.
  */
 export const SCRUB_PROFILES: Record<Engine, ScrubProfile> = {
   blink: { minSeek: 0.02, stackedSeek: 0.3, fastSeek: false },
   gecko: { minSeek: 0.02, stackedSeek: 0.3, fastSeek: false },
   edge: { minSeek: 0.05, stackedSeek: 0.45, fastSeek: false },
-  webkit: { minSeek: 0.12, stackedSeek: 0.6, fastSeek: true },
+  webkit: { minSeek: 0.04, stackedSeek: 0.6, fastSeek: true },
 };
 
 /**
