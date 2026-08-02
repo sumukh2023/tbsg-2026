@@ -8,6 +8,7 @@ import {
   useLocation,
 } from 'react-router-dom';
 import { MotionConfig } from 'framer-motion';
+import { Analytics } from '@vercel/analytics/react';
 import {
   RequireVolunteer,
   VolunteerSessionProvider,
@@ -165,6 +166,7 @@ export default function App() {
   return (
     <MotionConfig reducedMotion="user">
       <BrowserRouter>
+        <Analytics />
         <RootLayout chrome={false}>
           <CanvasBackground />
           <ScrollToTop />
