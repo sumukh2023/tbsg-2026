@@ -199,9 +199,26 @@ async function query<T>(
     console.error(`[auth] supabase_status=${response.status} path=${path.split('?')[0]}`);
     return null;
   }
-  // 204 on a PATCH without representation.
-  if (response.status === 204) return [] as unknown as T;
-  return (await response.json()) as T;
+  // A successful write that did not ask for `Prefer: return=representation`
+  // comes back with NO BODY — 204 for a PATCH, and 201 with an empty body for
+  // an INSERT. Calling .json() on that throws "Unexpected end of JSON input",
+  // which is not a failed request but reads like a crashed one: it took down
+  // every login AFTER the attempt row had been written, so the database said
+  // the sign-in succeeded while the browser got a 500.
+  //
+  // Read the body as text and decide from what is actually there, rather than
+  // from the status code. An empty body is a successful write with nothing to
+  // report, which is exactly what the callers expect.
+  const text = await response.text();
+  if (!text.trim()) return [] as unknown as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    console.error(
+      `[auth] non-JSON body from ${path.split('?')[0]} (status ${response.status})`
+    );
+    return [] as unknown as T;
+  }
 }
 
 const VOLUNTEER_SELECT =

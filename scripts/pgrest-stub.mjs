@@ -138,14 +138,26 @@ export function start(port = 5599) {
         if (table === 'volunteer_sessions') row.revoked_at ??= null;
         rows.push(row);
         const wantsBack = (req.headers.prefer ?? '').includes('representation');
-        return send(201, wantsBack ? [embed(row, table, select)] : []);
+        // REAL PostgREST returns 201 with a genuinely EMPTY body when
+        // `Prefer: return=representation` is absent — not `[]`. Sending `[]`
+        // here is what hid a production 500 for days.
+        if (!wantsBack) {
+          res.writeHead(201, { 'Content-Type': 'application/json' });
+          return res.end('');
+        }
+        return send(201, [embed(row, table, select)]);
       }
 
       if (req.method === 'PATCH') {
         const hit = rows.filter((r) => matches(r, params));
         hit.forEach((r) => Object.assign(r, payload));
         const wantsBack = (req.headers.prefer ?? '').includes('representation');
-        return send(200, wantsBack ? hit.map((r) => embed(r, table, select)) : []);
+        // Likewise: a PATCH without representation is 204 No Content.
+        if (!wantsBack) {
+          res.writeHead(204);
+          return res.end();
+        }
+        return send(200, hit.map((r) => embed(r, table, select)));
       }
 
       if (req.method === 'DELETE') {
