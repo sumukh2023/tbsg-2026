@@ -169,7 +169,7 @@ export function originAllowed(req: VercelRequest): boolean {
 // Supabase helpers
 // ---------------------------------------------------------------------
 
-type Env = NonNullable<ReturnType<typeof supabaseEnv>>;
+export type Env = NonNullable<ReturnType<typeof supabaseEnv>>;
 
 async function query<T>(
   env: Env,
@@ -247,14 +247,35 @@ type SessionRow = {
   id: string;
   expires_at: string;
   revoked_at: string | null;
-  volunteers: Volunteer | null;
+  volunteer_id: string;
 };
+
+/** Fetch one volunteer by id. Used to resolve a session and to name an actor. */
+export async function findVolunteerById(
+  env: Env,
+  id: string
+): Promise<Volunteer | null> {
+  const rows = await query<Volunteer[]>(
+    env,
+    `volunteers?${VOLUNTEER_SELECT}&id=eq.${encodeURIComponent(id)}&limit=1`
+  );
+  return rows?.[0] ?? null;
+}
 
 /**
  * Resolve the cookie to a live volunteer, or null. Expiry and revocation are
  * re-checked HERE on every request rather than trusted from the cookie, which
  * is what makes logout and "disable this account" take effect immediately
  * rather than whenever a token happens to run out.
+ *
+ * TWO PLAIN QUERIES, deliberately, rather than one with an embedded
+ * `volunteers(...)`. A PostgREST embed is the one thing in this file whose
+ * behaviour depends on the server: which relationship it picks when several
+ * exist, and whether a to-one embed comes back as an object or as a
+ * single-element array. Guess wrong about either and this returns null for a
+ * session that is perfectly valid — the login succeeds, the cookie is set,
+ * and the volunteer is bounced back to the sign-in page with no error. The
+ * extra round trip is worth never having to be right about that.
  */
 export async function sessionFromRequest(
   req: VercelRequest,
@@ -265,14 +286,14 @@ export async function sessionFromRequest(
 
   const rows = await query<SessionRow[]>(
     env,
-    `volunteer_sessions?select=id,expires_at,revoked_at,volunteers(${VOLUNTEER_SELECT.slice(7)})` +
+    `volunteer_sessions?select=id,expires_at,revoked_at,volunteer_id` +
       `&token_hash=eq.${await sha256Hex(token)}&limit=1`
   );
   const row = rows?.[0];
   if (!row || row.revoked_at) return null;
   if (new Date(row.expires_at).getTime() <= Date.now()) return null;
 
-  const volunteer = row.volunteers;
+  const volunteer = await findVolunteerById(env, row.volunteer_id);
   if (!volunteer || !volunteer.active) return null;
 
   // Fire-and-forget liveness stamp; a failure here must never fail the call.

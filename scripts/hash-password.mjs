@@ -65,6 +65,13 @@ async function readSecrets(questions) {
 
 const email = (argv[2] ?? '').trim().toLowerCase();
 const name = (argv[3] ?? '').trim();
+// Third argument picks the role. Defaults to the safer of the two: a new
+// account gets gate access, not the power to create more accounts.
+const role = (argv[4] ?? 'volunteer').trim().toLowerCase();
+if (!['volunteer', 'admin'].includes(role)) {
+  console.error(`Role must be "volunteer" or "admin", not "${role}".`);
+  exit(1);
+}
 
 const [password, again] = await readSecrets([
   'Password (not shown as you type): ',
@@ -92,15 +99,17 @@ if (email && name) {
   console.log('\nSQL for the Supabase editor:\n');
   console.log(
     `insert into public.volunteers (full_name, email, password_hash, role, active)\n` +
-      `values (${q(name)}, ${q(email)}, ${q(phc)}, 'admin', true)\n` +
+      `values (${q(name)}, ${q(email)}, ${q(phc)}, ${q(role)}, true)\n` +
       `on conflict ((lower(email))) do update\n` +
       `  set password_hash = excluded.password_hash,\n` +
-      `      role = 'admin',\n` +
+      `      role = ${q(role)},\n` +
       `      active = true,\n` +
       `      failed_attempts = 0,\n` +
       `      locked_until = null,\n` +
       `      updated_at = now();`
   );
+  console.log(`\nRole: ${role}. Re-running for the same email RESETS that`);
+  console.log('account\'s password and unlocks it, rather than failing.');
 } else {
   console.log(
     '\nTip: pass an email and name to get the full SQL, e.g.\n' +

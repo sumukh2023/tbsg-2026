@@ -30,9 +30,11 @@ import {
   type PassRow,
 } from './_shared.js';
 import {
+  findVolunteerById,
   originAllowed,
   recordVerification,
   requireVolunteer,
+  type Env,
 } from './_auth.js';
 
 /**
@@ -40,7 +42,12 @@ import {
  * `checked_in_by` (a volunteer ID); the name is joined at read time, so
  * correcting a volunteer's spelling corrects every pass they ever handled.
  */
-function presentationOf(pass: PassRow) {
+async function presentationOf(env: Env, pass: PassRow) {
+  // Resolved on demand, and only when there is an ID to resolve. A failure
+  // here costs the name, never the verdict.
+  const by = pass.checked_in_by
+    ? await findVolunteerById(env, pass.checked_in_by).catch(() => null)
+    : null;
   return {
     reference: pass.pass_reference,
     guest: {
@@ -55,8 +62,7 @@ function presentationOf(pass: PassRow) {
     checked_in_at: pass.checked_in_at,
     // Joined name, falling back to the free text written by the retired
     // access-code system so older check-ins still read correctly.
-    checked_in_by:
-      pass.checked_in_volunteer?.full_name ?? pass.checked_in_by_name ?? null,
+    checked_in_by: by?.full_name ?? pass.checked_in_by_name ?? null,
   };
 }
 
@@ -128,7 +134,7 @@ export default async function handler(
       return send(res, 404, { result: 'invalid', error: 'Pass not found.' });
     }
 
-    const presentation = presentationOf(pass);
+    const presentation = await presentationOf(env, pass);
     const audit = (result: string) =>
       recordVerification(env, {
         volunteer,
@@ -180,7 +186,7 @@ export default async function handler(
         const fresh = await lookup();
         return send(res, 409, {
           result: fresh?.status === 'valid' ? 'valid' : 'cancelled',
-          pass: fresh ? presentationOf(fresh) : presentation,
+          pass: fresh ? await presentationOf(env, fresh) : presentation,
         });
       }
       await audit('undone');
@@ -216,7 +222,7 @@ export default async function handler(
       // Someone got there first, or the pass was cancelled meanwhile.
       const fresh = await lookup();
       const freshPresentation = fresh
-        ? presentationOf(fresh)
+        ? await presentationOf(env, fresh)
         : { ...presentation, checked_in_at: null, checked_in_by: null };
       if (fresh?.status === 'checked_in') {
         await audit('already_checked_in');
