@@ -5,27 +5,25 @@ import {
   useMotionValueEvent,
   useScroll,
 } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { EASE } from '@/utils/motion';
 import { CarnivalMark } from './CarnivalMark';
-
-const links = [
-  { label: 'La Piazza', href: '#piazza' },
-  { label: 'Regioni', href: '#regioni' },
-  { label: 'Programma', href: '#programma' },
-  { label: 'Mercato', href: '#mercato' },
-  { label: 'La Missione', href: '#missione' },
-];
+import { CHAPTERS } from './pages/chapters';
 
 export function SiteNav() {
   const [scrolled, setScrolled] = useState(false);
   const [evening, setEvening] = useState(false);
   const [open, setOpen] = useState(false);
   const { scrollY } = useScroll();
+  const { pathname } = useLocation();
 
   useMotionValueEvent(scrollY, 'change', (y) => setScrolled(y > 32));
+
+  // A route change closes the mobile sheet. Without this it stays open over
+  // the page you just navigated to.
+  useEffect(() => setOpen(false), [pathname]);
 
   // When the evening chapter reaches the top of the viewport, the nav
   // follows the page into dusk instead of floating as a marble bar.
@@ -38,7 +36,9 @@ export function SiteNav() {
     );
     observer.observe(sera);
     return () => observer.disconnect();
-  }, []);
+    // `#sera` only exists on the landing page; elsewhere the observer simply
+    // never fires and the bar keeps its marble register.
+  }, [pathname]);
 
   return (
     <header className={cn('fixed inset-x-0 top-0 z-50', evening && 'dark')}>
@@ -54,27 +54,41 @@ export function SiteNav() {
         )}
         aria-label="Main"
       >
-        <a
-          href="#top"
-          aria-label="Flash @ Brigade"
-          className="text-foreground transition-colors duration-300 hover:text-primary"
+        <Link
+          to="/"
+          aria-label="Flash @ Brigade — home"
+          className="text-foreground transition-colors duration-300 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <CarnivalMark className="h-7 w-auto md:h-8" />
-        </a>
+        </Link>
 
         <ul className="hidden items-center gap-8 lg:flex">
-          {links.map((link) => (
-            <li key={link.href}>
-              <a
-                href={link.href}
-                className="group relative font-body text-sm text-muted-foreground transition-colors duration-300 hover:text-foreground"
+          {CHAPTERS.map((chapter) => (
+            <li key={chapter.path}>
+              <NavLink
+                to={chapter.path}
+                className={({ isActive }) =>
+                  cn(
+                    'group relative font-body text-sm transition-colors duration-300 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    isActive ? 'text-foreground' : 'text-muted-foreground'
+                  )
+                }
               >
-                {link.label}
-                <span
-                  aria-hidden="true"
-                  className="absolute -bottom-1 left-0 h-px w-full origin-left scale-x-0 bg-accent transition-transform duration-300 ease-out group-hover:scale-x-100"
-                />
-              </a>
+                {({ isActive }) => (
+                  <>
+                    {chapter.label}
+                    {/* The rule stays drawn on the page you are on, so the
+                        bar says where you are, not just where you can go. */}
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        'absolute -bottom-1 left-0 h-px w-full origin-left bg-accent transition-transform duration-300 ease-out group-hover:scale-x-100',
+                        isActive ? 'scale-x-100' : 'scale-x-0'
+                      )}
+                    />
+                  </>
+                )}
+              </NavLink>
             </li>
           ))}
         </ul>
@@ -107,15 +121,20 @@ export function SiteNav() {
             className="border-b border-border bg-background/95 backdrop-blur-xl lg:hidden"
           >
             <ul className="flex flex-col px-6 py-4">
-              {links.map((link) => (
-                <li key={link.href}>
-                  <a
-                    href={link.href}
+              {CHAPTERS.map((chapter) => (
+                <li key={chapter.path}>
+                  <NavLink
+                    to={chapter.path}
                     onClick={() => setOpen(false)}
-                    className="block border-b border-border/50 py-4 font-display text-2xl text-foreground last:border-b-0"
+                    className={({ isActive }) =>
+                      cn(
+                        'block border-b border-border/50 py-4 font-display text-2xl last:border-b-0',
+                        isActive ? 'text-primary' : 'text-foreground'
+                      )
+                    }
                   >
-                    {link.label}
-                  </a>
+                    {chapter.label}
+                  </NavLink>
                 </li>
               ))}
               <li className="py-4">

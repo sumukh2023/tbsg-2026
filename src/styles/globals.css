@@ -69,6 +69,96 @@
     --input: 158 12% 20%;
     --ring: 42 52% 58%;
   }
+
+  /* ---------------------------------------------------------------- */
+  /*  Districts of the same event.                                     */
+  /*                                                                   */
+  /*  Each page carries its own Italian colour identity, set with      */
+  /*  `data-chapter` on the page wrapper. These override TOKENS ONLY,  */
+  /*  so every component keeps working untouched and nothing anywhere  */
+  /*  hard-codes a colour.                                             */
+  /*                                                                   */
+  /*  Deliberately narrow: --foreground, radius, type and spacing are  */
+  /*  never touched, so the pages read as districts of one place       */
+  /*  rather than as five different websites. Backgrounds stay in the  */
+  /*  same marble register; the shift lives in primary, accent and the */
+  /*  temperature of the surfaces.                                     */
+  /* ---------------------------------------------------------------- */
+
+  /* Our Mission — Tuscany at sunset: terracotta, gold, cream. */
+  [data-chapter='mission'] {
+    --background: 34 44% 95%;
+    --card: 36 50% 97%;
+    --primary: 14 58% 46%;
+    --secondary: 40 34% 90%;
+    --secondary-foreground: 24 22% 18%;
+    --accent: 38 64% 40%;
+    --muted: 36 30% 91%;
+    --muted-foreground: 26 12% 34%;
+    --border: 34 24% 81%;
+    --input: 34 24% 81%;
+    --ring: 14 58% 46%;
+  }
+
+  /* Stalls — the mercato: market greens, olive, deep emerald. */
+  [data-chapter='stalls'] {
+    --background: 68 26% 93%;
+    --card: 70 32% 97%;
+    --primary: 152 42% 28%;
+    --secondary: 68 22% 87%;
+    --secondary-foreground: 90 20% 18%;
+    --accent: 74 36% 30%;
+    --muted: 68 20% 89%;
+    --muted-foreground: 90 12% 30%;
+    --border: 70 18% 78%;
+    --input: 70 18% 78%;
+    --ring: 152 42% 28%;
+  }
+
+  /* Partners — the palazzo: burgundy, deep navy, gold. */
+  [data-chapter='partners'] {
+    --background: 30 24% 94%;
+    --card: 32 34% 97%;
+    --primary: 348 44% 34%;
+    --secondary: 220 20% 89%;
+    --secondary-foreground: 222 24% 20%;
+    --accent: 42 60% 40%;
+    --muted: 25 18% 90%;
+    --muted-foreground: 222 12% 32%;
+    --border: 25 16% 80%;
+    --input: 25 16% 80%;
+    --ring: 348 44% 34%;
+  }
+
+  /* Gallery — the coast: Mediterranean blues on warm white. */
+  [data-chapter='gallery'] {
+    --background: 34 40% 95%;
+    --card: 200 40% 97%;
+    --primary: 202 58% 34%;
+    --secondary: 200 28% 89%;
+    --secondary-foreground: 208 26% 20%;
+    --accent: 192 48% 34%;
+    --muted: 200 24% 91%;
+    --muted-foreground: 208 14% 32%;
+    --border: 200 20% 80%;
+    --input: 200 20% 80%;
+    --ring: 202 58% 34%;
+  }
+
+  /* Enquiry — the front desk: cream, deep charcoal, gold. */
+  [data-chapter='enquiry'] {
+    --background: 40 32% 95%;
+    --card: 42 40% 97%;
+    --primary: 30 8% 20%;
+    --secondary: 40 20% 89%;
+    --secondary-foreground: 30 10% 20%;
+    --accent: 41 62% 38%;
+    --muted: 40 22% 91%;
+    --muted-foreground: 30 8% 34%;
+    --border: 38 16% 80%;
+    --input: 38 16% 80%;
+    --ring: 41 62% 38%;
+  }
 }
 
 @layer base {

@@ -12,6 +12,7 @@ import {
   RequireVolunteer,
   VolunteerSessionProvider,
 } from './festival/pass/session';
+import { chapterFor } from './festival/pages/chapters';
 import { RootLayout } from '@/layouts/RootLayout';
 import { SiteNav } from './festival/SiteNav';
 import { Hero } from './festival/Hero';
@@ -36,6 +37,11 @@ const VerifyPage = lazy(() => import('./festival/pass/VerifyPage'));
 const LoginPage = lazy(() => import('./festival/pass/LoginPage'));
 const ProfilePage = lazy(() => import('./festival/pass/ProfilePage'));
 const AdminPage = lazy(() => import('./festival/pass/AdminPage'));
+const MissionPage = lazy(() => import('./festival/pages/MissionPage'));
+const StallsPage = lazy(() => import('./festival/pages/StallsPage'));
+const PartnersPage = lazy(() => import('./festival/pages/PartnersPage'));
+const GalleryPage = lazy(() => import('./festival/pages/GalleryPage'));
+const EnquiryPage = lazy(() => import('./festival/pages/EnquiryPage'));
 const TermsPage = lazy(() => import('./festival/legal/TermsPage'));
 const PrivacyPage = lazy(() => import('./festival/legal/PrivacyPage'));
 
@@ -48,14 +54,28 @@ const PrivacyPage = lazy(() => import('./festival/legal/PrivacyPage'));
  */
 const DARK_ROUTES = /^\/(get-passes|pass|verify-pass|terms|privacy)(\/|$)/;
 
+/** Route -> page for the five districts. Order follows the navigation. */
+const DISTRICTS = [
+  { path: '/mission', Page: MissionPage },
+  { path: '/stalls', Page: StallsPage },
+  { path: '/partners', Page: PartnersPage },
+  { path: '/gallery', Page: GalleryPage },
+  { path: '/enquiry', Page: EnquiryPage },
+];
+
 function CanvasBackground() {
   const { pathname } = useLocation();
   useEffect(() => {
     const root = document.documentElement;
-    // The evening chapter's --background token (see globals.css .dark).
+    // Three cases, in order: the evening pass routes, a coloured district
+    // (Mission, Stalls, …), and the marble default. The canvas has to be set
+    // from the ROUTE rather than read off the page, because it is painted
+    // during overscroll and on the way in — before the page has mounted.
+    // Getting this wrong is what shows a white flash between pages.
+    const chapter = chapterFor(pathname);
     root.style.backgroundColor = DARK_ROUTES.test(pathname)
       ? 'hsl(160 22% 8%)'
-      : '';
+      : (chapter?.canvas ?? '');
     return () => {
       root.style.backgroundColor = '';
     };
@@ -212,6 +232,21 @@ export default function App() {
                 }
               />
             </Route>
+            {/* The districts. Each is its own route with its own colour
+                identity; see festival/pages/chapters.ts. Only Our Mission
+                carries full content so far — the rest are premium
+                placeholders that will be replaced one at a time. */}
+            {DISTRICTS.map(({ path, Page }) => (
+              <Route
+                key={path}
+                path={path}
+                element={
+                  <Suspense fallback={<PageFallback />}>
+                    <Page />
+                  </Suspense>
+                }
+              />
+            ))}
             {/* Reachable from the footer and from the booking consent, but
                 deliberately not in the main navigation. */}
             <Route

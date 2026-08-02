@@ -32,9 +32,11 @@ system with QR + gate verification, and realtime Live Updates.
 - React 18 + Vite + TypeScript (strict), Tailwind v3 with CSS-variable tokens
 - Framer Motion (+ vendored motion-primitives in `src/components/motion/`),
   Lenis smooth scroll (wheel only — native touch scrolling untouched), GSAP available
-- react-router-dom: `/` home · `/get-passes` · `/pass/:token?` · `/terms` ·
-  `/privacy` · `/verify-pass` (portal, with `login` / `profile` / `:token`
-  beneath it behind `RequireVolunteer`) — secondary routes lazy-loaded
+- react-router-dom: `/` home · **the five districts** `/mission` `/stalls`
+  `/partners` `/gallery` `/enquiry` · `/get-passes` · `/pass/:token?` ·
+  `/terms` · `/privacy` · `/verify-pass` (portal, with `login` / `admin` /
+  `profile` / `:token` beneath it behind `RequireVolunteer`) — every
+  secondary route lazy-loaded
 - Supabase (Postgres + RLS + Realtime) behind Vercel **Node.js** serverless
   functions in `api/`
 - Fonts: Cormorant Garamond (display), Montserrat (body) self-hosted via
@@ -86,6 +88,41 @@ system with QR + gate verification, and realtime Live Updates.
 - `scripts/hash-password.mjs` — Argon2id hash + SQL for the FIRST admin account
 - `supabase/schema.sql`, `docs/PASS_SYSTEM.md`, `docs/VOLUNTEER_AUTH.md`
 - `.design/brief.md` — design-system record (required by the design gate)
+
+## Page architecture — the five districts
+
+The navigation is ROUTES, not scroll anchors (changed 2 Aug 2026). Order is
+fixed: Our Mission · Stalls · Partners · Gallery · Enquiry. Get passes stays a
+separate CTA, the seagull is a `<Link to="/">`.
+
+- `src/festival/pages/chapters.ts` — the single source of truth: path, label,
+  `data-chapter` key and the CANVAS colour for each district. The nav, the
+  router and `CanvasBackground` all read it, so adding a page is one record
+  plus one component.
+- `src/festival/pages/PageShell.tsx` — nav + cinematic hero + footer, plus
+  `Band` for alternating full-bleed sections.
+- **Colour identity is TOKENS ONLY.** `data-chapter="mission"` on the page
+  wrapper swaps `--primary`/`--accent`/`--background`/… via a block in
+  `globals.css`. Components are untouched and nothing hard-codes a colour.
+  `--foreground`, type and spacing are deliberately never overridden, so the
+  pages read as districts of one place.
+- `CanvasBackground` in `App.tsx` must know a route's colour BEFORE the page
+  mounts — that is what stops a white flash on navigation and during
+  rubber-band overscroll. Hence the canvas value living in `chapters.ts`.
+- **Only Our Mission has full content.** The other four render
+  `ComingSoonPage`; replace them one at a time.
+- Rangeelo Rajasthan photographs are not in the repo. `RANGEELO` in
+  `MissionPage.tsx` renders an elegant frame per plate; add `src` to a record
+  and it becomes a photograph, no other change.
+
+Two traps found while building it, both worth remembering:
+- `AnimatedGroup` wraps EVERY child in its own motion div, so grid
+  `col-span-*` classes on the child land inside the cell and are ignored. Use
+  a plain grid with per-item `whileInView` when the items have unequal spans.
+- `ArchFrame` is `rounded-t-[999px] overflow-hidden`, so it needs an explicit
+  aspect (`aspect-[3/4]`) and generous top padding, or it clips its content.
+- `TextEffect` renders an `sr-only` copy plus `aria-hidden` animated words, so
+  `textContent` reads DOUBLED. Assert the accessible name, not textContent.
 
 ## Hero section: the two setups (SETUP A / SETUP B)
 
