@@ -28,7 +28,12 @@ const voices = [
 export function Voci() {
   return (
     <section className="py-24 md:py-36" aria-label="Voices from past editions">
-      <div className="mx-auto grid max-w-6xl gap-20 px-6 lg:grid-cols-12 lg:gap-24 lg:px-10">
+      {/* gap-x, not gap: at twelve columns a 6rem gutter is 11 gutters wide —
+          1056px of gap alone, more than a 1024px page has to give — so the
+          tracks collapsed and the offset quotes hung off the right edge of the
+          document. Rows keep the generous spacing; columns get a gutter that
+          leaves room for the columns themselves. */}
+      <div className="mx-auto grid max-w-6xl gap-20 px-6 lg:grid-cols-12 lg:gap-x-12 lg:gap-y-24 lg:px-10">
         {voices.map((voice, i) => (
           <motion.figure
             key={voice.name}

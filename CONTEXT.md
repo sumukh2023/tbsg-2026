@@ -165,8 +165,16 @@ every engine on purpose, so Safari on a Mac feels like Chrome on a Mac.
    material-based art direction (marble/grain SVG) instead; assets go in `public/`.
 5. `published_at` NULL → 1970 dates: schema trigger + client falls back to
    `created_at` + nullsLast ordering.
-6. Voci's staggered 12-col grid overflows below ~1150px (96px gaps) — it is
-   `lg:` only. Footer email needs `break-all`.
+6. **FIXED (2 Aug 2026).** Voci's staggered 12-col grid used to overflow the
+   DOCUMENT between 1024 and ~1098px: eleven 96px gutters is 1056px of gap
+   alone, more than the page had, so the tracks collapsed and the offset quote
+   was clipped off the right edge. `lg:gap-24` is now `lg:gap-x-12 lg:gap-y-24`
+   — rows keep the spacing, columns get room to exist. Do not put a single
+   `gap` back on a twelve-column grid. The footer email is handled the same
+   way: `break-all` below `sm`, one line above it, and the four-column footer
+   row only from `xl` where a quarter of the row can hold the address.
+   Root-level horizontal overflow is worth hunting on sight — WebKit degrades
+   scrolling far more than Blink when the document scrolls sideways.
 7. **Safari 27 (iPadOS) can refuse to LOAD media until the page has seen a
    real gesture.** Signature: `networkState` 0 EMPTY, `currentSrc` empty, and
    **no MediaError** — it never tried, so nothing failed — plus `play()`
@@ -178,7 +186,21 @@ every engine on purpose, so Safari on a Mac feels like Chrome on a Mac.
    tap does. `onFirstGesture` in `ScrollHero.tsx` waits for the first tap and
    releases every film on the page at once. Diagnose with `/diag.html`
    (`public/diag.html`, delete when no longer needed).
-8. Committer identity must be `Claude <noreply@anthropic.com>`; commits are
+8. **A seek threshold must be measured against the last position ASKED FOR,
+   never against `currentTime`.** `fastSeek` (WebKit only) may land only on a
+   keyframe; with these files that is 4/24 = 0.167s apart, so it can settle up
+   to 0.083s from the request — twice WebKit's `minSeek`. Comparing the
+   threshold to the playhead therefore never went quiet on Safari: the loop
+   re-seeked EVERY animation frame, for ever, to the keyframe it was already
+   parked on. Measured 120 seeks during 2 seconds of standing perfectly still,
+   and 176 seeks to show 39 distinct frames on a slow scroll. The fixed guard
+   does the same scroll in 49 seeks for 37 frames, and 0 at rest. Chromium
+   never shows this because an exact seek lands where it was sent — you cannot
+   find this bug without emulating WebKit's `fastSeek` semantics (override
+   `navigator.vendor` and stub `fastSeek` to snap to the keyframe grid).
+   WebKit's `minSeek` is 0.12 for the related reason that a request finer than
+   the keyframe grid cannot put a different frame on screen.
+9. Committer identity must be `Claude <noreply@anthropic.com>`; commits are
    SSH-signed (`commit.gpgsign=true` already configured in the cloud clone).
    Commit trailer: `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
 
