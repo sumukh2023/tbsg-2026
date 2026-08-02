@@ -276,20 +276,19 @@ setups: they govern how a seek is issued (coalescing thresholds, `fastSeek`
 on WebKit), never how the film behaves. The playhead lerp is identical on
 every engine on purpose, so Safari on a Mac feels like Chrome on a Mac.
 
-## KNOWN-GOOD SCRUB BUILD — `scrub-known-good` (call this by name)
+## KNOWN-GOOD SCRUB BUILD — commit `1680fd8` (call this by name)
 
 Both films — the hero and the ground film — were confirmed by the site owner
 on real hardware on **2 Aug 2026** to load and scrub correctly on Safari
-(macOS, iPhone, iPadOS), Chrome, Edge and Firefox. That state is pinned on the
-remote as the ref **`scrub-known-good`** (commit `1680fd8`), and the same two
-files are identical at `f2859f2`.
+(macOS, iPhone, iPadOS), Chrome, Edge and Firefox. That state is commit
+**`1680fd8`** ("Revert the Safari scrub guard to its f2859f2 behaviour"), and
+the same two files are identical at `f2859f2`.
 
 The scrub behaviour lives in exactly two files. To put them back, from
 anywhere, without disturbing any other work in the tree:
 
 ```bash
-git fetch origin scrub-known-good
-git checkout origin/scrub-known-good -- src/components/ScrollHero.tsx src/utils/engine.ts
+git checkout 1680fd8 -- src/components/ScrollHero.tsx src/utils/engine.ts
 ```
 
 Verify the restore actually landed — these blob hashes ARE the known-good
@@ -300,11 +299,15 @@ git hash-object src/components/ScrollHero.tsx   # b3ac2dd26b58c154ce2f621d55763f
 git hash-object src/utils/engine.ts             # df2f2b16b0c8cf5fc10ab1d60cdf9a27571d460a
 ```
 
-Do not move the `scrub-known-good` ref to a newer commit unless the films have
-been re-verified on a real Apple device — its whole value is that someone
-checked it on hardware this container cannot reach. (A git *tag* would be the
-natural fit, but the cloud session's git proxy refuses tag pushes, so it is a
-ref instead. It is a bookmark, not a development branch: never commit to it.)
+`1680fd8` is an ancestor of `main`, so it stays reachable for ever and needs no
+branch or tag holding it open. There WAS a `scrub-known-good` branch pinning
+it; it was deleted on 2 Aug 2026 once it held zero unique commits and the two
+files on `main` matched it byte for byte. Recreate it only if a bookmark is
+genuinely wanted: `git push origin 1680fd8:refs/heads/scrub-known-good`.
+
+Do not treat a newer commit as the known-good one unless the films have been
+re-verified on a real Apple device — the whole value of this SHA is that
+someone checked it on hardware this container cannot reach.
 
 Anything that touches these two files should be treated as high-risk and
 device-tested before it reaches `main`. See gotcha 8 for the one change that
