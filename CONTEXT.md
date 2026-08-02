@@ -75,8 +75,12 @@ system with QR + gate verification, and realtime Live Updates.
 - `api/_shared.ts`, `api/_auth.ts` (Argon2id, sessions, cookies, rate limiting,
   `requireVolunteer`/`requireAdmin`, audit writes),
   `api/register|verify|pass|retrieve|updates|wallet-*.ts`,
-  `api/auth/{login,logout,session,password}.ts`,
-  `api/admin/{volunteers,activity}.ts`
+  `api/auth.ts` (login/logout/session/password) and `api/admin.ts`
+  (volunteers/activity) — one function each, dispatched on `?action=` /
+  `?resource=`, with `vercel.json` rewriting the pretty paths onto them.
+  **Vercel Hobby allows 12 serverless functions per deployment**; a file per
+  action made 13 and the build failed. Count before adding a route:
+  `find api -name '*.ts' | grep -v '/_' | wc -l` (currently 9)
 - `scripts/hash-password.mjs` — Argon2id hash + SQL for the FIRST admin account
 - `supabase/schema.sql`, `docs/PASS_SYSTEM.md`, `docs/VOLUNTEER_AUTH.md`
 - `.design/brief.md` — design-system record (required by the design gate)

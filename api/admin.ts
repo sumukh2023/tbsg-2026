@@ -1,22 +1,27 @@
 /**
- * /api/admin/volunteers — volunteer account management. Administrators only.
+ * /api/admin — volunteer account management and the gate audit trail.
+ * Administrators only, enforced server-side on every call.
  *
- *   GET                      list accounts (never password hashes)
- *   POST { action: 'create',  full_name, email, password }
- *   POST { action: 'disable' | 'enable', id }
- *   POST { action: 'reset',   id, password }
- *   POST { action: 'promote' | 'demote', id }
+ *   GET  /api/admin/volunteers                 list accounts (never hashes)
+ *   POST /api/admin/volunteers                 { action: create | disable |
+ *                                                enable | reset | promote |
+ *                                                demote, … }
+ *   GET  /api/admin/activity?view=timeline     recent actions, newest first
+ *                          ?view=totals        per-volunteer counts
+ *                          ?view=logins        recent sign-in attempts
+ *                          &volunteer=<uuid>&limit=<1..200>
  *
- * Every action that removes or changes authority also revokes that person's
- * live sessions, so "disabled" means disabled NOW rather than whenever their
- * cookie happens to expire.
+ * One function serving both resources, dispatched on `?resource=` — the paths
+ * above are rewritten to it in vercel.json. They were two files until the
+ * Hobby plan's twelve-function ceiling made that a deployment failure; the
+ * routes and their semantics are unchanged.
  *
- * There is deliberately no delete. An account that checked people in has to
+ * There is deliberately no delete. An account that checked people in must
  * keep existing for the audit trail to resolve to a name; `active = false` is
  * the retirement path.
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { cleanText, jsonBody, send } from '../_shared.js';
+import { cleanText, jsonBody, send } from './_shared.js';
 import {
   hashPassword,
   normaliseEmail,
@@ -25,11 +30,17 @@ import {
   requireAdmin,
   revokeAllSessions,
   type AuthContext,
-} from '../_auth.js';
+} from './_auth.js';
 
 const LIST_SELECT =
   'select=id,full_name,email,role,active,last_login,created_at,must_change_password' +
   '&order=created_at.desc';
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function one(value: string | string[] | undefined): string {
+  return (Array.isArray(value) ? value[0] : value) ?? '';
+}
 
 async function patch(
   auth: AuthContext,
@@ -50,40 +61,28 @@ async function patch(
   return response.ok;
 }
 
-function validId(value: unknown): string | null {
-  return typeof value === 'string' &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
-    ? value
-    : null;
-}
-
-export default async function handler(
-  req: VercelRequest,
+/** GET the account list. Password hashes are not in the projection at all. */
+async function listVolunteers(
+  auth: AuthContext,
   res: VercelResponse
 ): Promise<void> {
-  if (req.method !== 'GET' && req.method !== 'POST') {
-    return send(res, 405, { error: 'Method not allowed.' });
+  res.setHeader('Cache-Control', 'no-store, private');
+  const response = await fetch(
+    `${auth.env.url}/rest/v1/volunteers?${LIST_SELECT}`,
+    { headers: auth.env.headers }
+  );
+  if (!response.ok) {
+    console.error(`[admin] stage=list supabase_status=${response.status}`);
+    return send(res, 503, { error: 'Could not load accounts.' });
   }
-  if (req.method === 'POST' && !originAllowed(req)) {
-    return send(res, 403, { error: 'Request blocked.' });
-  }
+  return send(res, 200, { volunteers: await response.json() });
+}
 
-  const auth = await requireAdmin(req, res);
-  if (!auth) return;
-
-  if (req.method === 'GET') {
-    res.setHeader('Cache-Control', 'no-store, private');
-    const response = await fetch(
-      `${auth.env.url}/rest/v1/volunteers?${LIST_SELECT}`,
-      { headers: auth.env.headers }
-    );
-    if (!response.ok) {
-      console.error(`[admin] stage=list supabase_status=${response.status}`);
-      return send(res, 503, { error: 'Could not load accounts.' });
-    }
-    return send(res, 200, { volunteers: await response.json() });
-  }
-
+async function manageVolunteers(
+  req: VercelRequest,
+  res: VercelResponse,
+  auth: AuthContext
+): Promise<void> {
   const body = jsonBody(req);
   if (!body) return send(res, 400, { error: 'Request body must be JSON.' });
   const action = typeof body.action === 'string' ? body.action : '';
@@ -122,7 +121,7 @@ export default async function handler(
     return send(res, 201, { ok: true, id: rows[0]?.id ?? null });
   }
 
-  const id = validId(body.id);
+  const id = typeof body.id === 'string' && UUID.test(body.id) ? body.id : null;
   if (!id) return send(res, 422, { error: 'A valid account id is required.' });
 
   // An administrator locking themselves out mid-event is a real risk and a
@@ -180,4 +179,82 @@ export default async function handler(
     default:
       return send(res, 400, { error: 'Unknown action.' });
   }
+}
+
+/**
+ * Reads the `verification_activity` and `volunteer_checkin_totals` views,
+ * both of which JOIN the volunteer's name rather than storing a copy — so a
+ * corrected spelling corrects the whole history at once.
+ *
+ * The login view reports attempts WITHOUT any IP address: it answers "is
+ * someone hammering us", which is its purpose, and not "who was where".
+ */
+async function readActivity(
+  req: VercelRequest,
+  res: VercelResponse,
+  auth: AuthContext
+): Promise<void> {
+  res.setHeader('Cache-Control', 'no-store, private');
+
+  const view = one(req.query.view) || 'timeline';
+  const limitRaw = Number(one(req.query.limit));
+  const limit = Number.isInteger(limitRaw)
+    ? Math.min(200, Math.max(1, limitRaw))
+    : 50;
+
+  let path: string;
+  if (view === 'totals') {
+    path = 'volunteer_checkin_totals?select=*&order=checkins.desc';
+  } else if (view === 'logins') {
+    path =
+      'volunteer_login_attempts?select=created_at,successful,reason,volunteer_id' +
+      `&order=created_at.desc&limit=${limit}`;
+  } else {
+    const volunteer = one(req.query.volunteer);
+    const filter = UUID.test(volunteer)
+      ? `&volunteer_id=eq.${volunteer}`
+      : '';
+    path = `verification_activity?select=*&order=created_at.desc&limit=${limit}${filter}`;
+  }
+
+  const response = await fetch(`${auth.env.url}/rest/v1/${path}`, {
+    headers: auth.env.headers,
+  });
+  if (!response.ok) {
+    console.error(`[admin] stage=activity supabase_status=${response.status}`);
+    return send(res, 503, { error: 'Could not load activity.' });
+  }
+  return send(res, 200, { view, rows: await response.json() });
+}
+
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+): Promise<void> {
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return send(res, 405, { error: 'Method not allowed.' });
+  }
+  if (req.method === 'POST' && !originAllowed(req)) {
+    return send(res, 403, { error: 'Request blocked.' });
+  }
+
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
+
+  const resource = one(req.query.resource) || 'volunteers';
+
+  if (resource === 'activity') {
+    if (req.method !== 'GET') {
+      return send(res, 405, { error: 'Method not allowed.' });
+    }
+    return readActivity(req, res, auth);
+  }
+
+  if (resource !== 'volunteers') {
+    return send(res, 404, { error: 'Unknown resource.' });
+  }
+
+  return req.method === 'GET'
+    ? listVolunteers(auth, res)
+    : manageVolunteers(req, res, auth);
 }

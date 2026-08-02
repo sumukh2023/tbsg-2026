@@ -1,5 +1,20 @@
 {
+  "_comment": [
+    "The two /api/auth/* and /api/admin/* rewrites collapse six routes onto",
+    "two serverless functions. The Hobby plan allows twelve per deployment,",
+    "and one file per action put this project at thirteen. The pretty paths",
+    "are kept because they are what the portal and the docs call.",
+    "Order matters: the SPA catch-all is last and excludes /api/."
+  ],
   "rewrites": [
+    {
+      "source": "/api/auth/:action",
+      "destination": "/api/auth?action=:action"
+    },
+    {
+      "source": "/api/admin/:resource",
+      "destination": "/api/admin?resource=:resource"
+    },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

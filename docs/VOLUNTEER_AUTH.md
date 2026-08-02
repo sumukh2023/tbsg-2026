@@ -123,6 +123,14 @@ which is the whole reason the cookie is `HttpOnly`.
 | `/api/admin/volunteers` | GET/POST | admin | List; create, disable, enable, reset, promote, demote |
 | `/api/admin/activity` | GET | admin | `?view=timeline\|totals\|logins` |
 
+> **Why six paths but two files.** Vercel's Hobby plan allows twelve
+> serverless functions per deployment and one file per action put the project
+> at thirteen, which fails the build outright. `api/auth.ts` and `api/admin.ts`
+> each serve their whole group, dispatched on `?action=` / `?resource=`, and
+> `vercel.json` rewrites the pretty paths onto them. Callers see no
+> difference. If you add another route, check the count first:
+> `find api -name '*.ts' | grep -v '/_' | wc -l`.
+
 Account management, all `POST /api/admin/volunteers`:
 
 ```jsonc
