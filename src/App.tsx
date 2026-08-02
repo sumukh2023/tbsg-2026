@@ -2,11 +2,16 @@ import { lazy, Suspense, useEffect } from 'react';
 import {
   BrowserRouter,
   Navigate,
+  Outlet,
   Route,
   Routes,
   useLocation,
 } from 'react-router-dom';
 import { MotionConfig } from 'framer-motion';
+import {
+  RequireVolunteer,
+  VolunteerSessionProvider,
+} from './festival/pass/session';
 import { RootLayout } from '@/layouts/RootLayout';
 import { SiteNav } from './festival/SiteNav';
 import { Hero } from './festival/Hero';
@@ -28,6 +33,8 @@ import { LiveUpdates } from './festival/live/LiveUpdates';
 const GetPassesPage = lazy(() => import('./festival/getpasses/GetPassesPage'));
 const PassPage = lazy(() => import('./festival/pass/PassPage'));
 const VerifyPage = lazy(() => import('./festival/pass/VerifyPage'));
+const LoginPage = lazy(() => import('./festival/pass/LoginPage'));
+const ProfilePage = lazy(() => import('./festival/pass/ProfilePage'));
 const TermsPage = lazy(() => import('./festival/legal/TermsPage'));
 const PrivacyPage = lazy(() => import('./festival/legal/PrivacyPage'));
 
@@ -53,6 +60,20 @@ function CanvasBackground() {
     };
   }, [pathname]);
   return null;
+}
+
+/**
+ * Layout route for the volunteer portal: provides the session once for every
+ * page beneath it, and carries the Suspense boundary for their lazy chunks.
+ */
+function VolunteerPortal() {
+  return (
+    <VolunteerSessionProvider>
+      <Suspense fallback={<PageFallback />}>
+        <Outlet />
+      </Suspense>
+    </VolunteerSessionProvider>
+  );
 }
 
 function ScrollToTop() {
@@ -143,25 +164,45 @@ export default function App() {
                 </Suspense>
               }
             />
-            {/* The central portal and the single-pass verifier are the same
-                page: with a token it checks that pass, without one it offers
-                the scan-or-type choices. Both sit behind the access code. */}
-            <Route
-              path="/verify-pass"
-              element={
-                <Suspense fallback={<PageFallback />}>
-                  <VerifyPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/verify-pass/:token"
-              element={
-                <Suspense fallback={<PageFallback />}>
-                  <VerifyPage />
-                </Suspense>
-              }
-            />
+            {/* The volunteer portal, under one layout route so the session
+                lookup happens for these pages and NOT for every public
+                visitor loading the landing page.
+
+                Sign-in is the only page here reachable without a session;
+                the rest are wrapped in <RequireVolunteer>, which bounces to
+                the login page carrying where you were headed, so a scanned
+                QR link survives the detour. That guard is a convenience —
+                /api/verify checks the session itself on every call, so the
+                server is the real boundary. */}
+            <Route path="/verify-pass" element={<VolunteerPortal />}>
+              <Route
+                index
+                element={
+                  <RequireVolunteer>
+                    <VerifyPage />
+                  </RequireVolunteer>
+                }
+              />
+              <Route path="login" element={<LoginPage />} />
+              <Route
+                path="profile"
+                element={
+                  <RequireVolunteer>
+                    <ProfilePage />
+                  </RequireVolunteer>
+                }
+              />
+              {/* Static siblings above outrank this, so `login` and
+                  `profile` are never read as pass tokens. */}
+              <Route
+                path=":token"
+                element={
+                  <RequireVolunteer>
+                    <VerifyPage />
+                  </RequireVolunteer>
+                }
+              />
+            </Route>
             {/* Reachable from the footer and from the booking consent, but
                 deliberately not in the main navigation. */}
             <Route

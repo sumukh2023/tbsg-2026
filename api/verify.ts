@@ -1,49 +1,45 @@
 /**
  * POST /api/verify — event-day verification and check-in, used by the
- * /verify-pass/<token> volunteer interface.
+ * /verify-pass volunteer portal.
  *
- * Body: { action: 'authenticate' | 'verify' | 'checkin', access_code,
- *         token? | reference?, operator? }
+ * Body: { action: 'verify' | 'checkin' | 'undo', token? | reference? }
  *
- * Classic Vercel Node.js (req, res) signature; env vars are read
- * dynamically at request time. Everything used here (fetch, WebCrypto,
- * TextEncoder) is global in Node 18+.
+ * Authorisation is the volunteer's SESSION COOKIE — there is no shared access
+ * code any more, and no credential travels in the body. Every action is
+ * attributed to a real person and written to `verification_events`, which is
+ * what makes "who checked this attendee in" answerable afterwards.
  *
  * Status semantics:
- *   200 valid / checked_in     · 401 wrong access code
- *   404 unknown token          · 409 already checked in
- *   410 cancelled              · 400 malformed request
- *   503 configuration/database unavailable · 500 unexpected failure
+ *   200 valid / checked_in / undone · 401 not signed in
+ *   403 role not permitted         · 404 unknown token
+ *   409 already checked in         · 410 cancelled
+ *   400 malformed request          · 503 database unavailable
  *
  * Validity is decided exclusively here against the database. Duplicate
- * check-ins are prevented with a conditional update (status must still
- * be 'valid' at write time). Requires VERIFIER_ACCESS_CODE (shared
- * event-day code handed to gate volunteers; server-side env only).
+ * check-ins are prevented with a conditional update (status must still be
+ * 'valid' at write time), so simultaneous scans at two gates cannot both
+ * succeed.
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import {
-  cleanText,
   findPassByReference,
   findPassByToken,
   jsonBody,
   REFERENCE_PATTERN,
   send,
-  supabaseEnv,
   type PassRow,
 } from './_shared.js';
+import {
+  originAllowed,
+  recordVerification,
+  requireVolunteer,
+} from './_auth.js';
 
-function timingSafeEqual(a: string, b: string): boolean {
-  const enc = new TextEncoder();
-  const ab = enc.encode(a);
-  const bb = enc.encode(b);
-  let diff = ab.length === bb.length ? 0 : 1;
-  const len = Math.max(ab.length, bb.length);
-  for (let i = 0; i < len; i++) {
-    diff |= (ab[i % ab.length] ?? 0) ^ (bb[i % bb.length] ?? 0);
-  }
-  return diff === 0;
-}
-
+/**
+ * Resolve check-in attribution to a display name. The pass stores only
+ * `checked_in_by` (a volunteer ID); the name is joined at read time, so
+ * correcting a volunteer's spelling corrects every pass they ever handled.
+ */
 function presentationOf(pass: PassRow) {
   return {
     reference: pass.pass_reference,
@@ -57,7 +53,10 @@ function presentationOf(pass: PassRow) {
       section: pass.registrations?.section ?? null,
     },
     checked_in_at: pass.checked_in_at,
-    checked_in_by: pass.checked_in_by,
+    // Joined name, falling back to the free text written by the retired
+    // access-code system so older check-ins still read correctly.
+    checked_in_by:
+      pass.checked_in_volunteer?.full_name ?? pass.checked_in_by_name ?? null,
   };
 }
 
@@ -68,40 +67,20 @@ export default async function handler(
   if (req.method !== 'POST') {
     return send(res, 405, { error: 'Method not allowed.' });
   }
+  if (!originAllowed(req)) {
+    return send(res, 403, { error: 'Request blocked.' });
+  }
+
+  // The session gate. Everything below this line has a named actor.
+  const auth = await requireVolunteer(req, res);
+  if (!auth) return;
+  const { env, volunteer } = auth;
 
   const body = jsonBody(req);
-  if (!body) {
-    return send(res, 400, { error: 'Request body must be JSON.' });
-  }
-
-  const accessCode = process.env.VERIFIER_ACCESS_CODE?.trim();
-  if (!accessCode) {
-    console.error(
-      '[verify] Missing required environment variable: VERIFIER_ACCESS_CODE'
-    );
-    return send(res, 503, { error: 'Verification service unavailable.' });
-  }
-  const provided =
-    typeof body.access_code === 'string' ? body.access_code.trim() : '';
-  if (!provided || !timingSafeEqual(provided, accessCode)) {
-    return send(res, 401, { error: 'Access code incorrect.' });
-  }
-
-  const env = supabaseEnv('verify');
-  if (!env) {
-    return send(res, 503, { error: 'Verification service unavailable.' });
-  }
-
-  // The portal signs in before it has a pass to check, so the access code
-  // alone is a complete request. Nothing is looked up and nothing leaks: the
-  // answer is only whether the code was right, which the caller already knows.
-  if (body.action === 'authenticate') {
-    return send(res, 200, { ok: true });
-  }
+  if (!body) return send(res, 400, { error: 'Request body must be JSON.' });
 
   // A pass is identified EITHER by the opaque token the QR carries, or by the
-  // short reference printed on it, which is what a volunteer can type. Both
-  // are already behind the access code checked above.
+  // short reference printed on it, which is what a volunteer can type.
   const token = typeof body.token === 'string' ? body.token : '';
   const reference =
     typeof body.reference === 'string'
@@ -110,36 +89,109 @@ export default async function handler(
   const byToken = /^[A-Za-z0-9_-]{20,64}$/.test(token);
   const byReference = REFERENCE_PATTERN.test(reference);
   if (!byToken && !byReference) {
+    await recordVerification(env, {
+      volunteer,
+      action: 'lookup_failed',
+      reference: reference || null,
+      result: 'malformed',
+    });
     return send(res, 404, { result: 'invalid', error: 'Pass not found.' });
   }
+
   const lookup = () =>
     byToken ? findPassByToken(env, token) : findPassByReference(env, reference);
-  const action = body.action === 'checkin' ? 'checkin' : 'verify';
+  const action =
+    body.action === 'checkin'
+      ? 'checkin'
+      : body.action === 'undo'
+        ? 'undo'
+        : 'verify';
+
+  // Undoing a check-in reverses a decision someone already made at the gate,
+  // so it is an administrator action. Volunteers verify and admit; only an
+  // admin can put a pass back.
+  if (action === 'undo' && volunteer.role !== 'admin') {
+    return send(res, 403, {
+      error: 'Only an administrator can undo a check-in.',
+    });
+  }
 
   try {
     const pass = await lookup();
     if (!pass) {
+      await recordVerification(env, {
+        volunteer,
+        action: 'lookup_failed',
+        reference: byReference ? reference : null,
+        result: 'not_found',
+      });
       return send(res, 404, { result: 'invalid', error: 'Pass not found.' });
     }
 
     const presentation = presentationOf(pass);
+    const audit = (result: string) =>
+      recordVerification(env, {
+        volunteer,
+        action: action === 'verify' ? 'verify' : action,
+        passId: pass.id,
+        reference: pass.pass_reference,
+        result,
+      });
 
     if (action === 'verify') {
       if (pass.status === 'valid') {
+        await audit('valid');
         return send(res, 200, { result: 'valid', pass: presentation });
       }
       if (pass.status === 'checked_in') {
+        await audit('already_checked_in');
         return send(res, 409, {
           result: 'already_checked_in',
           pass: presentation,
         });
       }
+      await audit('cancelled');
       return send(res, 410, { result: 'cancelled', pass: presentation });
+    }
+
+    if (action === 'undo') {
+      // Conditional on the pass still being checked in, so two admins undoing
+      // at once cannot double-apply.
+      const undoUrl = `${env.url}/rest/v1/passes?id=eq.${pass.id}&status=eq.checked_in`;
+      const undo = await fetch(undoUrl, {
+        method: 'PATCH',
+        headers: { ...env.headers, Prefer: 'return=representation' },
+        body: JSON.stringify({
+          status: 'valid',
+          checked_in_at: null,
+          checked_in_by: null,
+          undone_by: volunteer.id,
+          undone_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }),
+      });
+      if (!undo.ok) {
+        console.error(`[verify] stage=undo supabase_status=${undo.status}`);
+        return send(res, 503, { error: 'Verification service unavailable.' });
+      }
+      const undone = (await undo.json()) as unknown[];
+      if (undone.length === 0) {
+        // Not checked in any more: someone else undid it, or it was cancelled.
+        const fresh = await lookup();
+        return send(res, 409, {
+          result: fresh?.status === 'valid' ? 'valid' : 'cancelled',
+          pass: fresh ? presentationOf(fresh) : presentation,
+        });
+      }
+      await audit('undone');
+      return send(res, 200, {
+        result: 'undone',
+        pass: { ...presentation, checked_in_at: null, checked_in_by: null },
+      });
     }
 
     // Check-in: conditional update so a pass moves valid -> checked_in
     // exactly once, no matter how many volunteers scan simultaneously.
-    const operator = cleanText(body.operator, 60) ?? 'gate volunteer';
     const updateUrl = `${env.url}/rest/v1/passes?id=eq.${pass.id}&status=eq.valid`;
     const update = await fetch(updateUrl, {
       method: 'PATCH',
@@ -147,7 +199,10 @@ export default async function handler(
       body: JSON.stringify({
         status: 'checked_in',
         checked_in_at: new Date().toISOString(),
-        checked_in_by: operator,
+        // The volunteer's ID is the source of truth; their name is joined.
+        checked_in_by: volunteer.id,
+        undone_by: null,
+        undone_at: null,
         updated_at: new Date().toISOString(),
       }),
     });
@@ -160,23 +215,28 @@ export default async function handler(
     if (updated.length === 0) {
       // Someone got there first, or the pass was cancelled meanwhile.
       const fresh = await lookup();
-      const freshPresentation = {
-        ...presentation,
-        checked_in_at: fresh?.checked_in_at ?? null,
-        checked_in_by: fresh?.checked_in_by ?? null,
-      };
+      const freshPresentation = fresh
+        ? presentationOf(fresh)
+        : { ...presentation, checked_in_at: null, checked_in_by: null };
       if (fresh?.status === 'checked_in') {
+        await audit('already_checked_in');
         return send(res, 409, {
           result: 'already_checked_in',
           pass: freshPresentation,
         });
       }
+      await audit('cancelled');
       return send(res, 410, { result: 'cancelled', pass: freshPresentation });
     }
 
+    await audit('checked_in');
     return send(res, 200, {
       result: 'checked_in',
-      pass: { ...presentation, checked_in_at: updated[0].checked_in_at },
+      pass: {
+        ...presentation,
+        checked_in_at: updated[0].checked_in_at,
+        checked_in_by: volunteer.full_name,
+      },
     });
   } catch (error) {
     // Dependency failure (Supabase unreachable, lookup threw). Never let

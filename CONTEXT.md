@@ -32,8 +32,9 @@ system with QR + gate verification, and realtime Live Updates.
 - React 18 + Vite + TypeScript (strict), Tailwind v3 with CSS-variable tokens
 - Framer Motion (+ vendored motion-primitives in `src/components/motion/`),
   Lenis smooth scroll (wheel only — native touch scrolling untouched), GSAP available
-- react-router-dom: `/` home · `/get-passes` · `/pass/:token?` · `/verify-pass/:token`
-  (secondary routes lazy-loaded)
+- react-router-dom: `/` home · `/get-passes` · `/pass/:token?` · `/terms` ·
+  `/privacy` · `/verify-pass` (portal, with `login` / `profile` / `:token`
+  beneath it behind `RequireVolunteer`) — secondary routes lazy-loaded
 - Supabase (Postgres + RLS + Realtime) behind Vercel **Node.js** serverless
   functions in `api/`
 - Fonts: Cormorant Garamond (display), Montserrat (body) self-hosted via
@@ -58,17 +59,26 @@ system with QR + gate verification, and realtime Live Updates.
   `.liquid-glass-panel`, `.glass-lite` tiers
 - `src/festival/live/LiveUpdates.tsx` — ticker + control + drawer, Supabase
   realtime (VITE_SUPABASE_URL/ANON_KEY) with `/api/updates` polling fallback
-- `src/festival/pass/VerifyPage.tsx` — gate verifier: shared in-page `QrScanner`
-  (BarcodeDetector, jsQR fallback), access-code gate (sessionStorage), state
-  machine code/checking/result/service/network. **Scan Next Guest appears on
-  every completed outcome (`state.result !== 'valid'`)**; scanner has
-  unsupported/denied/error states with Retry, stops tracks on close
+- `src/festival/pass/` — the volunteer portal. `VerifyPage.tsx` (gate verifier;
+  state machine portal/checking/result/service/network), `QrScanner.tsx`
+  (BarcodeDetector with jsQR fallback; unsupported/denied/error states with
+  Retry, stops tracks on close), `LoginPage.tsx`, `ProfilePage.tsx`,
+  `PortalShell.tsx` (dark ground + the signed-in profile chip),
+  `session.tsx` + `session-context.ts` (provider, `RequireVolunteer` guard).
+  **Scan Next Guest appears on every completed outcome
+  (`state.result !== 'valid'`)**. Auth is a session cookie, never an access
+  code — see `docs/VOLUNTEER_AUTH.md`
 - `src/festival/getpasses/GetPassesPage.tsx` — registration (MAX_PASSES: a
   uniform 10 for every visitor type, mirrored in `api/_shared.ts`); duplicate
   message links to Retrieve + Front Desk
 - `src/festival/pass/PassPage.tsx` — pass display + Retrieve (email AND phone)
-- `api/_shared.ts`, `api/register|verify|pass|retrieve|updates|wallet-*.ts`
-- `supabase/schema.sql`, `docs/PASS_SYSTEM.md`
+- `api/_shared.ts`, `api/_auth.ts` (Argon2id, sessions, cookies, rate limiting,
+  `requireVolunteer`/`requireAdmin`, audit writes),
+  `api/register|verify|pass|retrieve|updates|wallet-*.ts`,
+  `api/auth/{login,logout,session,password}.ts`,
+  `api/admin/{volunteers,activity}.ts`
+- `scripts/hash-password.mjs` — Argon2id hash + SQL for the FIRST admin account
+- `supabase/schema.sql`, `docs/PASS_SYSTEM.md`, `docs/VOLUNTEER_AUTH.md`
 - `.design/brief.md` — design-system record (required by the design gate)
 
 ## Hero section: the two setups (SETUP A / SETUP B)
@@ -246,11 +256,21 @@ looked well-evidenced, passed every gate, and still broke Safari everywhere.
 
 ## Secrets / security rules
 
-- NEVER expose `SUPABASE_SERVICE_ROLE_KEY` or `VERIFIER_ACCESS_CODE` to the
-  browser; never log secrets/tokens/PII; do not weaken RLS.
-- All verification decisions come from `/api/verify` (server-side); the client
-  only renders results. HTTP semantics: 200 valid/checked_in · 401/403 bad code
-  · 404 invalid · 409 already checked in · 410 cancelled · 503 service.
+- NEVER expose `SUPABASE_SERVICE_ROLE_KEY` to the browser. Server-side only.
+- `VERIFIER_ACCESS_CODE` is **GONE** (2 Aug 2026). The shared event-day code was
+  replaced by per-person volunteer accounts: `api/_auth.ts`, the `volunteers` /
+  `volunteer_sessions` tables, and `/verify-pass/login`. Delete the variable from
+  Vercel if it is still set — nothing reads it. See `docs/VOLUNTEER_AUTH.md`.
+- Volunteer sessions are server-side rows keyed by an `HttpOnly`, `Secure`,
+  `SameSite=Strict` `__Host-` cookie; only the SHA-256 of the token is stored.
+  Never put auth state in `localStorage`/`sessionStorage`.
+- Passwords are Argon2id (`@node-rs/argon2`, 19 MiB / t=2 / p=1). Never log a
+  password, a hash, a session token, or PII. Login failures always answer with
+  the one sentence "Invalid email or password."
+- All verification decisions are server-side in `/api/verify`, which requires a
+  volunteer session. Role checks live in `requireVolunteer`/`requireAdmin` —
+  hiding a button is not a permission.
+- Do not weaken RLS: every one of these tables is server-only.
 
 ## Quality gates (all must pass before pushing)
 

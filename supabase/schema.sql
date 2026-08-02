@@ -70,6 +70,43 @@ create index if not exists registrations_usn_idx
   where usn is not null;
 
 -- ---------------------------------------------------------------------
+-- Volunteer and administrator accounts for the gate portal.
+--
+-- Defined BEFORE `passes` because check-in references a volunteer. The full
+-- definition, including sessions, the login-attempt ledger and the audit
+-- trail, lives in supabase/migrations/20260802_volunteer_authentication.sql —
+-- run that file; this block exists so a project created from scratch with
+-- schema.sql alone still has a valid foreign key.
+--
+-- Completely separate from the attendee tables above: no column here
+-- references `registrations`, and no attendee row references a volunteer
+-- except to record who acted on it.
+-- ---------------------------------------------------------------------
+create table if not exists public.volunteers (
+  id uuid primary key default gen_random_uuid(),
+  full_name text not null check (length(trim(full_name)) between 2 and 120),
+  email text not null,
+  -- Argon2id PHC string. Never plaintext, never reversible.
+  password_hash text not null,
+  role text not null default 'volunteer'
+    check (role in ('volunteer', 'admin')),
+  active boolean not null default true,
+  failed_attempts integer not null default 0 check (failed_attempts >= 0),
+  locked_until timestamptz,
+  must_change_password boolean not null default false,
+  last_login timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  created_by uuid references public.volunteers (id) on delete set null
+);
+
+create unique index if not exists volunteers_email_key
+  on public.volunteers (lower(email));
+
+-- Server-only: password hashes must never be reachable from a browser.
+alter table public.volunteers enable row level security;
+
+-- ---------------------------------------------------------------------
 -- Digital passes: one per registration, verified on event day by token.
 -- The QR encodes an opaque token; only its SHA-256 hash is stored here.
 -- ---------------------------------------------------------------------
@@ -83,7 +120,14 @@ create table if not exists public.passes (
     check (status in ('valid', 'checked_in', 'cancelled')),
   issued_at timestamptz not null default now(),
   checked_in_at timestamptz,
-  checked_in_by text,
+  -- WHO checked this pass in, as a volunteer ID rather than a typed name, so
+  -- the name is joined from public.volunteers and never duplicated here.
+  -- `checked_in_by_name` holds the free text written by the retired
+  -- access-code system; nothing writes it any more.
+  checked_in_by uuid references public.volunteers (id) on delete set null,
+  checked_in_by_name text,
+  undone_by uuid references public.volunteers (id) on delete set null,
+  undone_at timestamptz,
   apple_wallet_serial text,
   google_wallet_object_id text,
   created_at timestamptz not null default now(),

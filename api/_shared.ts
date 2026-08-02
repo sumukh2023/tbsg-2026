@@ -161,7 +161,10 @@ export type PassRow = {
   status: 'valid' | 'checked_in' | 'cancelled';
   issued_at: string;
   checked_in_at: string | null;
+  /** Volunteer ID — the source of truth for WHO checked this pass in. */
   checked_in_by: string | null;
+  /** Free text left by the retired access-code system. Read-only now. */
+  checked_in_by_name: string | null;
   registrations?: {
     full_name: string;
     visitor_type: string;
@@ -171,11 +174,21 @@ export type PassRow = {
     class: string | null;
     section: string | null;
   };
+  /** Joined from `checked_in_by`; the name is never duplicated onto the pass. */
+  checked_in_volunteer?: { full_name: string; role: string } | null;
 };
 
+/**
+ * `passes` has TWO foreign keys into `volunteers` (`checked_in_by` and
+ * `undone_by`), so an unqualified `volunteers(...)` embed is ambiguous and
+ * PostgREST refuses it. The `!passes_checked_in_by_fkey` hint names the
+ * relationship explicitly, and the alias keeps the response key stable.
+ */
 const PASS_SELECT =
-  `select=id,registration_id,pass_reference,status,issued_at,checked_in_at,checked_in_by,` +
-  `registrations(full_name,visitor_type,number_of_passes,student_name,usn,class,section)`;
+  `select=id,registration_id,pass_reference,status,issued_at,checked_in_at,` +
+  `checked_in_by,checked_in_by_name,` +
+  `registrations(full_name,visitor_type,number_of_passes,student_name,usn,class,section),` +
+  `checked_in_volunteer:volunteers!passes_checked_in_by_fkey(full_name,role)`;
 
 async function findPass(
   env: { url: string; headers: Record<string, string> },
