@@ -300,10 +300,13 @@ git hash-object src/utils/engine.ts             # df2f2b16b0c8cf5fc10ab1d60cdf9a
 ```
 
 `1680fd8` is an ancestor of `main`, so it stays reachable for ever and needs no
-branch or tag holding it open. There WAS a `scrub-known-good` branch pinning
-it; it was deleted on 2 Aug 2026 once it held zero unique commits and the two
-files on `main` matched it byte for byte. Recreate it only if a bookmark is
-genuinely wanted: `git push origin 1680fd8:refs/heads/scrub-known-good`.
+branch or tag holding it open. A `scrub-known-good` branch also points at it,
+kept only as a human-readable bookmark: it carries zero unique commits and the
+two files on `main` match it byte for byte, so it is safe to delete whenever
+someone wants to. **A cloud session cannot do it** — the git proxy answers 403
+to any ref deletion, exactly as it does to tag pushes. From a local clone:
+`git push origin --delete scrub-known-good`. To put it back:
+`git push origin 1680fd8:refs/heads/scrub-known-good`.
 
 Do not treat a newer commit as the known-good one unless the films have been
 re-verified on a real Apple device — the whole value of this SHA is that
