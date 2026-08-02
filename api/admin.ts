@@ -32,8 +32,13 @@ import {
   type AuthContext,
 } from './_auth.js';
 
+// `failed_attempts` and `locked_until` are included deliberately: a locked
+// account answers "Invalid email or password." like any other failure, which
+// is right for the login form and useless for the person trying to help. The
+// dashboard is where that state should be visible.
 const LIST_SELECT =
-  'select=id,full_name,email,role,active,last_login,created_at,must_change_password' +
+  'select=id,full_name,email,role,active,last_login,created_at,' +
+  'must_change_password,failed_attempts,locked_until' +
   '&order=created_at.desc';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

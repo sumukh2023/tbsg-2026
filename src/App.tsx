@@ -35,6 +35,7 @@ const PassPage = lazy(() => import('./festival/pass/PassPage'));
 const VerifyPage = lazy(() => import('./festival/pass/VerifyPage'));
 const LoginPage = lazy(() => import('./festival/pass/LoginPage'));
 const ProfilePage = lazy(() => import('./festival/pass/ProfilePage'));
+const AdminPage = lazy(() => import('./festival/pass/AdminPage'));
 const TermsPage = lazy(() => import('./festival/legal/TermsPage'));
 const PrivacyPage = lazy(() => import('./festival/legal/PrivacyPage'));
 
@@ -184,6 +185,14 @@ export default function App() {
                 }
               />
               <Route path="login" element={<LoginPage />} />
+              <Route
+                path="admin"
+                element={
+                  <RequireVolunteer role="admin">
+                    <AdminPage />
+                  </RequireVolunteer>
+                }
+              />
               <Route
                 path="profile"
                 element={

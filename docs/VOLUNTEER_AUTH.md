@@ -75,9 +75,56 @@ and `SUPABASE_SERVICE_ROLE_KEY` that already exist.
 
 ### 4. Deploy, then sign in
 
-Visit `/verify-pass`. You will be sent to `/verify-pass/login`. After signing
-in, add the rest of the team from the admin API (below), or with more rows
-made the same way as step 2.
+Visit `/verify-pass`. You will be sent to `/verify-pass/login`.
+
+**Sign-in is role-blind** — it never looks at `role`, so an administrator and a
+volunteer sign in through the same form with the same rules. Where you land
+afterwards differs: an administrator goes to **`/verify-pass/admin`**, the
+festival desk; a volunteer goes straight to the scanner. A specific link (a
+scanned pass) always wins over both, so a QR survives the detour through the
+login page.
+
+### Cannot sign in?
+
+The single "Invalid email or password." covers five different causes on
+purpose, so the form gives away nothing. To see which one it is:
+
+```sql
+select email, role, active, failed_attempts, locked_until,
+       locked_until > now() as currently_locked, last_login
+from public.volunteers order by created_at desc;
+
+select created_at, email, successful, reason
+from public.volunteer_login_attempts order by created_at desc limit 15;
+```
+
+`reason` is the answer: `bad_password`, `unknown_email`, `locked`, `disabled`,
+`rate_limited` or `malformed`.
+
+**`locked` is the one that catches people out.** Five failed attempts locks the
+account for fifteen minutes, and from then on the CORRECT password is refused
+with the same sentence — so it reads exactly like still getting the password
+wrong. Wait it out, unlock from the dashboard, or clear it directly:
+
+```sql
+update public.volunteers
+   set failed_attempts = 0, locked_until = null
+ where lower(email) = lower('you@brigadeschools.edu.in');
+```
+
+Re-running the `insert` from `hash-password.mjs` also clears it, because its
+`on conflict` branch resets `failed_attempts` and `locked_until`.
+
+### Adding the rest of the team
+
+Two ways, both fine:
+
+- **The dashboard** at `/verify-pass/admin` — an "Add a volunteer" form, plus
+  disable / enable / unlock / reset password / promote / demote per person,
+  and the recent gate activity. This is the normal route.
+- **`hash-password.mjs`**, which now takes a role, for when nobody can sign in
+  yet: `node scripts/hash-password.mjs them@school.edu.in "Their Name" admin`
+  (role defaults to `volunteer`).
 
 ---
 

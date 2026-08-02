@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronDown, LogOut, UserRound } from 'lucide-react';
+import { ChevronDown, LogOut, ScanLine, UserRound, Users } from 'lucide-react';
 import { EASE } from '@/utils/motion';
 import { Grain } from '../materials';
 import { CarnivalMark } from '../CarnivalMark';
@@ -19,10 +19,13 @@ import { useVolunteerSession } from './session-context';
 export function PortalShell({
   children,
   chrome,
+  wide,
 }: {
   children: ReactNode;
   /** The signed-in header. Off on the login page, which has no identity yet. */
   chrome?: ReactNode;
+  /** Roster width for the dashboard; the gate tools stay phone-sized. */
+  wide?: boolean;
 }) {
   const ground = useRef<HTMLDivElement>(null);
 
@@ -47,7 +50,12 @@ export function PortalShell({
         <Grain className="opacity-[0.04]" />
       </div>
 
-      <div className="relative z-10 mx-auto flex min-h-[100dvh] max-w-md flex-col px-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-8">
+      <div
+        className={
+          'relative z-10 mx-auto flex min-h-[100dvh] flex-col px-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-8 ' +
+          (wide ? 'max-w-3xl' : 'max-w-md')
+        }
+      >
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
             <CarnivalMark className="h-6 w-auto text-foreground" />
@@ -58,7 +66,13 @@ export function PortalShell({
           {chrome}
         </div>
 
-        <div className="flex flex-1 flex-col justify-center py-10">{children}</div>
+        <div
+          className={
+            'flex flex-1 flex-col py-10 ' + (wide ? '' : 'justify-center')
+          }
+        >
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -130,6 +144,26 @@ export function VolunteerMenu() {
             transition={{ duration: 0.22, ease: EASE.out }}
             className="liquid-glass absolute right-0 z-20 mt-2 w-48 overflow-hidden rounded-xl border border-white/10 p-1"
           >
+            {volunteer.role === 'admin' && (
+              <Link
+                to="/verify-pass/admin"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 font-body text-sm text-foreground transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Users aria-hidden="true" className="h-4 w-4" />
+                Admin dashboard
+              </Link>
+            )}
+            <Link
+              to="/verify-pass"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 font-body text-sm text-foreground transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ScanLine aria-hidden="true" className="h-4 w-4" />
+              Verify passes
+            </Link>
             <Link
               to="/verify-pass/profile"
               role="menuitem"

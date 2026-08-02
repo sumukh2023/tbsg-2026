@@ -64,6 +64,8 @@ system with QR + gate verification, and realtime Live Updates.
   (BarcodeDetector with jsQR fallback; unsupported/denied/error states with
   Retry, stops tracks on close), `LoginPage.tsx`, `ProfilePage.tsx`,
   `PortalShell.tsx` (dark ground + the signed-in profile chip),
+  `AdminPage.tsx` (festival desk: add/disable/unlock/reset/promote, gate
+  activity — admins land here on sign-in; volunteers land on the scanner),
   `session.tsx` + `session-context.ts` (provider, `RequireVolunteer` guard).
   **Scan Next Guest appears on every completed outcome
   (`state.result !== 'valid'`)**. Auth is a session cookie, never an access

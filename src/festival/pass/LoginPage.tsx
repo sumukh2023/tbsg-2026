@@ -11,13 +11,19 @@ import { useVolunteerSession } from './session-context';
  * link could bounce a volunteer to another origin immediately after they
  * typed their password, which is the classic open-redirect phishing setup.
  */
-function safeNext(raw: string | null): string {
-  if (!raw) return '/verify-pass';
+function safeNext(raw: string | null): string | null {
+  if (!raw) return null;
   // A leading `//` or a backslash is a protocol-relative URL to elsewhere.
   if (!raw.startsWith('/') || raw.startsWith('//') || raw.includes('\\')) {
-    return '/verify-pass';
+    return null;
   }
-  return raw.startsWith('/verify-pass') ? raw : '/verify-pass';
+  if (!raw.startsWith('/verify-pass')) return null;
+  // The portal root is where the guard sends everyone who simply opened the
+  // portal, so it is not a REQUEST for anywhere — treating it as one is what
+  // stopped administrators ever landing on their dashboard. Only a deeper
+  // link (a scanned pass, a profile) says where someone actually meant to go.
+  const path = raw.split('?')[0].replace(/\/$/, '');
+  return path === '/verify-pass' ? null : raw;
 }
 
 /**
@@ -29,7 +35,7 @@ export default function LoginPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const { state, refresh } = useVolunteerSession();
-  const next = safeNext(params.get('next'));
+  const requested = safeNext(params.get('next'));
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -38,9 +44,17 @@ export default function LoginPage() {
 
   // Already signed in — including the moment refresh() confirms the new
   // session — so leave rather than showing a form that has nothing to do.
+  //
+  // Where to: whatever was asked for (a scanned QR link survives the detour
+  // through this page), and otherwise the landing that fits the account.
+  // An administrator arriving with no destination in mind wants the desk,
+  // not the scanner; a volunteer only has the scanner.
   useEffect(() => {
-    if (state.phase === 'signed-in') navigate(next, { replace: true });
-  }, [state.phase, navigate, next]);
+    if (state.phase !== 'signed-in') return;
+    const home =
+      state.volunteer.role === 'admin' ? '/verify-pass/admin' : '/verify-pass';
+    navigate(requested ?? home, { replace: true });
+  }, [state, navigate, requested]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
