@@ -84,9 +84,10 @@ system with QR + gate verification, and realtime Live Updates.
   `?resource=`, with `vercel.json` rewriting the pretty paths onto them.
   **Vercel Hobby allows 12 serverless functions per deployment**; a file per
   action made 13 and the build failed. Count before adding a route:
-  `find api -name '*.ts' | grep -v '/_' | wc -l` (currently 9)
+  `find api -name '*.ts' | grep -v '/_' | wc -l` (currently 10)
 - `scripts/hash-password.mjs` — Argon2id hash + SQL for the FIRST admin account
-- `supabase/schema.sql`, `docs/PASS_SYSTEM.md`, `docs/VOLUNTEER_AUTH.md`
+- `supabase/schema.sql`, `docs/PASS_SYSTEM.md`, `docs/VOLUNTEER_AUTH.md`,
+  `docs/DONATIONS.md`
 - `.design/brief.md` — design-system record (required by the design gate)
 
 ## Page architecture — the five districts
@@ -133,7 +134,12 @@ separate CTA, the seagull is a `<Link to="/">`.
   `ComingSoonPage`; replace them one at a time.
 - `/donate` is where every "Support Us" button leads (`SUPPORT_PATH` in
   `chapters.ts`). It is NOT a district: it is an evening page built on the
-  Get Passes / Your Pass shell, and it is listed in `DARK_ROUTES`.
+  Get Passes / Your Pass shell, and it is listed in `DARK_ROUTES`. Since
+  2 Aug 2026 it carries the full donation workflow (form → review →
+  processing → thank you, as one state machine on one route). **There is no
+  payment gateway**; `src/festival/donate/payment.ts` is the single seam where
+  one is inserted, and `docs/DONATIONS.md` is the whole story including the
+  SQL. Nothing writes `payment_status = 'paid'` today.
 - Rangeelo Rajasthan photographs are not in the repo. `RANGEELO` in
   `MissionPage.tsx` renders an elegant frame per plate; add `src` to a record
   and it becomes a photograph, no other change.

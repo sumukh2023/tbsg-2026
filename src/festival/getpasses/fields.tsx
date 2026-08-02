@@ -357,6 +357,7 @@ export function RadioPills({
   value,
   onChange,
   error,
+  columns = 3,
 }: {
   legend: string;
   name: string;
@@ -364,14 +365,28 @@ export function RadioPills({
   value: string;
   onChange: (value: string) => void;
   error?: string;
+  /**
+   * Columns from `sm` up; two below it either way. Three suits the Get Passes
+   * sets and stays the default. Four options at three columns leaves one
+   * stranded on its own row, so a set of four asks for four.
+   */
+  columns?: 2 | 3 | 4;
 }) {
   const errorId = `${name}-error`;
+  // Spelled out rather than interpolated: Tailwind scans source text, so
+  // `sm:grid-cols-${n}` would never be generated.
+  const track =
+    columns === 4
+      ? 'sm:grid-cols-4'
+      : columns === 2
+        ? 'sm:grid-cols-2'
+        : 'sm:grid-cols-3';
   return (
     <fieldset aria-describedby={error ? errorId : undefined}>
       <legend className="font-body text-sm font-medium text-foreground">
         {legend}
       </legend>
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div className={cn('mt-3 grid grid-cols-2 gap-2', track)}>
         {options.map((option) => (
           <label key={option.value} className="cursor-pointer">
             <input
