@@ -99,8 +99,17 @@ separate CTA, the seagull is a `<Link to="/">`.
   `data-chapter` key and the CANVAS colour for each district. The nav, the
   router and `CanvasBackground` all read it, so adding a page is one record
   plus one component.
-- `src/festival/pages/PageShell.tsx` — nav + cinematic hero + footer, plus
-  `Band` for alternating full-bleed sections.
+- `src/festival/pages/PageShell.tsx` — nav + hero + footer, plus `Band` for
+  alternating full-bleed sections. Pass `hero` to replace the standard hero
+  entirely; Mission does, for its full-bleed film.
+- `src/festival/pages/HeroFilm.tsx` — looping muted background film. NOT the
+  scroll-scrub engine: it just plays, retries once on the reader's first
+  gesture (Safari can decline autoplay and never retry), and falls back to the
+  poster layer rather than a black box.
+- `src/festival/pages/PhotoCarousel.tsx` — the Flash 1.0 gallery. Il
+  Programma's proven loop mechanics, a deliberately different look.
+- `src/festival/FlashWordmark.tsx` — the stylised FLASH @ BRIGADE lockup,
+  shared by the footer and the page heroes so the two cannot drift.
 - **Colour identity is TOKENS ONLY.** `data-chapter="mission"` on the page
   wrapper swaps `--primary`/`--accent`/`--background`/… via a block in
   `globals.css`. Components are untouched and nothing hard-codes a colour.
@@ -115,7 +124,24 @@ separate CTA, the seagull is a `<Link to="/">`.
   `MissionPage.tsx` renders an elegant frame per plate; add `src` to a record
   and it becomes a photograph, no other change.
 
-Two traps found while building it, both worth remembering:
+**Assets the Mission page is waiting for.** Both degrade gracefully, so the
+page is correct today and becomes richer the moment they land:
+- `public/carnival.mp4` — the hero film. `HeroFilm` renders the marble
+  backdrop until it loads and if it never does, so a missing file is a still
+  hero rather than a black box. Add `public/carnival.webm` too if you have it:
+  the source list is mp4-first, and the webm is what makes the film verifiable
+  in the sandbox Chromium (gotcha 3).
+- Rangeelo Rajasthan photographs — add `src` to a record in `RANGEELO`
+  (`MissionPage.tsx`) and that plate becomes a photograph. The carousel takes
+  any number.
+- `BrigadeSchoolsMark.tsx` draws the institutional lockup from the vector
+  seagull rather than a bitmap. Its olive is the SCHOOL's brand colour and is
+  deliberately NOT a theme token — an institutional mark must not re-tint per
+  district the way the festival branding does.
+
+**Flash 1.0 (Rangeelo Rajasthan) was 2023.** Not 2024.
+
+Traps found while building these pages, all worth remembering:
 - `AnimatedGroup` wraps EVERY child in its own motion div, so grid
   `col-span-*` classes on the child land inside the cell and are ignored. Use
   a plain grid with per-item `whileInView` when the items have unequal spans.
@@ -123,6 +149,14 @@ Two traps found while building it, both worth remembering:
   aspect (`aspect-[3/4]`) and generous top padding, or it clips its content.
 - `TextEffect` renders an `sr-only` copy plus `aria-hidden` animated words, so
   `textContent` reads DOUBLED. Assert the accessible name, not textContent.
+- **Never write `scrollLeft` from an `onScroll` handler on a `snap-mandatory`
+  track.** The snap pulls every programmatic move straight back and the
+  carousel sticks — a 500px `scrollBy` netted 77px. Wrap BEFORE scrolling, as
+  `reenterLoop` does in both `Programme.tsx` and `PhotoCarousel.tsx`, so the
+  jump lands on a real snap point. `onScroll` may only READ.
+- Carousel rotation is governed by VISIBILITY ALONE. Hover/wheel/touch holds
+  look like a bug, because scrolling the page past a section fires those
+  events on the track and parks it long after the reader stopped.
 
 ## Hero section: the two setups (SETUP A / SETUP B)
 

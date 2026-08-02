@@ -21,13 +21,16 @@ export function PageShell({
   eyebrow,
   title,
   lede,
+  hero,
   children,
 }: {
   chapter: Chapter;
   /** Small line above the title. Optional: not every page earns one. */
   eyebrow?: string;
-  title: string;
-  lede: ReactNode;
+  title?: string;
+  lede?: ReactNode;
+  /** Replaces the standard hero entirely. Mission uses this to go cinematic. */
+  hero?: ReactNode;
   children?: ReactNode;
 }) {
   return (
@@ -37,6 +40,7 @@ export function PageShell({
     >
       <SiteNav />
 
+      {hero ?? (
       <header className="relative isolate overflow-hidden pb-20 pt-36 md:pb-28 md:pt-48">
         {/* The same materials as the landing page: marble, grain, and one
             soft wash of the chapter's own accent low on the horizon. */}
@@ -69,7 +73,7 @@ export function PageShell({
             delay={0.15}
             className="mt-5 max-w-[16ch] font-display text-5xl font-medium leading-[1.05] tracking-tight sm:text-6xl md:text-7xl lg:text-8xl"
           >
-            {title}
+            {title ?? ''}
           </TextEffect>
 
           <motion.div
@@ -82,6 +86,7 @@ export function PageShell({
           </motion.div>
         </div>
       </header>
+      )}
 
       <main>{children}</main>
 

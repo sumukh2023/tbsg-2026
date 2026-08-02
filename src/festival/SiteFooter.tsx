@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Facebook, Instagram, Linkedin, Youtube } from 'lucide-react';
 import { CarnivalMark } from './CarnivalMark';
+import { FlashWordmark } from './FlashWordmark';
 
 const socials = [
   {
@@ -37,9 +38,7 @@ export function SiteFooter() {
       >
         <div className="xl:col-span-3">
           <CarnivalMark className="h-9 w-auto text-foreground" />
-          <p className="mt-4 font-body text-xs font-semibold uppercase tracking-[0.22em]">
-            Flash <span className="text-primary">@</span> Brigade
-          </p>
+          <FlashWordmark className="mt-4" />
           <p className="mt-3 max-w-sm font-display text-2xl font-medium italic leading-snug text-muted-foreground">
             Namma Mia Carpisa
           </p>

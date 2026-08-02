@@ -11,8 +11,8 @@ export default function GalleryPage() {
       note="Photographs from Flash 1.0 are being selected now; the 2026 gallery fills through the day itself."
       previews={[
         {
-          title: 'Flash 1.0 · 2024',
-          body: 'Rangeelo Rajasthan, from the opening hour to the last stall closing.',
+          title: 'Flash 1.0 · 2023',
+          body: 'Rangeelo Rajasthan in 2023, from the opening hour to the last stall closing.',
         },
         {
           title: 'Building the piazza',

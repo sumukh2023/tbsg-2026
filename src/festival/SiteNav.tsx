@@ -12,6 +12,13 @@ import { EASE } from '@/utils/motion';
 import { CarnivalMark } from './CarnivalMark';
 import { CHAPTERS } from './pages/chapters';
 
+/** Honour the OS setting: a long smooth glide is exactly what it asks us not
+ *  to do. Read at click time rather than cached, so a mid-session change of
+ *  the setting is respected. */
+function prefersReducedMotion() {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
 export function SiteNav() {
   const [scrolled, setScrolled] = useState(false);
   const [evening, setEvening] = useState(false);
@@ -54,9 +61,25 @@ export function SiteNav() {
         )}
         aria-label="Main"
       >
+        {/* On the landing page the mark is a way BACK UP, not a navigation:
+            clicking it glides to the top rather than remounting the page and
+            throwing away the scroll-scrub films. Anywhere else it is an
+            ordinary link home. */}
         <Link
           to="/"
-          aria-label="Flash @ Brigade — home"
+          onClick={(event) => {
+            if (pathname !== '/') return;
+            event.preventDefault();
+            window.scrollTo({
+              top: 0,
+              behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+            });
+          }}
+          aria-label={
+            pathname === '/'
+              ? 'Flash @ Brigade — back to top'
+              : 'Flash @ Brigade — home'
+          }
           className="text-foreground transition-colors duration-300 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <CarnivalMark className="h-7 w-auto md:h-8" />
