@@ -129,7 +129,12 @@ which is the whole reason the cookie is `HttpOnly`.
 > each serve their whole group, dispatched on `?action=` / `?resource=`, and
 > `vercel.json` rewrites the pretty paths onto them. Callers see no
 > difference. If you add another route, check the count first:
-> `find api -name '*.ts' | grep -v '/_' | wc -l`.
+> `find api -name '*.ts' | grep -v '/_' | wc -l` (currently 9).
+>
+> `vercel.json` itself is schema-validated with `additionalProperties: false`,
+> so it cannot carry a comment — not even a `_comment` key, which fails the
+> build with *"should NOT have additional property"*. Explanations for what is
+> in that file belong here.
 
 Account management, all `POST /api/admin/volunteers`:
 
