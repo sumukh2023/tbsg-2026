@@ -101,6 +101,13 @@ from public.volunteer_login_attempts order by created_at desc limit 15;
 `reason` is the answer: `bad_password`, `unknown_email`, `locked`, `disabled`,
 `rate_limited` or `malformed`.
 
+**If `successful` is TRUE and you still cannot get in, the password is not the
+problem** — authentication passed and the session did not survive. The login
+page now says exactly that instead of blaming the password. It means the
+browser did not store or return the cookie: cookies blocked for the site,
+Private Browsing, or an extension. `npm run e2e:auth` reproduces both the
+working path and this one against the real handlers in a real browser.
+
 **`locked` is the one that catches people out.** Five failed attempts locks the
 account for fifteen minutes, and from then on the CORRECT password is refused
 with the same sentence — so it reads exactly like still getting the password
@@ -156,8 +163,11 @@ admin API directly gets a 403.
 2. The server mints a 32-byte random token, stores **only its SHA-256 hash**
    in `volunteer_sessions`, and returns the token in a cookie — never in the
    response body.
-3. The cookie is `__Host-fb_volunteer`: `HttpOnly`, `Secure`, `SameSite=Strict`,
-   `Path=/`, 12-hour expiry.
+3. The cookie is `fb_volunteer`: `HttpOnly`, `Secure`, `SameSite=Lax`,
+   `Path=/`, 12-hour expiry. **Not `__Host-` prefixed** — a prefixed cookie
+   that fails any of the prefix's conditions is rejected SILENTLY, which
+   presents as "my correct password was refused", and `vercel.app` is on the
+   Public Suffix List so the protection it bought was already redundant.
 4. Every protected request re-reads the row and re-checks expiry, revocation
    and whether the account is still active.
 

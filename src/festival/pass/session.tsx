@@ -22,13 +22,14 @@ export function VolunteerSessionProvider({ children }: { children: ReactNode }) 
       const data = (await response.json().catch(() => null)) as {
         volunteer?: Volunteer | null;
       } | null;
+      const volunteer = data?.volunteer ?? null;
       setState(
-        data?.volunteer
-          ? { phase: 'signed-in', volunteer: data.volunteer }
-          : { phase: 'anonymous' }
+        volunteer ? { phase: 'signed-in', volunteer } : { phase: 'anonymous' }
       );
+      return volunteer;
     } catch {
       setState({ phase: 'offline' });
+      return null;
     }
   }, []);
 

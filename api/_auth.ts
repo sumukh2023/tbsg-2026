@@ -34,8 +34,19 @@ export type Volunteer = {
   must_change_password: boolean;
 };
 
-/** Cookie name. `__Host-` pins it to this exact origin, path `/`, secure. */
-export const SESSION_COOKIE = '__Host-fb_volunteer';
+/**
+ * Cookie name. Deliberately NOT `__Host-` prefixed any more.
+ *
+ * `__Host-` is stricter — the browser refuses to store the cookie at all
+ * unless Secure, Path=/ and no Domain all hold — and that strictness is
+ * exactly the wrong trade here: when a prefixed cookie is rejected, it is
+ * rejected SILENTLY. The response looks successful, nothing is stored, and
+ * the next request arrives anonymous, which reads to the user as "my correct
+ * password was refused". What it bought us was protection against a sibling
+ * subdomain overwriting the cookie, and `vercel.app` is on the Public Suffix
+ * List, so no sibling can set a cookie for the parent domain anyway.
+ */
+export const SESSION_COOKIE = 'fb_volunteer';
 /** Idle-free absolute lifetime. One long event day plus travel either side. */
 const SESSION_HOURS = 12;
 /** Minimum password length. Length beats composition rules; see OWASP. */
@@ -112,10 +123,14 @@ export function normaliseEmail(value: unknown): string | null {
 // ---------------------------------------------------------------------
 
 /**
- * `__Host-` requires Secure, Path=/ and no Domain, and the browser enforces
- * it — a subdomain cannot set or overwrite this cookie. SameSite=Strict
- * means it is never sent on a cross-site request at all, which is the
- * primary CSRF defence for every state-changing route below.
+ * HttpOnly so no script can read it, Secure so it never crosses plain HTTP.
+ *
+ * SameSite=Lax rather than Strict. Lax already withholds the cookie from
+ * cross-site POSTs, which is the CSRF case that matters, and every
+ * state-changing route additionally checks the Origin header. Strict also
+ * withholds it from top-level cross-site NAVIGATIONS — so a volunteer
+ * opening the portal from a link in a message would arrive looking signed
+ * out, on a shift, at a gate. That is a real cost for no real gain.
  */
 function cookie(value: string, maxAgeSeconds: number): string {
   return [
@@ -123,7 +138,7 @@ function cookie(value: string, maxAgeSeconds: number): string {
     'Path=/',
     'HttpOnly',
     'Secure',
-    'SameSite=Strict',
+    'SameSite=Lax',
     `Max-Age=${maxAgeSeconds}`,
   ].join('; ');
 }
@@ -148,8 +163,8 @@ function readCookie(req: VercelRequest, name: string): string | null {
 }
 
 /**
- * SameSite=Strict already keeps the cookie off cross-site requests, so this
- * is defence in depth rather than the only line: reject a state-changing
+ * SameSite=Lax already keeps the cookie off cross-site POSTs, so this is
+ * defence in depth rather than the only line: reject a state-changing
  * call whose Origin is not our own host. Same-origin fetches from the portal
  * always send one.
  */

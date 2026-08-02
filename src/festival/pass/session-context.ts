@@ -31,8 +31,14 @@ export type SessionState =
 
 export type SessionValue = {
   state: SessionState;
-  /** Re-ask the server. Called after login, logout and password changes. */
-  refresh: () => Promise<void>;
+  /**
+   * Re-ask the server, and RETURN what it said. The return value is what
+   * lets the login page distinguish "the password was wrong" from "the
+   * password was right and this browser did not keep the cookie" — two
+   * failures that otherwise look identical and send you hunting in the
+   * wrong place.
+   */
+  refresh: () => Promise<Volunteer | null>;
   signOut: () => Promise<void>;
 };
 

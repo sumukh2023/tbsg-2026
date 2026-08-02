@@ -268,8 +268,18 @@ looked well-evidenced, passed every gate, and still broke Safari everywhere.
   `volunteer_sessions` tables, and `/verify-pass/login`. Delete the variable from
   Vercel if it is still set — nothing reads it. See `docs/VOLUNTEER_AUTH.md`.
 - Volunteer sessions are server-side rows keyed by an `HttpOnly`, `Secure`,
-  `SameSite=Strict` `__Host-` cookie; only the SHA-256 of the token is stored.
-  Never put auth state in `localStorage`/`sessionStorage`.
+  `SameSite=Lax` cookie (`fb_volunteer`); only the SHA-256 of the token is
+  stored. Never put auth state in `localStorage`/`sessionStorage`.
+  **Do NOT re-add the `__Host-` prefix**: a prefixed cookie failing any of its
+  conditions is rejected silently, and the symptom is "correct password
+  refused" — hours were lost to that. `SameSite=Lax`, not Strict: Strict also
+  withholds the cookie from top-level cross-site navigations, so opening the
+  portal from a shared link reads as signed out.
+- **`npm run e2e:auth` is the test that matters here.** It runs the REAL
+  handlers behind a PostgREST stub, serves the REAL built frontend, and drives
+  a REAL browser, so the Set-Cookie round trip is actually exercised. Every
+  earlier suite stubbed `/api/auth/*` at the network layer and therefore could
+  not see a cookie bug at all.
 - Passwords are Argon2id (`@node-rs/argon2`, 19 MiB / t=2 / p=1). Never log a
   password, a hash, a session token, or PII. Login failures always answer with
   the one sentence "Invalid email or password."

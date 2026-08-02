@@ -82,18 +82,38 @@ export default function LoginPage() {
 
     if (!response.ok) {
       setBusy(false);
-      // The server sends one sentence for every credential failure; this
-      // renders whatever it said rather than inventing a more specific one.
-      setError(data?.error ?? 'Invalid email or password.');
+      // Render what the server said. The fallback is chosen by STATUS rather
+      // than assuming a credential failure: a 500 with no JSON body used to
+      // surface as "Invalid email or password.", which sent everyone hunting
+      // for a typo in a password that was never the problem.
+      setError(
+        data?.error ??
+          (response.status === 401
+            ? 'Invalid email or password.'
+            : response.status === 429
+              ? 'Too many sign-in attempts. Wait a few minutes and try again.'
+              : `The sign-in service failed (error ${response.status}). This is not a problem with your password.`)
+      );
       // Clearing only the password keeps a long address typed on a phone.
       setPassword('');
       return;
     }
 
-    // The cookie is already set; refresh() reads the identity back from the
-    // server, and the effect above does the navigating.
-    await refresh();
+    // The password was accepted and a cookie was sent. Whether this browser
+    // KEPT it is a separate question, and the answer decides what to say.
+    const who = await refresh();
     setBusy(false);
+    if (!who) {
+      // Authenticated, but the session did not come back — the cookie was
+      // not stored or not returned. Saying "invalid password" here would be
+      // a lie, and the wrong thing to go and check.
+      setError(
+        'Your password was accepted, but this browser did not keep the session cookie. ' +
+          'Allow cookies for this site (Safari: Settings → Privacy → uncheck "Block all cookies"), ' +
+          'leave Private Browsing, then try again.'
+      );
+      setPassword('');
+    }
   };
 
   return (
