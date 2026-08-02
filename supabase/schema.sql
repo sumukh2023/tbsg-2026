@@ -38,6 +38,18 @@ create table if not exists public.registrations (
   organisation varchar(160),
   accessibility_requirements text,
   comments text,
+  -- Consent captured at booking time. The API requires acceptance, so every
+  -- row written by it arrives true and dated; the default is false so that
+  -- anything inserted by other means is not mistaken for consent.
+  terms_accepted boolean not null default false,
+  terms_accepted_at timestamptz,
+  constraint registrations_terms_dated check (
+    terms_accepted = false or terms_accepted_at is not null
+  ),
+  -- Operational mail about your own booking is part of holding a pass; the
+  -- festival newsletter is opt-in.
+  booking_email_opt_in boolean not null default true,
+  marketing_email_opt_in boolean not null default false,
   status text not null default 'received'
     check (status in ('received', 'confirmed', 'cancelled')),
   created_at timestamptz not null default now()

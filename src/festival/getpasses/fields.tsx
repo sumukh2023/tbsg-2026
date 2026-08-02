@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { ChevronDown, Minus, Plus } from 'lucide-react';
+import { Check, ChevronDown, Minus, Plus } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
 /**
@@ -278,6 +278,75 @@ export function PassCountInput({
         </label>
       </div>
     </FieldShell>
+  );
+}
+
+/**
+ * Consent checkbox in the form's own register: the native input stays as the
+ * `peer` for keyboard and screen-reader behaviour, and the box beside it is
+ * drawn to match the pills and fields rather than left to the platform.
+ */
+export function Consent({
+  id,
+  checked,
+  onChange,
+  error,
+  children,
+}: {
+  id: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  error?: string;
+  children: ReactNode;
+}) {
+  const errorId = `${id}-error`;
+  return (
+    <div>
+      <label htmlFor={id} className="flex cursor-pointer items-start gap-3">
+        <input
+          id={id}
+          type="checkbox"
+          checked={checked}
+          onChange={(event) => onChange(event.target.checked)}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? errorId : undefined}
+          className="peer sr-only"
+        />
+        <span
+          aria-hidden="true"
+          className={cn(
+            'mt-0.5 grid h-5 w-5 flex-none place-items-center rounded border transition-all duration-300',
+            'peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background',
+            checked
+              ? 'border-primary bg-primary text-primary-foreground'
+              : error
+                ? 'border-destructive/70'
+                : 'border-border'
+          )}
+        >
+          <Check
+            className={cn(
+              'h-3.5 w-3.5 transition-opacity duration-200',
+              checked ? 'opacity-100' : 'opacity-0'
+            )}
+          />
+        </span>
+        <span className="font-body text-sm leading-relaxed text-foreground">
+          {children}
+        </span>
+      </label>
+      <div className="min-h-5 pl-8 pt-1">
+        {error && (
+          <p
+            id={errorId}
+            role="alert"
+            className="font-body text-xs text-destructive"
+          >
+            {error}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 

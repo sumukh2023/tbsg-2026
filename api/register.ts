@@ -37,6 +37,10 @@ type Payload = {
   section: string | null;
   visitor_detail: string | null;
   organisation: string | null;
+  terms_accepted: true;
+  terms_accepted_at: string;
+  booking_email_opt_in: boolean;
+  marketing_email_opt_in: boolean;
   accessibility_requirements: string | null;
   comments: string | null;
 };
@@ -118,6 +122,13 @@ function validate(body: Record<string, unknown>): Payload | string {
     organisation = cleanText(body.organisation, 160);
   }
 
+  // Consent is a precondition, not a field: without it there is no booking
+  // to make. The timestamp is taken HERE, server-side, so what is stored is
+  // when the registration was accepted rather than whatever a client claimed.
+  if (body.terms_accepted !== true) {
+    return 'The Terms of Service and Privacy Policy must be accepted.';
+  }
+
   return {
     full_name,
     email,
@@ -130,6 +141,12 @@ function validate(body: Record<string, unknown>): Payload | string {
     section,
     visitor_detail,
     organisation,
+    terms_accepted: true,
+    terms_accepted_at: new Date().toISOString(),
+    // Absent means not asked for. Only an explicit true opts in, and only an
+    // explicit false opts out of the operational mail that defaults on.
+    booking_email_opt_in: body.booking_email_opt_in !== false,
+    marketing_email_opt_in: body.marketing_email_opt_in === true,
     accessibility_requirements: cleanText(body.accessibility_requirements, 500),
     comments: cleanText(body.comments, 500),
   };

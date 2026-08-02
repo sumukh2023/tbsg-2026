@@ -28,6 +28,8 @@ import { LiveUpdates } from './festival/live/LiveUpdates';
 const GetPassesPage = lazy(() => import('./festival/getpasses/GetPassesPage'));
 const PassPage = lazy(() => import('./festival/pass/PassPage'));
 const VerifyPage = lazy(() => import('./festival/pass/VerifyPage'));
+const TermsPage = lazy(() => import('./festival/legal/TermsPage'));
+const PrivacyPage = lazy(() => import('./festival/legal/PrivacyPage'));
 
 /**
  * The pass experiences are evening-dark pages while the document root keeps
@@ -36,7 +38,7 @@ const VerifyPage = lazy(() => import('./festival/pass/VerifyPage'));
  * that reads as a white strip. Match the canvas to the route's chapter so
  * overscroll always reveals the page's own colour.
  */
-const DARK_ROUTES = /^\/(get-passes|pass|verify-pass)(\/|$)/;
+const DARK_ROUTES = /^\/(get-passes|pass|verify-pass|terms|privacy)(\/|$)/;
 
 function CanvasBackground() {
   const { pathname } = useLocation();
@@ -157,6 +159,24 @@ export default function App() {
               element={
                 <Suspense fallback={<PageFallback />}>
                   <VerifyPage />
+                </Suspense>
+              }
+            />
+            {/* Reachable from the footer and from the booking consent, but
+                deliberately not in the main navigation. */}
+            <Route
+              path="/terms"
+              element={
+                <Suspense fallback={<PageFallback />}>
+                  <TermsPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/privacy"
+              element={
+                <Suspense fallback={<PageFallback />}>
+                  <PrivacyPage />
                 </Suspense>
               }
             />

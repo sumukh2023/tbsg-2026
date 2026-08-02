@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { Facebook, Instagram, Linkedin, Youtube } from 'lucide-react';
 import { CarnivalMark } from './CarnivalMark';
 
@@ -31,7 +32,7 @@ export function SiteFooter() {
         id="contact"
         className="mx-auto grid max-w-6xl scroll-mt-20 gap-12 px-6 py-16 md:grid-cols-12 md:px-10"
       >
-        <div className="md:col-span-5">
+        <div className="md:col-span-4">
           <CarnivalMark className="h-9 w-auto text-foreground" />
           <p className="mt-4 font-body text-xs font-semibold uppercase tracking-[0.22em]">
             Flash <span className="text-primary">@</span> Brigade
@@ -54,7 +55,7 @@ export function SiteFooter() {
             Bangalore - 560055
           </address>
         </div>
-        <div className="md:col-span-4">
+        <div className="md:col-span-3">
           <h3 className="font-body text-sm font-semibold">Contact Us</h3>
           <p className="mt-3 font-body text-sm leading-relaxed text-muted-foreground">
             Landline:{' '}
@@ -83,6 +84,27 @@ export function SiteFooter() {
               </a>
             </span>
           </p>
+        </div>
+        <div className="md:col-span-2">
+          <h3 className="font-body text-sm font-semibold">Legal</h3>
+          <ul className="mt-3 space-y-2 font-body text-sm text-muted-foreground">
+            <li>
+              <Link
+                to="/terms"
+                className="underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Terms of Service
+              </Link>
+            </li>
+            <li>
+              <Link
+                to="/privacy"
+                className="underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Privacy Policy
+              </Link>
+            </li>
+          </ul>
         </div>
       </div>
       <div className="border-t border-border/60">

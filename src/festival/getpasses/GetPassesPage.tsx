@@ -8,6 +8,7 @@ import { Grain } from '../materials';
 import { CarnivalMark } from '../CarnivalMark';
 import { PassCard } from './PassCard';
 import {
+  Consent,
   FloatingInput,
   FloatingTextarea,
   PassStepper,
@@ -82,6 +83,9 @@ type FormState = {
   organisation: string;
   accessibility: string;
   comments: string;
+  termsAccepted: boolean;
+  bookingEmails: boolean;
+  marketingEmails: boolean;
 };
 
 type Errors = Partial<Record<keyof FormState, string>>;
@@ -100,6 +104,11 @@ const initialForm: FormState = {
   organisation: '',
   accessibility: '',
   comments: '',
+  termsAccepted: false,
+  // Operational mail about your own booking is on by default and recommended;
+  // the festival newsletter is opt-in, off until asked for.
+  bookingEmails: true,
+  marketingEmails: false,
 };
 
 /**
@@ -180,6 +189,10 @@ function validateStep(step: number, form: FormState): Errors {
     ) {
       errors.visitorDetail = 'Choose the option that describes you best.';
     }
+  }
+  if (step === 3 && !form.termsAccepted) {
+    errors.termsAccepted =
+      'Please accept the Terms of Service and Privacy Policy to continue.';
   }
   if (step === 2) {
     if (form.accessibility.length > 500) {
@@ -487,6 +500,9 @@ export default function GetPassesPage() {
             form.visitorType === 'other'
               ? form.organisation.trim() || null
               : null,
+          terms_accepted: form.termsAccepted,
+          booking_email_opt_in: form.bookingEmails,
+          marketing_email_opt_in: form.marketingEmails,
           accessibility_requirements: form.accessibility.trim() || null,
           comments: form.comments.trim() || null,
           website: '', // honeypot, stays empty for humans
@@ -588,6 +604,12 @@ export default function GetPassesPage() {
                     submit.phase === 'idle' ||
                     submit.phase === 'error'
                   ) {
+                    // The last step validates too: consent is a precondition,
+                    // so an unticked box has to stop the booking here rather
+                    // than travel to the server only to come back a 422.
+                    const stepErrors = validateStep(3, form);
+                    setErrors(stepErrors);
+                    if (Object.values(stepErrors).some(Boolean)) return;
                     void submitRegistration();
                   }
                 }}
@@ -854,6 +876,57 @@ export default function GetPassesPage() {
                             />
                           )}
                         </dl>
+
+                        {/* Consent sits immediately above Confirm booking, so
+                            it is the last thing read before the commitment. */}
+                        <fieldset className="mt-8 space-y-3">
+                          <legend className="sr-only">
+                            Consent and email preferences
+                          </legend>
+                          <Consent
+                            id="terms"
+                            checked={form.termsAccepted}
+                            onChange={(v) => set('termsAccepted', v)}
+                            error={errors.termsAccepted}
+                          >
+                            I have read and agree to the{' '}
+                            <Link
+                              to="/terms"
+                              target="_blank"
+                              className="text-foreground underline decoration-accent/60 underline-offset-4 transition-colors hover:text-primary"
+                            >
+                              Terms of Service
+                            </Link>{' '}
+                            and{' '}
+                            <Link
+                              to="/privacy"
+                              target="_blank"
+                              className="text-foreground underline decoration-accent/60 underline-offset-4 transition-colors hover:text-primary"
+                            >
+                              Privacy Policy
+                            </Link>
+                            .
+                          </Consent>
+                          <Consent
+                            id="booking-emails"
+                            checked={form.bookingEmails}
+                            onChange={(v) => set('bookingEmails', v)}
+                          >
+                            Send me important updates regarding my booking and
+                            Flash @ Brigade 2026.{' '}
+                            <span className="text-muted-foreground/70">
+                              (Recommended)
+                            </span>
+                          </Consent>
+                          <Consent
+                            id="marketing-emails"
+                            checked={form.marketingEmails}
+                            onChange={(v) => set('marketingEmails', v)}
+                          >
+                            Keep me informed about updates related to Flash @
+                            Brigade.
+                          </Consent>
+                        </fieldset>
 
                         {(submit.phase === 'error' ||
                           submit.phase === 'duplicate') && (
