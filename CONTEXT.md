@@ -123,14 +123,12 @@ separate CTA, the seagull is a `<Link to="/">`.
   per district in `globals.css`. Same footer, same layout, same links, same
   type; only the tokens differ, so Mission ends in warm brown, Stalls in deep
   emerald, Partners in navy, Gallery in sea blue, Enquiry in charcoal. Those
-  blocks DO set `--foreground` (the page blocks never do) and they also carry
-  `--dusk-from` (the page's own ground) and `--dusk-mid`, which the 96px
-  gradient strip above the footer uses so the page falls into its footer
-  instead of meeting it at a hard edge. The `dark` class stays on the wrapper
-  so any `dark:` utility still behaves; a two-attribute selector outranks it.
-  `--dusk-mid` exists because sRGB interpolation from a light ground to a
-  dark one passes through muddy grey; the explicit warm/green/navy midpoint
-  is what makes the strip read as a sunset.
+  blocks DO set `--foreground`, which the page blocks never do. The `dark`
+  class stays on the wrapper so any `dark:` utility still behaves; a
+  two-attribute selector outranks it. There is deliberately NO gradient
+  transition into the footer: one was tried on 2 Aug 2026 and removed the same
+  day, because a band of interpolated colour above a footer reads as a defect
+  rather than as dusk. The page meets its footer at a clean edge.
 - **Only Our Mission has full content.** The other four render
   `ComingSoonPage`; replace them one at a time.
 - `/donate` is where every "Support Us" button leads (`SUPPORT_PATH` in

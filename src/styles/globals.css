@@ -209,8 +209,6 @@
 
   /* Mission — warm brown dusk under DMC 743. */
   [data-chapter='mission'][data-surface='footer'] {
-    --dusk-mid: 30 44% 34%;
-    --dusk-from: 34 44% 95%;
     --background: 34 30% 9%;
     --foreground: 40 36% 93%;
     --card: 34 24% 12%;
@@ -232,8 +230,6 @@
 
   /* Stalls — the mercato after closing: deep emerald, olive lamplight. */
   [data-chapter='stalls'][data-surface='footer'] {
-    --dusk-mid: 112 28% 28%;
-    --dusk-from: 68 26% 93%;
     --background: 150 32% 8%;
     --foreground: 70 26% 92%;
     --card: 152 20% 11%;
@@ -255,8 +251,6 @@
 
   /* Partners — the palazzo at night: navy ground, burgundy and gold. */
   [data-chapter='partners'][data-surface='footer'] {
-    --dusk-mid: 245 22% 32%;
-    --dusk-from: 30 24% 94%;
     --background: 223 38% 10%;
     --foreground: 32 30% 93%;
     --card: 222 24% 12%;
@@ -278,8 +272,6 @@
 
   /* Gallery — the coast after dark: deep sea blue. */
   [data-chapter='gallery'][data-surface='footer'] {
-    --dusk-mid: 200 36% 30%;
-    --dusk-from: 34 40% 95%;
     --background: 204 44% 9%;
     --foreground: 34 30% 93%;
     --card: 204 26% 12%;
@@ -301,8 +293,6 @@
 
   /* Enquiry — the front desk after hours: charcoal and gold. */
   [data-chapter='enquiry'][data-surface='footer'] {
-    --dusk-mid: 34 18% 32%;
-    --dusk-from: 40 32% 95%;
     --background: 30 10% 9%;
     --foreground: 40 26% 93%;
     --card: 30 8% 12%;

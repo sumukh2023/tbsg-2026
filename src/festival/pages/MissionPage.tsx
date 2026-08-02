@@ -284,6 +284,15 @@ function MissionHero() {
  * The symptom was subtle enough to survive two rounds of review: the page
  * looked like it merely had too much air under each section marker. It was
  * a missing headline.
+ *
+ * The clip is `clip-path` rather than `overflow-hidden`, and the bottom inset
+ * is NEGATIVE. Cormorant's descenders and comma tails reach about 10% of the
+ * font size below the line box at every size we set, so an `overflow-hidden`
+ * box cut the tail off every `y`, `g` and comma on the page. A negative inset
+ * opens 20% of extra room below the box without changing its size, so nothing
+ * around it moves; padding plus a compensating negative margin would have had
+ * to be a fixed pixel value and would have dragged the body copy up with it.
+ * The reveal starts at 130% so it still clears the widened clip region.
  */
 function Rise({
   children,
@@ -297,9 +306,9 @@ function Rise({
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, REVEAL_VIEWPORT);
   return (
-    <div ref={ref} className={cn('overflow-hidden', className)}>
+    <div ref={ref} className={cn('[clip-path:inset(0_0_-20%_0)]', className)}>
       <motion.div
-        initial={{ y: '110%' }}
+        initial={{ y: '130%' }}
         animate={inView ? { y: '0%' } : undefined}
         transition={{ duration: 1, delay, ease: EASE.out }}
       >

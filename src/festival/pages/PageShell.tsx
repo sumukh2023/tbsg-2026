@@ -101,15 +101,6 @@ export function PageShell({
         data-surface="footer"
         className="dark bg-background text-foreground"
       >
-        {/* Dusk falling, rather than a light page meeting a dark block at a
-            hard edge. `--dusk-from` is the PAGE's own ground, carried into
-            the footer scope by the same CSS block, so this strip runs from
-            the colour immediately above it to the colour immediately below
-            without either side having to know about the other. */}
-        <div
-          aria-hidden="true"
-          className="h-24 bg-[linear-gradient(to_bottom,hsl(var(--dusk-from))_0%,hsl(var(--dusk-mid))_52%,hsl(var(--background))_100%)]"
-        />
         <SiteFooter />
       </div>
     </div>
