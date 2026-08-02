@@ -8,6 +8,6 @@
       "source": "/api/admin/:resource",
       "destination": "/api/admin?resource=:resource"
     },
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    { "source": "/((?!api/|_vercel/).*)", "destination": "/index.html" }
   ]
 }
