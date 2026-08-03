@@ -1,5 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 // Self-hosted fonts: same-origin, no render-blocking third-party request.
 import '@fontsource/cormorant-garamond/400.css';
 import '@fontsource/cormorant-garamond/500.css';
@@ -19,5 +20,6 @@ import './styles/globals.css';
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
+    <SpeedInsights />
   </StrictMode>
 );
