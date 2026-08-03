@@ -84,10 +84,16 @@ system with QR + gate verification, and realtime Live Updates.
   `?resource=`, with `vercel.json` rewriting the pretty paths onto them.
   **Vercel Hobby allows 12 serverless functions per deployment**; a file per
   action made 13 and the build failed. Count before adding a route:
-  `find api -name '*.ts' | grep -v '/_' | wc -l` (currently 10)
+  `find api -name '*.ts' | grep -v '/_' | wc -l` (currently 11 of 12)
 - `scripts/hash-password.mjs` — Argon2id hash + SQL for the FIRST admin account
+- `api/_email.ts` — the project's ONLY email integration (Resend, added
+  3 Aug 2026 for /enquiry). Underscore-prefixed so it is not a route. It owns
+  the key, the sender, the branded HTML shell and the escaping; nothing else
+  may talk to Resend. Email is BEST EFFORT everywhere: a send that fails never
+  fails the request that triggered it, and the caller reports honestly whether
+  it went. Needs `RESEND_API_KEY` + `RESEND_FROM` on a verified domain.
 - `supabase/schema.sql`, `docs/PASS_SYSTEM.md`, `docs/VOLUNTEER_AUTH.md`,
-  `docs/DONATIONS.md`
+  `docs/DONATIONS.md`, `docs/ENQUIRIES.md`
 - `.design/brief.md` — design-system record (required by the design gate)
 - `src/festival/telemetry.tsx` + `telemetry-path.ts` — Vercel Web Analytics
   and Speed Insights, mounted ONCE inside the router. **A pass token is a
@@ -147,8 +153,12 @@ separate CTA, the seagull is a `<Link to="/">`.
   transition into the footer: one was tried on 2 Aug 2026 and removed the same
   day, because a band of interpolated colour above a footer reads as a defect
   rather than as dusk. The page meets its footer at a clean edge.
-- **Only Our Mission has full content.** The other four render
-  `ComingSoonPage`; replace them one at a time.
+- **Our Mission and Enquiry have full content.** Stalls, Partners and Gallery
+  still render `ComingSoonPage`; replace them one at a time.
+- `/enquiry` carries a contact form INLINE, on the district's own daylight
+  chapter and `Band` rhythm, deliberately not the glass card the transactional
+  pages use: it is a page you are reading that ends in a way to reply, not a
+  task you arrived to perform. See `docs/ENQUIRIES.md`.
 - `/donate` is where every "Support Us" button leads (`SUPPORT_PATH` in
   `chapters.ts`). It is NOT a district: it is an evening page built on the
   Get Passes / Your Pass shell, and it is listed in `DARK_ROUTES`. Since
@@ -223,6 +233,12 @@ Traps found while building these pages, all worth remembering:
 - Carousel rotation is governed by VISIBILITY ALONE. Hover/wheel/touch holds
   look like a bug, because scrolling the page past a section fires those
   events on the track and parks it long after the reader stopped.
+- **The PostgREST stub sliced every unlimited GET to nothing.**
+  `searchParams.get('limit')` is null when absent, `Number(null)` is 0, and
+  `Number.isInteger(0)` is true, so `scripts/pgrest-stub.mjs` answered `[]` to
+  any GET without an explicit `&limit=`, however many rows matched. Fixed
+  3 Aug 2026, but it had already hidden a working rate limiter behind a failing
+  test. When a stub disagrees with the subject, suspect the stub.
 - **`whileInView` cannot observe an element that starts translated out of its
   own `overflow-hidden` parent.** Intersection observers clip against
   ancestor overflow, so a child at `y: '110%'` inside a clip box reports a

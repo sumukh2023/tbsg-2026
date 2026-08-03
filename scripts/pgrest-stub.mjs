@@ -14,6 +14,8 @@ export const db = {
   verification_events: [],
   passes: [],
   registrations: [],
+  contact_enquiries: [],
+  donations: [],
 };
 
 export const stats = { queries: [] };
@@ -108,8 +110,18 @@ export function start(port = 5599) {
               : String(a[col]).localeCompare(String(b[col]))
           );
         }
-        const limit = Number(url.searchParams.get('limit'));
-        if (Number.isInteger(limit)) found = found.slice(0, limit);
+        // `searchParams.get` returns null when the param is absent, and
+        // `Number(null)` is 0, which `Number.isInteger` happily accepts — so
+        // the previous version sliced EVERY unlimited GET down to nothing and
+        // answered `[]` however many rows matched. Any test whose subject
+        // counts rows was silently measuring that instead of its own code.
+        const rawLimit = url.searchParams.get('limit');
+        if (rawLimit !== null) {
+          const limit = Number(rawLimit);
+          if (Number.isInteger(limit) && limit >= 0) {
+            found = found.slice(0, limit);
+          }
+        }
         return send(200, found.map((r) => embed(r, table, select)));
       }
 
