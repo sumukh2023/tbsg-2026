@@ -8,12 +8,12 @@ import {
   useLocation,
 } from 'react-router-dom';
 import { MotionConfig } from 'framer-motion';
-import { Analytics } from '@vercel/analytics/react';
 import {
   RequireVolunteer,
   VolunteerSessionProvider,
 } from './festival/pass/session';
 import { chapterFor } from './festival/pages/chapters';
+import { Telemetry } from './festival/telemetry';
 import { RootLayout } from '@/layouts/RootLayout';
 import { SiteNav } from './festival/SiteNav';
 import { Hero } from './festival/Hero';
@@ -166,7 +166,7 @@ export default function App() {
   return (
     <MotionConfig reducedMotion="user">
       <BrowserRouter>
-        <Analytics />
+        <Telemetry />
         <RootLayout chrome={false}>
           <CanvasBackground />
           <ScrollToTop />

@@ -89,6 +89,16 @@ system with QR + gate verification, and realtime Live Updates.
 - `supabase/schema.sql`, `docs/PASS_SYSTEM.md`, `docs/VOLUNTEER_AUTH.md`,
   `docs/DONATIONS.md`
 - `.design/brief.md` — design-system record (required by the design gate)
+- `src/festival/telemetry.tsx` + `telemetry-path.ts` — Vercel Web Analytics
+  and Speed Insights, mounted ONCE inside the router. **A pass token is a
+  credential and it travels in the URL**, so both are given a `beforeSend`
+  that rewrites `/pass/<token>` and `/verify-pass/<token>` to `/[token]` and
+  drops query and hash; the same anonymised path is Speed Insights' `route`,
+  which is also what stops the dashboard filling with one row per token.
+  Neither product does any of this by default. Both need enabling in the
+  Vercel dashboard before `/_vercel/{insights,speed-insights}/script.js`
+  exists at all, and `vercel.json`'s SPA catch-all must keep excluding
+  `_vercel/` or the scripts are rewritten to index.html.
 
 ## Page architecture — the five districts
 
