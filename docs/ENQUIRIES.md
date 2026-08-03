@@ -56,6 +56,34 @@ that may say anything at all. None of it is public data.
 There was no email integration in this project before this page, so all of
 this is new setup.
 
+#### Before you have a domain: `onboarding@resend.dev`
+
+Resend's shared sandbox sender works with no DNS at all, and
+`RESEND_FROM="Flash @ Brigade <onboarding@resend.dev>"` is a valid value. It
+has one restriction that decides whether this is useful to you:
+
+> It can only deliver to **the email address the Resend account was
+> registered with**. Any other recipient is refused with a `403`.
+
+So on the sandbox sender:
+
+| | Result |
+| --- | --- |
+| Desk copy to `ENQUIRY_RECIPIENT` | Delivers **only if** that is the Resend account address |
+| Acknowledgement to a visitor | Refused, unless the visitor typed that same address |
+| The enquiry row | Stored either way |
+
+Which makes it fine for **proving the pipeline end to end** (set
+`ENQUIRY_RECIPIENT` to the account address, then fill the form using that same
+address and both emails arrive), and useless for real visitors. Verify a
+domain before the form is public, or every visitor gets silence.
+
+A refusal shows up in the Vercel logs as `[email] stage=send
+resend_status=403`, and a refused desk copy additionally as `[enquiry]
+stage=notify id=… reason=rejected`.
+
+#### With a domain
+
 1. Create a Resend account and **add the sending domain**. Resend will give
    you DKIM, SPF and (optionally) DMARC records to add at the DNS host for
    whichever domain the site sends as. Wait for it to verify.
