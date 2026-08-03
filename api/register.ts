@@ -95,7 +95,10 @@ function validate(body: Record<string, unknown>): Payload | string {
         return "The student's name is required.";
       }
     }
-    usn = cleanText(body.usn, 20);
+    // A-Z and 0-9 only. The form corrects as you type, but the form is not
+    // the authority: normalise here too so a crafted request cannot store a
+    // USN in a shape nothing else on the site expects to read.
+    usn = cleanText(body.usn, 20)?.toUpperCase().replace(/[^A-Z0-9]/g, '') ?? null;
     if (!usn) return 'A USN is required.';
     className = cleanText(body.class, 20);
     if (

@@ -111,6 +111,13 @@ separate CTA, the seagull is a `<Link to="/">`.
   Programma's proven loop mechanics, a deliberately different look.
 - `src/festival/FlashWordmark.tsx` — the stylised FLASH @ BRIGADE lockup,
   shared by the footer and the page heroes so the two cannot drift.
+- **Live Updates is rendered by `PageShell`**, so it is on the landing page
+  and all five districts and on NO form route (Get Passes, Retrieve, Donate,
+  the volunteer portal, the legal pages), which build their own shells. It
+  takes no props, so the two placements cannot drift: measured identical
+  geometry on `/` and `/mission` at 1280 (1102,824, 146x44) and identical
+  mobile shape at 390, where the ticker stays hidden and only the control
+  remains.
 - **Colour identity is TOKENS ONLY.** `data-chapter="mission"` on the page
   wrapper swaps `--primary`/`--accent`/`--background`/… via a block in
   `globals.css`. Components are untouched and nothing hard-codes a colour.
@@ -194,6 +201,15 @@ Traps found while building these pages, all worth remembering:
   carousel sticks — a 500px `scrollBy` netted 77px. Wrap BEFORE scrolling, as
   `reenterLoop` does in both `Programme.tsx` and `PhotoCarousel.tsx`, so the
   jump lands on a real snap point. `onScroll` may only READ.
+- **`color-scheme` decides how Windows draws a native `<select>` popup.** The
+  open list is painted by the OS, not the page, so no CSS on the element
+  reaches it; the browser picks light or dark from `color-scheme` alone. This
+  project declared it nowhere, so Chrome and Edge on Windows opened a light
+  grey list over the dark forms while macOS, whose users were mostly in dark
+  mode, looked fine and hid it. `:root` is now `light` and `.dark` is `dark`
+  (globals.css), plus explicit `select option` colours, which Windows Chrome
+  and Edge honour and macOS ignores in favour of `color-scheme`. A container
+  that paints itself dark WITHOUT the `dark` class will reintroduce this.
 - Carousel rotation is governed by VISIBILITY ALONE. Hover/wheel/touch holds
   look like a bug, because scrolling the page past a section fires those
   events on the track and parks it long after the reader stopped.

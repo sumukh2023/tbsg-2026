@@ -84,6 +84,16 @@ export default function TermsPage() {
         </p>
       </Clause>
 
+      <Clause title="Donations">
+        <Points
+          items={[
+            'Donations made through this website are voluntary and support the charitable objectives of Flash @ Brigade 2026 and The Brigade Foundation.',
+            'Donations are non-refundable except where required by applicable law or in the event of a duplicate or erroneous transaction.',
+            'Online donations are processed through authorised third-party payment providers. The organisers do not store payment card or banking information.',
+          ]}
+        />
+      </Clause>
+
       <Clause title="Contact">
         <p>For anything relating to these Terms or to your booking:</p>
         <ContactBlock />

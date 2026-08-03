@@ -5,6 +5,7 @@ import { EASE } from '@/utils/motion';
 import { SiteNav } from '../SiteNav';
 import { SiteFooter } from '../SiteFooter';
 import { Grain, MarbleVeins } from '../materials';
+import { LiveUpdates } from '../live/LiveUpdates';
 import type { Chapter } from './chapters';
 
 /**
@@ -103,6 +104,20 @@ export function PageShell({
       >
         <SiteFooter />
       </div>
+
+      {/* Live Updates belongs to every INFORMATIONAL page, so it lives here
+          rather than being repeated in five components. Deliberately NOT on
+          the form routes (Get Passes, Retrieve, Donate, the volunteer
+          portal): those are tasks, and a floating ticker over a form someone
+          is filling in is an interruption, not a service. Those pages build
+          their own shell and so never pick this up by accident.
+
+          Identical to the landing page in every respect, because it IS the
+          same component with no props: same ticker, same timing, same
+          animations, and the same mobile behaviour, including receding while
+          the footer's social row is on screen (it observes
+          `#footer-socials`, which SiteFooter renders just above). */}
+      <LiveUpdates />
     </div>
   );
 }

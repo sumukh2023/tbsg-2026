@@ -733,14 +733,26 @@ export default function GetPassesPage() {
                                   autoComplete="off"
                                 />
                               )}
+                              {/* A USN is A-Z and 0-9 and nothing else, so
+                                  the field simply cannot hold anything else:
+                                  lowercase is upper-cased as it is typed and
+                                  spaces and punctuation are dropped. Correcting
+                                  the input beats an error message for a rule
+                                  the reader cannot usefully break. */}
                               <FloatingInput
                                 id="usn"
                                 label="USN"
                                 value={form.usn}
-                                onChange={(v) => set('usn', v)}
+                                onChange={(v) =>
+                                  set(
+                                    'usn',
+                                    v.toUpperCase().replace(/[^A-Z0-9]/g, '')
+                                  )
+                                }
                                 error={errors.usn}
                                 maxLength={20}
                                 autoComplete="off"
+                                inputMode="text"
                               />
                               <div className="grid gap-2 sm:grid-cols-2">
                                 <FloatingSelect

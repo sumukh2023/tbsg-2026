@@ -44,6 +44,22 @@
     --highlight-foreground: 32 25% 12%;
 
     --radius: 0.25rem;
+
+    /* ----------------------------------------------------------------
+       The one thing that fixes native controls on Windows.
+
+       A `<select>`'s OPEN POPUP is drawn by the operating system, not by
+       the page, so no amount of CSS on the element reaches it. What the
+       browser uses to decide how to paint it is `color-scheme`, and this
+       project declared it nowhere — so Chrome and Edge on Windows drew a
+       LIGHT GREY list over our dark forms while macOS, whose users were
+       mostly in dark mode, looked fine and hid the bug.
+
+       Declaring it is the whole fix, and it is the standards-based one
+       rather than a browser hack: it also gives native scrollbars, focus
+       rings, autofill and date pickers the right theme on every platform.
+       ---------------------------------------------------------------- */
+    color-scheme: light;
   }
 
   /* Evening piazza: applied once, to the closing fundraising chapter. */
@@ -75,6 +91,11 @@
 
     --highlight: 42 52% 58%;
     --highlight-foreground: 160 25% 8%;
+
+    /* Every evening surface: Get Passes, Your Pass, the volunteer portal,
+       /donate, the legal pages and the district footers all carry `.dark`.
+       This is what makes a native select popup open dark on them. */
+    color-scheme: dark;
   }
 
   /* ---------------------------------------------------------------- */
@@ -348,6 +369,23 @@
 
   ::selection {
     @apply bg-primary/25 text-foreground;
+  }
+
+  /* The rows inside an open `<select>`.
+     Windows Chrome and Edge honour these and paint the popup with them;
+     macOS and Safari draw the list entirely natively and ignore them,
+     taking their cue from `color-scheme` instead. Between the two, the
+     list belongs to the surface it opened from on every platform.
+     Variables, not literals, so a select inherits whichever chapter it
+     happens to sit in. */
+  select option {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+
+  /* The empty first row is a placeholder, not a choice. */
+  select option[value=''] {
+    color: hsl(var(--muted-foreground));
   }
 
   /* Custom, minimal scrollbar */

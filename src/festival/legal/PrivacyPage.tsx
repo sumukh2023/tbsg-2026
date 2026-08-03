@@ -67,6 +67,17 @@ export default function PrivacyPage() {
         </p>
       </Clause>
 
+      <Clause title="Donor recognition">
+        <p>
+          If you make a donation through this website, you may choose whether
+          your name is publicly acknowledged or kept anonymous. If you select
+          Anonymous donation, your name will not be publicly associated with
+          your donation. Your information will still be retained internally for
+          administrative, accounting and legal purposes in accordance with this
+          Privacy Policy.
+        </p>
+      </Clause>
+
       <Clause title="Contact">
         <p>For any question about this policy or your information:</p>
         <ContactBlock />
