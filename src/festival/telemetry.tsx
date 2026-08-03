@@ -17,16 +17,33 @@ import { anonymisePath, scrubUrl } from './telemetry-path';
  * Module scope, so the identity is stable. Both components re-register their
  * hook whenever `beforeSend` changes, and an inline arrow would hand them a
  * new function on every render.
+ *
+ * TOTAL on purpose. Whatever this returns is what gets reported, and anything
+ * it THROWS takes the measurement with it: a hook that raises inside the
+ * vendor's send path loses that event, and a beforeSend that threw on the
+ * first vital would look exactly like an integration that was never installed.
+ * So it never assumes a shape. An event without a usable `url` is passed
+ * through untouched rather than dropped, because a slightly over-shared URL is
+ * a smaller problem than silently reporting nothing at all.
  */
-const scrubAnalyticsEvent = <T extends { url: string }>(event: T): T => ({
-  ...event,
-  url: scrubUrl(event.url),
-});
+const scrubAnalyticsEvent = <T extends { url?: unknown }>(event: T): T => {
+  try {
+    if (!event || typeof event.url !== 'string') return event;
+    return { ...event, url: scrubUrl(event.url) };
+  } catch {
+    return event;
+  }
+};
 
 export function Telemetry() {
   const { pathname } = useLocation();
   return (
     <>
+      {/* NEVER pass `route` to Analytics. Doing so flips it to
+          `disableAutoTrack`, and it then only records a pageview when BOTH
+          `route` and `path` are given — so `route` alone silently reports
+          nothing. Speed Insights has no such coupling; there `route` is
+          purely the grouping key. */}
       <Analytics beforeSend={scrubAnalyticsEvent} />
       {/* `route` is what groups the Speed Insights dashboard by page. Without
           it every pass link is its own row and the numbers mean nothing. */}
