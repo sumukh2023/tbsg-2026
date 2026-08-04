@@ -34,23 +34,18 @@ export function PageShell({
   /** Replaces the standard hero entirely. Mission uses this to go cinematic. */
   hero?: ReactNode;
   /**
-   * A full-bleed photograph behind the standard hero, in the manner of a
-   * social cover photo: edge to edge, cropped to the header's own height,
-   * under the same veil the film heroes use so the type stays readable.
-   * Enquiry uses it. Leave it out and the header keeps the marble backdrop.
+   * A full-bleed photograph behind the standard hero, in place of the marble:
+   * edge to edge, cropped to the header's own height, under the same veil the
+   * film heroes use so the type stays readable. Enquiry uses it. Leave it out
+   * and the header keeps the marble backdrop.
    */
   cover?: {
     src: string;
-    alt: string;
     /**
-     * The band's aspect ratio, as a Tailwind `aspect-*` class. Pick one CLOSE
-     * to the photograph's own: `object-cover` trims whichever dimension
-     * overflows, so a band much wider than the source loses the top and
-     * bottom of it, and a band much taller loses the left and right.
-     * Defaults to a wide 16/5 letterbox.
+     * CSS `object-position`. The header band is far wider than it is tall, so
+     * `object-cover` trims the top and bottom off a portrait-ish photograph;
+     * this says which part of it to keep.
      */
-    aspect?: string;
-    /** CSS `object-position`, for choosing what a crop keeps. */
     position?: string;
   };
   children?: ReactNode;
@@ -63,69 +58,47 @@ export function PageShell({
       <SiteNav />
 
       {hero ?? (
-      <header
-        className={
-          'relative isolate overflow-hidden ' +
-          // With a cover the band supplies the top space, so the header only
-          // needs enough room to clear the fixed navigation.
-          (cover
-            ? 'pb-20 pt-16 md:pb-28 md:pt-20'
-            : 'pb-20 pt-36 md:pb-28 md:pt-48')
-        }
-      >
-        {/* A COVER PHOTOGRAPH IS A BAND, NOT A BACKDROP.
-            It sits in the flow, below the navigation, with the words beneath
-            it — the social cover-photo arrangement. That is not a stylistic
-            preference: this picture carries content edge to edge (Kannada on
-            the left, the seagull centre, the transliteration right), so there
-            is nowhere on it to put a headline without landing on something.
-            Type over the image would have to hide part of it, and hiding part
-            of it is the one thing a cover photo must not do. */}
-        {cover && (
-          <motion.figure
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1, ease: EASE.out }}
-            className={`relative isolate w-full overflow-hidden ${cover.aspect ?? 'aspect-[16/5]'}`}
-          >
-            <img
-              src={cover.src}
-              alt={cover.alt}
-              style={{ objectPosition: cover.position ?? 'center' }}
-              className="h-full w-full object-cover"
-            />
-            {/* Far lighter than the film heroes' veil. Those need 0.7 because
-                type sits ON them; nothing sits on this, so the picture plays
-                close to full strength and the wash is only there to seat it in
-                the site's materials rather than to protect anything. */}
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0"
-            >
-              <FilmVeil opacity={0.16} />
-              <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-background" />
-              <Grain className="opacity-[0.05]" />
-            </div>
-          </motion.figure>
-        )}
-
-        {!cover && (
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 -z-10"
-          >
-            <MarbleVeins className="opacity-[0.5]" />
-            <div className="absolute inset-0 bg-[radial-gradient(80%_60%_at_50%_0%,hsl(var(--accent)/0.14),transparent_70%)]" />
-            <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-background" />
-            <Grain className="opacity-[0.035]" />
-          </div>
-        )}
-
+      <header className="relative isolate overflow-hidden pb-20 pt-36 md:pb-28 md:pt-48">
         <div
-          className={
-            'mx-auto max-w-6xl px-6 md:px-10 ' + (cover ? 'pt-14 md:pt-16' : '')
-          }
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-10"
         >
+          {/* The marble is the base layer whether or not a photograph covers
+              it, so the strip the navigation sits on is never a bare rectangle
+              of background. */}
+          <MarbleVeins className="opacity-[0.5]" />
+
+          {cover && (
+            // THE PHOTOGRAPH STARTS WHERE THE NAVIGATION ENDS (h-16 = 64px,
+            // fixed, at every width). A backdrop pinned to `inset-0` runs
+            // underneath the bar, and this photograph's subject sits in the
+            // top 6% of the frame — no `object-position` can rescue it,
+            // because the crop can only ever take MORE off the top. Insetting
+            // the picture instead of the whole backdrop keeps the full-bleed
+            // reading while guaranteeing the subject clears the menu at any
+            // viewport.
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 1, ease: EASE.out }}
+              className="absolute inset-x-0 bottom-0 top-16 overflow-hidden"
+            >
+              <img
+                src={cover.src}
+                alt=""
+                style={{ objectPosition: cover.position ?? 'center' }}
+                className="h-full w-full object-cover"
+              />
+              <FilmVeil opacity={0.72} />
+            </motion.div>
+          )}
+
+          <div className="absolute inset-0 bg-[radial-gradient(80%_60%_at_50%_0%,hsl(var(--accent)/0.14),transparent_70%)]" />
+          <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-background" />
+          <Grain className="opacity-[0.035]" />
+        </div>
+
+        <div className="mx-auto max-w-6xl px-6 md:px-10">
           {eyebrow && (
             <motion.p
               initial={{ opacity: 0, y: 10 }}
