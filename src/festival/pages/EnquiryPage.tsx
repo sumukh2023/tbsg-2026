@@ -207,12 +207,13 @@ export default function EnquiryPage() {
       lede="Whatever you need to ask about Flash @ Brigade 2026, this reaches the people running it."
       cover={{
         src: '/Enquiries.jpeg',
-        // The blue wall the seagull is mounted on ends 38% of the way down
-        // the frame; below it is the reception, which is not what this page
-        // is about. 0.47 keeps the wall and the whole bird (it spans 5.5% to
-        // 32.5%) with a little ceiling under it, and drops the rest — the
-        // crop a wide desktop happened to land on, now the crop everywhere.
-        reveal: 0.47,
+        // Sampled off the file rather than guessed: the blue wall the seagull
+        // is mounted on ends 44.4% of the way down the frame, and the bird
+        // spans 8.9% to 32.1%. Below the wall is the reception, which is not
+        // what this page is about. 0.43 stops just inside the wall's own
+        // edge, so what shows is the blue and the whole bird with room under
+        // it, and never the ceiling or anything beneath it.
+        reveal: 0.43,
       }}
     >
       {/* 01 · What this is for ------------------------------------- */}

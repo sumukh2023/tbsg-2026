@@ -59,7 +59,20 @@ export function PageShell({
       <SiteNav />
 
       {hero ?? (
-      <header className="relative isolate overflow-hidden pb-20 pt-36 md:pb-28 md:pt-48">
+      <header
+        className={
+          'relative isolate overflow-hidden pb-20 pt-36 md:pb-28 md:pt-48 ' +
+          // A cover's window is the header itself on a desktop, and the crop
+          // can only stay honest while that window is tall enough for the
+          // picture to reach across the screen at the asked-for `reveal`
+          // (window >= reveal x width / the photograph's aspect). Type alone
+          // stops supplying that somewhere past 1500px, and beyond there the
+          // crop would tighten until it started taking the subject — on a
+          // 1440p monitor, most of it. This floor keeps the shape instead of
+          // letting the viewport dictate it; below ~1500px nothing reaches it.
+          (cover ? 'min-h-[36vw]' : '')
+        }
+      >
         {/* Either a cover photograph or the marble backdrop. The photograph
             gets the SAME treatment as the film heroes: the shared `FilmVeil`
             at the strength Our Mission settled on, plus the accent wash and
@@ -92,7 +105,7 @@ export function PageShell({
                   src={cover.src}
                   alt=""
                   style={{ height: `${100 / (cover.reveal ?? 1)}%` }}
-                  className="absolute left-1/2 top-0 w-auto max-w-none -translate-x-1/2"
+                  className="absolute inset-x-0 top-0 w-full object-cover object-top"
                 />
                 {/* Only a phone needs this: there the band ends inside the
                     header, and an edge would announce it. On a desktop the
