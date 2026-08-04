@@ -157,8 +157,10 @@ function MissionHero() {
         className="pointer-events-none absolute -inset-x-0 -bottom-[16%] -top-0 -z-10"
       >
         <HeroFilm
-          src="/carnival.mp4"
-          webmSrc="/carnival.webm"
+          // public/Our Mission.mp4. The space MUST be percent-encoded: an
+          // unencoded space in a src is not a valid URL and Safari in
+          // particular will not fetch it.
+          src="/Our%20Mission.mp4"
           className="absolute inset-0"
           poster={
             // Until the film loads, and if it never does, the hero is the

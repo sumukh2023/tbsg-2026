@@ -47,12 +47,18 @@ system with QR + gate verification, and realtime Live Updates.
 ## Key files
 
 - `src/App.tsx` — routes + HomePage section order (Hero → Overture → PiazzaBento
-  → Regions → Programme → Mercato → Voci → Giorno → Domande → GroundFilm →
-  dark: Missione/Finale/Footer; LiveUpdates floats globally)
-- `src/components/ScrollHero.tsx` — the scroll-scrub video engine (see below)
-- `src/festival/Hero.tsx`, `src/festival/GroundFilm.tsx` — the two films; both
-  use the shared `FilmVeil` (in `src/festival/materials.tsx`) whose opacity is
-  a MotionValue: whitish marble veil thins as scroll progresses
+  → Regions → Programme → Mercato → Voci → Giorno → Domande →
+  dark: Missione/Finale/Footer; LiveUpdates floats globally). GroundFilm sat
+  between Domande and the dusk block until 4 Aug 2026; see the scrub note.
+- `src/festival/Hero.tsx` — the landing hero, on `HeroFilm` (autoplay + loop)
+  since the scrub was retired. `src/festival/pages/HeroFilm.tsx` is the shared
+  looping-film component; the landing page and Our Mission both use it with
+  the same `FilmVeil` at 0.7 and the same radial pool travelling with the copy.
+- **Films in `public/`**: landing `carnival.mp4`, Our Mission
+  `Our Mission.mp4` — that one has a SPACE in the name, so it is referenced as
+  `/Our%20Mission.mp4`; an unencoded space is not a valid URL and Safari will
+  not fetch it. Enquiry's header photograph is `Enquiries.jpeg`.
+- `retired/scrub/` — the retired scroll-scrub engine and its two films.
 - `src/components/motion/liquid-glass.tsx` — reusable `LiquidGlass` motion
   component (`as` div/button/aside; variants `elevated` dark capsule /
   `panel` light sheet) + `useGlassQuality()` (small screen, ≤4 cores, ≤4GB,
@@ -142,6 +148,13 @@ separate CTA, the seagull is a `<Link to="/">`.
 - `CanvasBackground` in `App.tsx` must know a route's colour BEFORE the page
   mounts — that is what stops a white flash on navigation and during
   rubber-band overscroll. Hence the canvas value living in `chapters.ts`.
+- **The Live Updates pulse is `--live-dot`, not `--primary`.** Its capsule is
+  DARK GLASS on every route, light page or dark, so a district whose primary
+  is near-black (Enquiry) would have an invisible dot. Each chapter names its
+  own: orange on the landing page, burgundy on Partners, DMC 743 on Mission,
+  green on Stalls, blue on Gallery, warm graphite on Enquiry. Measured floor
+  for legibility on that capsule is about L38%; the gold it replaced sat there.
+  A literal black dot is not possible on Enquiry without changing the capsule.
 - **Every district has its OWN dusk.** `PageShell` puts `data-chapter` plus
   `data-surface="footer"` on the footer wrapper, which selects a second block
   per district in `globals.css`. Same footer, same layout, same links, same
@@ -155,7 +168,9 @@ separate CTA, the seagull is a `<Link to="/">`.
   rather than as dusk. The page meets its footer at a clean edge.
 - **Our Mission and Enquiry have full content.** Stalls, Partners and Gallery
   still render `ComingSoonPage`; replace them one at a time.
-- `/enquiry` carries a contact form INLINE, on the district's own daylight
+- `/enquiry` has a cover photograph in its header (`PageShell`'s `cover` prop:
+  full-bleed `object-cover` under the same `FilmVeil` the film heroes use, with
+  a settable focal point). It carries a contact form INLINE, on the district's own daylight
   chapter and `Band` rhythm, deliberately not the glass card the transactional
   pages use: it is a page you are reading that ends in a way to reply, not a
   task you arrived to perform. See `docs/ENQUIRIES.md`.
@@ -322,6 +337,32 @@ setups: they govern how a seek is issued (coalescing thresholds, `fastSeek`
 on WebKit), never how the film behaves. The playhead lerp is identical on
 every engine on purpose, so Safari on a Mac feels like Chrome on a Mac.
 
+## THE SCRUB FILMS ARE RETIRED (4 Aug 2026)
+
+Both scroll-scrubbed videos are gone from the landing page:
+
+- The hero film is now `src/festival/Hero.tsx` built on `HeroFilm` — the same
+  full-bleed picture and the identical "Namma Mia Carpisa" arrival (colonnade,
+  eyebrow, both display lines, same delays), but it autoplays and loops
+  instead of seeking a playhead from scroll position.
+- **"Il campo diventa la piazza" (`GroundFilm`) was deleted outright.** It has
+  no replacement.
+
+The retired code lives in `retired/scrub/` — `ScrollHero.tsx`, `engine.ts`,
+`Hero.tsx`, `GroundFilm.tsx` — outside the build, typecheck and lint path,
+exactly like `examples/`. **Nothing in `src/` may import it.**
+
+```bash
+npm run scrub:restore          # copies all four back, prints the App.tsx edits
+npm run scrub:restore -- --force   # ...overwriting what is there now
+```
+
+The script verifies the two engine files against the device-verified blob
+hashes before copying anything, so a restore is either that exact build or a
+loud failure. `public/hero.mp4`, `hero.webm`, `hero-mobile.mp4`, `ground.mp4`,
+`ground.webm` and `ground-mobile.mp4` are all still in the repo, so a restore
+needs no asset work.
+
 ## KNOWN-GOOD SCRUB BUILD — commit `1680fd8` (call this by name)
 
 Both films — the hero and the ground film — were confirmed by the site owner
@@ -334,6 +375,8 @@ The scrub behaviour lives in exactly two files. To put them back, from
 anywhere, without disturbing any other work in the tree:
 
 ```bash
+npm run scrub:restore    # preferred: verifies the hashes, prints what is left
+# or, straight from the commit:
 git checkout 1680fd8 -- src/components/ScrollHero.tsx src/utils/engine.ts
 ```
 

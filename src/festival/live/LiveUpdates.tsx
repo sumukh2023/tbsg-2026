@@ -422,9 +422,14 @@ export function LiveUpdates() {
             aria-expanded={open}
             className="pointer-events-auto flex items-center gap-2.5 py-2.5 pl-4 pr-5 transition-transform duration-300 hover:-translate-y-0.5"
           >
+            {/* The pulse takes each page's own colour: orange on the landing
+                page, burgundy on Partners, charcoal on Enquiry, and so on.
+                `--live-dot` rather than `--primary`, because this capsule is
+                DARK GLASS on every route and several districts' primaries are
+                near-black on it. See globals.css. */}
             <span className="relative flex h-2 w-2" aria-hidden="true">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent/70" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[hsl(var(--live-dot)/0.7)]" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-[hsl(var(--live-dot))]" />
             </span>
             <span className="font-body text-sm font-medium">Live Updates</span>
             <AnimatePresence>

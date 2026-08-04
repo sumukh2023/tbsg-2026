@@ -4,7 +4,7 @@ import { TextEffect } from '@/components/motion/text-effect';
 import { EASE } from '@/utils/motion';
 import { SiteNav } from '../SiteNav';
 import { SiteFooter } from '../SiteFooter';
-import { Grain, MarbleVeins } from '../materials';
+import { FilmVeil, Grain, MarbleVeins } from '../materials';
 import { LiveUpdates } from '../live/LiveUpdates';
 import type { Chapter } from './chapters';
 
@@ -23,6 +23,7 @@ export function PageShell({
   title,
   lede,
   hero,
+  cover,
   children,
 }: {
   chapter: Chapter;
@@ -32,6 +33,22 @@ export function PageShell({
   lede?: ReactNode;
   /** Replaces the standard hero entirely. Mission uses this to go cinematic. */
   hero?: ReactNode;
+  /**
+   * A full-bleed photograph behind the standard hero, in the manner of a
+   * social cover photo: edge to edge, cropped to the header's own height,
+   * under the same veil the film heroes use so the type stays readable.
+   * Enquiry uses it. Leave it out and the header keeps the marble backdrop.
+   */
+  cover?: {
+    src: string;
+    alt: string;
+    /**
+     * CSS `object-position`. A cover band is far wider than it is tall, so
+     * `object-cover` crops the top and bottom off; this says which part to
+     * keep. Defaults to the middle.
+     */
+    position?: string;
+  };
   children?: ReactNode;
 }) {
   return (
@@ -43,13 +60,29 @@ export function PageShell({
 
       {hero ?? (
       <header className="relative isolate overflow-hidden pb-20 pt-36 md:pb-28 md:pt-48">
-        {/* The same materials as the landing page: marble, grain, and one
-            soft wash of the chapter's own accent low on the horizon. */}
+        {/* Either a cover photograph or the marble backdrop. The photograph
+            gets the SAME treatment as the film heroes: `object-cover` so it
+            fills the band left to right whatever the header's height, the
+            shared `FilmVeil` over it at the strength Our Mission settled on,
+            and the accent wash and grain on top. That is what keeps this
+            recognisably the same site rather than a stock cover image. */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 -z-10"
         >
-          <MarbleVeins className="opacity-[0.5]" />
+          {cover ? (
+            <>
+              <img
+                src={cover.src}
+                alt=""
+                style={{ objectPosition: cover.position ?? 'center' }}
+                className="h-full w-full object-cover"
+              />
+              <FilmVeil opacity={0.72} />
+            </>
+          ) : (
+            <MarbleVeins className="opacity-[0.5]" />
+          )}
           <div className="absolute inset-0 bg-[radial-gradient(80%_60%_at_50%_0%,hsl(var(--accent)/0.14),transparent_70%)]" />
           <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-background" />
           <Grain className="opacity-[0.035]" />

@@ -25,7 +25,6 @@ import { Mercato } from './festival/Mercato';
 import { Voci } from './festival/Voci';
 import { Giorno } from './festival/Giorno';
 import { Domande } from './festival/Domande';
-import { GroundFilm } from './festival/GroundFilm';
 import { Missione } from './festival/Missione';
 import { Finale } from './festival/Finale';
 import { SiteFooter } from './festival/SiteFooter';
@@ -144,8 +143,10 @@ function HomePage() {
       <Voci />
       <Giorno />
       <Domande />
-      {/* The ground itself, scrubbed by scroll: the last daylight passage. */}
-      <GroundFilm />
+      {/* "Il campo diventa la piazza" stood here: a second scroll-scrubbed
+          film. Retired 4 Aug 2026 along with the hero scrub; both are
+          preserved in retired/scrub/ and `npm run scrub:restore` puts them
+          back. This section has no replacement. */}
       {/* Dusk falls once: the page's single, deliberate theme shift. */}
       <div id="sera" className="dark bg-background text-foreground">
         <Missione />

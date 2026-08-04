@@ -202,9 +202,17 @@ export default function EnquiryPage() {
   return (
     <PageShell
       chapter={chapter}
-      eyebrow="Front desk"
+      eyebrow="Festival desk"
       title="Enquiry"
       lede="Whatever you need to ask about Flash @ Brigade 2026, this reaches the people running it."
+      cover={{
+        src: '/Enquiries.jpeg',
+        alt: 'The reception at The Brigade School @ Malleswaram',
+        // The band is far wider than the photograph's 4:3, so the crop keeps
+        // the upper third: that is where the seagull sits, and it is the one
+        // element of this picture anyone would recognise.
+        position: 'center 18%',
+      }}
     >
       {/* 01 · What this is for ------------------------------------- */}
       <Band>

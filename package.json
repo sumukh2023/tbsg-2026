@@ -17,7 +17,8 @@
     "slop:check": "npx --yes impeccable@2.3.2 detect src/",
     "design:check": "node scripts/verify-design-process.mjs",
     "e2e:auth": "npm run build && node scripts/e2e-auth.mjs",
-    "e2e:enquiry": "node scripts/e2e-enquiry.mjs"
+    "e2e:enquiry": "node scripts/e2e-enquiry.mjs",
+    "scrub:restore": "node scripts/restore-scrub.mjs"
   },
   "dependencies": {
     "@fontsource/cormorant-garamond": "^5.2.11",

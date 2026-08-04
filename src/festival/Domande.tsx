@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { FAQ } from '@/components/FAQ';
 import { EASE, REVEAL_TRANSITION, REVEAL_VIEWPORT } from '@/utils/motion';
 
@@ -55,12 +56,12 @@ export function Domande() {
             </h2>
             <p className="mt-5 max-w-xs font-body text-base leading-relaxed text-muted-foreground">
               The practical part. For anything else, contact the{' '}
-              <a
-                href="#contact"
+              <Link
+                to="/enquiry"
                 className="text-foreground underline decoration-accent/60 underline-offset-4 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                School Reception
-              </a>
+                Festival Desk
+              </Link>
               .
             </p>
           </motion.div>
