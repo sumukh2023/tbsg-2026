@@ -208,12 +208,12 @@ export default function EnquiryPage() {
       cover={{
         src: '/Enquiries.jpeg',
         // The photograph is 958x747 (1.28:1) and the header band is far wider
-        // than that, so `object-cover` trims the top and bottom. Keep the TOP:
-        // the seagull lives in the upper third of the frame and is the one
-        // thing here anyone would recognise. 4% rather than 0% because a
-        // sliver of ceiling above the blue reads better than the frame edge,
-        // and the bird still clears the navigation by a wide margin.
-        position: 'center 4%',
+        // than that, so `object-cover` trims the top and bottom off. Keep the
+        // TOP, exactly: the seagull starts 5.5% down the frame and is the one
+        // thing here anyone would recognise, so any crop off the top at all
+        // starts taking its wingtips. `top` is the only value that guarantees
+        // the whole bird survives at every viewport.
+        position: 'center top',
       }}
     >
       {/* 01 · What this is for ------------------------------------- */}

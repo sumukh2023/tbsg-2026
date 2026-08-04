@@ -34,17 +34,17 @@ export function PageShell({
   /** Replaces the standard hero entirely. Mission uses this to go cinematic. */
   hero?: ReactNode;
   /**
-   * A full-bleed photograph behind the standard hero, in place of the marble:
-   * edge to edge, cropped to the header's own height, under the same veil the
-   * film heroes use so the type stays readable. Enquiry uses it. Leave it out
-   * and the header keeps the marble backdrop.
+   * A full-bleed photograph behind the standard hero, in the manner of a
+   * social cover photo: edge to edge, cropped to the header's own height,
+   * under the same veil the film heroes use so the type stays readable.
+   * Enquiry uses it. Leave it out and the header keeps the marble backdrop.
    */
   cover?: {
     src: string;
     /**
-     * CSS `object-position`. The header band is far wider than it is tall, so
-     * `object-cover` trims the top and bottom off a portrait-ish photograph;
-     * this says which part of it to keep.
+     * CSS `object-position`. A cover band is far wider than it is tall, so
+     * `object-cover` crops the top and bottom off; this says which part to
+     * keep. Defaults to the middle.
      */
     position?: string;
   };
@@ -59,30 +59,22 @@ export function PageShell({
 
       {hero ?? (
       <header className="relative isolate overflow-hidden pb-20 pt-36 md:pb-28 md:pt-48">
+        {/* Either a cover photograph or the marble backdrop. The photograph
+            gets the SAME treatment as the film heroes: `object-cover` so it
+            fills the band left to right whatever the header's height, the
+            shared `FilmVeil` over it at the strength Our Mission settled on,
+            and the accent wash and grain on top. That is what keeps this
+            recognisably the same site rather than a stock cover image.
+
+            It runs edge to edge under the navigation, which is transparent
+            until you scroll — the picture is the top of the page, with no bar
+            of solid colour above it. */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 -z-10"
         >
-          {/* The marble is the base layer whether or not a photograph covers
-              it, so the strip the navigation sits on is never a bare rectangle
-              of background. */}
-          <MarbleVeins className="opacity-[0.5]" />
-
-          {cover && (
-            // THE PHOTOGRAPH STARTS WHERE THE NAVIGATION ENDS (h-16 = 64px,
-            // fixed, at every width). A backdrop pinned to `inset-0` runs
-            // underneath the bar, and this photograph's subject sits in the
-            // top 6% of the frame — no `object-position` can rescue it,
-            // because the crop can only ever take MORE off the top. Insetting
-            // the picture instead of the whole backdrop keeps the full-bleed
-            // reading while guaranteeing the subject clears the menu at any
-            // viewport.
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 1, ease: EASE.out }}
-              className="absolute inset-x-0 bottom-0 top-16 overflow-hidden"
-            >
+          {cover ? (
+            <>
               <img
                 src={cover.src}
                 alt=""
@@ -90,9 +82,10 @@ export function PageShell({
                 className="h-full w-full object-cover"
               />
               <FilmVeil opacity={0.72} />
-            </motion.div>
+            </>
+          ) : (
+            <MarbleVeins className="opacity-[0.5]" />
           )}
-
           <div className="absolute inset-0 bg-[radial-gradient(80%_60%_at_50%_0%,hsl(var(--accent)/0.14),transparent_70%)]" />
           <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-background" />
           <Grain className="opacity-[0.035]" />
