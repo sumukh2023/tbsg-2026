@@ -207,13 +207,12 @@ export default function EnquiryPage() {
       lede="Whatever you need to ask about Flash @ Brigade 2026, this reaches the people running it."
       cover={{
         src: '/Enquiries.jpeg',
-        // The photograph is 958x747 (1.28:1) and the header band is far wider
-        // than that, so `object-cover` trims the top and bottom off. Keep the
-        // TOP, exactly: the seagull starts 5.5% down the frame and is the one
-        // thing here anyone would recognise, so any crop off the top at all
-        // starts taking its wingtips. `top` is the only value that guarantees
-        // the whole bird survives at every viewport.
-        position: 'center top',
+        // The blue wall the seagull is mounted on ends 38% of the way down
+        // the frame; below it is the reception, which is not what this page
+        // is about. 0.47 keeps the wall and the whole bird (it spans 5.5% to
+        // 32.5%) with a little ceiling under it, and drops the rest — the
+        // crop a wide desktop happened to land on, now the crop everywhere.
+        reveal: 0.47,
       }}
     >
       {/* 01 · What this is for ------------------------------------- */}

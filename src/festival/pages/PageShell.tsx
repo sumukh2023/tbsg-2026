@@ -35,18 +35,19 @@ export function PageShell({
   hero?: ReactNode;
   /**
    * A full-bleed photograph behind the standard hero, in the manner of a
-   * social cover photo: edge to edge, cropped to the header's own height,
-   * under the same veil the film heroes use so the type stays readable.
-   * Enquiry uses it. Leave it out and the header keeps the marble backdrop.
+   * social cover photo: edge to edge, under the same veil the film heroes use
+   * so the type stays readable. Enquiry uses it. Leave it out and the header
+   * keeps the marble backdrop.
    */
   cover?: {
     src: string;
     /**
-     * CSS `object-position`. A cover band is far wider than it is tall, so
-     * `object-cover` crops the top and bottom off; this says which part to
-     * keep. Defaults to the middle.
+     * How much of the photograph's HEIGHT to show, as a fraction, measured
+     * from the top. This is the composition, and it is a fraction of the
+     * SOURCE rather than a CSS crop so that it holds at every viewport: 1
+     * shows the whole picture, 0.5 the top half. Defaults to all of it.
      */
-    position?: string;
+    reveal?: number;
   };
   children?: ReactNode;
 }) {
@@ -60,11 +61,10 @@ export function PageShell({
       {hero ?? (
       <header className="relative isolate overflow-hidden pb-20 pt-36 md:pb-28 md:pt-48">
         {/* Either a cover photograph or the marble backdrop. The photograph
-            gets the SAME treatment as the film heroes: `object-cover` so it
-            fills the band left to right whatever the header's height, the
-            shared `FilmVeil` over it at the strength Our Mission settled on,
-            and the accent wash and grain on top. That is what keeps this
-            recognisably the same site rather than a stock cover image.
+            gets the SAME treatment as the film heroes: the shared `FilmVeil`
+            at the strength Our Mission settled on, plus the accent wash and
+            grain on top. That is what keeps this recognisably the same site
+            rather than a stock cover image.
 
             It runs edge to edge under the navigation, which is transparent
             until you scroll — the picture is the top of the page, with no bar
@@ -75,12 +75,30 @@ export function PageShell({
         >
           {cover ? (
             <>
-              <img
-                src={cover.src}
-                alt=""
-                style={{ objectPosition: cover.position ?? 'center' }}
-                className="h-full w-full object-cover"
-              />
+              {/* NOT `object-cover` ON THE HEADER. `cover` crops by whatever
+                  shape the header happens to be, and the header is a 2.7:1
+                  letterbox on a desktop but nearly SQUARE on a phone — so the
+                  same photograph showed only its top band on one and the whole
+                  of itself, reception and all, on the other.
+
+                  Instead the picture is sized off its own height: `reveal` of
+                  it is what the window shows, so the identical slice appears
+                  at every viewport. The window is the full header on a desktop
+                  (where the two coincide) and a band on a phone, sized so the
+                  subject stays inside the screen once the picture is scaled up
+                  enough to crop this tightly. */}
+              <div className="absolute inset-x-0 top-0 h-[52vw] overflow-hidden md:h-full">
+                <img
+                  src={cover.src}
+                  alt=""
+                  style={{ height: `${100 / (cover.reveal ?? 1)}%` }}
+                  className="absolute left-1/2 top-0 w-auto max-w-none -translate-x-1/2"
+                />
+                {/* Only a phone needs this: there the band ends inside the
+                    header, and an edge would announce it. On a desktop the
+                    band IS the header and the header's own fade does the job. */}
+                <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-background md:hidden" />
+              </div>
               <FilmVeil opacity={0.72} />
             </>
           ) : (
