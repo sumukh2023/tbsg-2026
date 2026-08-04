@@ -43,10 +43,14 @@ export function PageShell({
     src: string;
     alt: string;
     /**
-     * CSS `object-position`. A cover band is far wider than it is tall, so
-     * `object-cover` crops the top and bottom off; this says which part to
-     * keep. Defaults to the middle.
+     * The band's aspect ratio, as a Tailwind `aspect-*` class. Pick one CLOSE
+     * to the photograph's own: `object-cover` trims whichever dimension
+     * overflows, so a band much wider than the source loses the top and
+     * bottom of it, and a band much taller loses the left and right.
+     * Defaults to a wide 16/5 letterbox.
      */
+    aspect?: string;
+    /** CSS `object-position`, for choosing what a crop keeps. */
     position?: string;
   };
   children?: ReactNode;
@@ -59,36 +63,69 @@ export function PageShell({
       <SiteNav />
 
       {hero ?? (
-      <header className="relative isolate overflow-hidden pb-20 pt-36 md:pb-28 md:pt-48">
-        {/* Either a cover photograph or the marble backdrop. The photograph
-            gets the SAME treatment as the film heroes: `object-cover` so it
-            fills the band left to right whatever the header's height, the
-            shared `FilmVeil` over it at the strength Our Mission settled on,
-            and the accent wash and grain on top. That is what keeps this
-            recognisably the same site rather than a stock cover image. */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 -z-10"
-        >
-          {cover ? (
-            <>
-              <img
-                src={cover.src}
-                alt=""
-                style={{ objectPosition: cover.position ?? 'center' }}
-                className="h-full w-full object-cover"
-              />
-              <FilmVeil opacity={0.72} />
-            </>
-          ) : (
-            <MarbleVeins className="opacity-[0.5]" />
-          )}
-          <div className="absolute inset-0 bg-[radial-gradient(80%_60%_at_50%_0%,hsl(var(--accent)/0.14),transparent_70%)]" />
-          <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-background" />
-          <Grain className="opacity-[0.035]" />
-        </div>
+      <header
+        className={
+          'relative isolate overflow-hidden ' +
+          // With a cover the band supplies the top space, so the header only
+          // needs enough room to clear the fixed navigation.
+          (cover
+            ? 'pb-20 pt-16 md:pb-28 md:pt-20'
+            : 'pb-20 pt-36 md:pb-28 md:pt-48')
+        }
+      >
+        {/* A COVER PHOTOGRAPH IS A BAND, NOT A BACKDROP.
+            It sits in the flow, below the navigation, with the words beneath
+            it — the social cover-photo arrangement. That is not a stylistic
+            preference: this picture carries content edge to edge (Kannada on
+            the left, the seagull centre, the transliteration right), so there
+            is nowhere on it to put a headline without landing on something.
+            Type over the image would have to hide part of it, and hiding part
+            of it is the one thing a cover photo must not do. */}
+        {cover && (
+          <motion.figure
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1, ease: EASE.out }}
+            className={`relative isolate w-full overflow-hidden ${cover.aspect ?? 'aspect-[16/5]'}`}
+          >
+            <img
+              src={cover.src}
+              alt={cover.alt}
+              style={{ objectPosition: cover.position ?? 'center' }}
+              className="h-full w-full object-cover"
+            />
+            {/* Far lighter than the film heroes' veil. Those need 0.7 because
+                type sits ON them; nothing sits on this, so the picture plays
+                close to full strength and the wash is only there to seat it in
+                the site's materials rather than to protect anything. */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0"
+            >
+              <FilmVeil opacity={0.16} />
+              <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-background" />
+              <Grain className="opacity-[0.05]" />
+            </div>
+          </motion.figure>
+        )}
 
-        <div className="mx-auto max-w-6xl px-6 md:px-10">
+        {!cover && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 -z-10"
+          >
+            <MarbleVeins className="opacity-[0.5]" />
+            <div className="absolute inset-0 bg-[radial-gradient(80%_60%_at_50%_0%,hsl(var(--accent)/0.14),transparent_70%)]" />
+            <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-background" />
+            <Grain className="opacity-[0.035]" />
+          </div>
+        )}
+
+        <div
+          className={
+            'mx-auto max-w-6xl px-6 md:px-10 ' + (cover ? 'pt-14 md:pt-16' : '')
+          }
+        >
           {eyebrow && (
             <motion.p
               initial={{ opacity: 0, y: 10 }}

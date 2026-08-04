@@ -207,11 +207,18 @@ export default function EnquiryPage() {
       lede="Whatever you need to ask about Flash @ Brigade 2026, this reaches the people running it."
       cover={{
         src: '/Enquiries.jpeg',
-        alt: 'The reception at The Brigade School @ Malleswaram',
-        // The band is far wider than the photograph's 4:3, so the crop keeps
-        // the upper third: that is where the seagull sits, and it is the one
-        // element of this picture anyone would recognise.
-        position: 'center 18%',
+        alt: 'The seagull at the reception of The Brigade School @ Malleswaram, beside the school motto in Kannada and in transliteration: O nanna chetana, aagu nee aniketana',
+        // The photograph is 957x415 (2.31:1). 16/5 is 3.2:1, so `object-cover`
+        // keeps the FULL WIDTH — the Kannada on the left and the
+        // transliteration on the right both survive — and trims only the grey
+        // ceiling and floor above and below the blue wall, which carry
+        // nothing. The seagull clears the crop with room on every side.
+        // Phones take a taller band. 7/3 (2.33:1) is barely wider than the
+        // photograph's own 2.31:1, so the full width still survives, and it
+        // buys back the height that a 3.2:1 letterbox loses on a 390px screen
+        // — where the seagull was legible but small. Anything TALLER than the
+        // source would start eating the Kannada off the left edge.
+        aspect: 'aspect-[7/3] sm:aspect-[16/5]',
       }}
     >
       {/* 01 · What this is for ------------------------------------- */}
