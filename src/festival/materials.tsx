@@ -6,33 +6,21 @@ import { cn } from '@/utils/cn';
  * Material layer: subtle marble veining rendered with SVG turbulence.
  * Photography CDNs are unreachable from the build environment, so surfaces
  * carry the Italian mood through material instead: marble, plaster, grain.
+ *
+ * The turbulence lives in `.marble-veins` (globals.css) as a background image
+ * rather than as a <filter> in this tree — see the note there for why. Same
+ * noise, same colour matrix, decoded once for the whole page instead of
+ * re-rasterised per surface on every hover and scroll.
  */
 export function MarbleVeins({ className }: { className?: string }) {
   return (
-    <svg
+    <div
       aria-hidden="true"
       className={cn(
-        'pointer-events-none absolute inset-0 h-full w-full',
+        'marble-veins pointer-events-none absolute inset-0',
         className
       )}
-      preserveAspectRatio="xMidYMid slice"
-    >
-      <filter id="marble-veins">
-        <feTurbulence
-          type="fractalNoise"
-          baseFrequency="0.004 0.009"
-          numOctaves="4"
-          seed="11"
-        />
-        <feColorMatrix
-          values="0 0 0 0 0.45
-                  0 0 0 0 0.41
-                  0 0 0 0 0.36
-                  0 0 0 0.6 0"
-        />
-      </filter>
-      <rect width="100%" height="100%" filter="url(#marble-veins)" />
-    </svg>
+    />
   );
 }
 

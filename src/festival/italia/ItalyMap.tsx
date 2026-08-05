@@ -1,20 +1,35 @@
 import { memo, useId } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { useReducedMotion } from 'framer-motion';
 import { ITALY_PATHS, VIEW_HEIGHT, VIEW_WIDTH } from './geometry';
 
 /**
- * The silhouette itself: one SVG, all of its material done with filters and
- * gradients rather than images, so it stays sharp at any size and costs one
- * request of nothing.
+ * The silhouette.
  *
- * THE COLOURS. Green, white and red are the flag's, and they are here as
- * literal values rather than tokens on purpose — they are the subject, not
- * the theme. They are also pulled well back: full-strength flag colours on a
- * marble page would read as a sports banner. What is left is the tricolour as
- * a wash across the country, which you notice a second after you notice the
- * shape.
+ * NO SVG FILTERS, NO CLIP PATH, NO BLEND MODE, AND NOTHING ANIMATING THE
+ * COUNTRY. That is the whole design of this file and it is a rewrite, not a
+ * tuning pass.
  *
- * Nothing here touches the global palette.
+ * The first version had an feTurbulence parchment, an emboss and a drop
+ * shadow, a clipPath of four complex paths, a `mix-blend-mode: screen`
+ * shimmer driven by SMIL, and a thirteen-second breathing transform over all
+ * of it. Chromium GPU-accelerates most of that and only stuttered; WebKit
+ * rasterises SVG filters ON THE CPU and re-runs them whenever the filtered
+ * subtree moves, which is why the same section was minor lag in Chrome and
+ * severe lag in Safari. A filter over a viewport-height SVG re-evaluated
+ * every frame is not something a low-end phone can be optimised into
+ * affording, so none of it survives.
+ *
+ * Everything that looked like a filter is now GEOMETRY, drawn from the same
+ * four paths the country is made of:
+ *
+ *   the lift      a soft radial ellipse behind the land
+ *   the emboss    the same paths again, offset up-left in a pale ink
+ *   the sheen     the same paths again, filled with a radial gradient
+ *   the grain     the same paths again, filled with a small tiled pattern
+ *
+ * Reusing the paths as their own mask is what removes the clipPath: a fill
+ * cannot escape the shape it is painted into. The cost is four extra draws
+ * of a simplified outline, once, with nothing to recompute afterwards.
  */
 
 /** Muted from the flag's own #008C45 / #F4F5F0 / #CD212A. */
@@ -29,14 +44,12 @@ export const ItalyMap = memo(function ItalyMap({
   children,
   className,
 }: {
-  /** True once the exhibit has been woken — hover, focus or a tap. */
+  /** True once the exhibit has been woken: pointer, focus or entering view. */
   awake: boolean;
   /** The marker layer, drawn in the same coordinate space. */
   children?: React.ReactNode;
   className?: string;
 }) {
-  // Filter and gradient ids must be unique per instance or a second map on
-  // the page would silently steal the first one's fills.
   const uid = useId().replace(/:/g, '');
   const id = (name: string) => `${name}-${uid}`;
   const still = useReducedMotion();
@@ -45,200 +58,109 @@ export const ItalyMap = memo(function ItalyMap({
     <svg
       /* A sliver of room on the left for the labels. Measured, not guessed:
          with every marker showing, the text spans x = -14 to 755 in a 0..847
-         box, so Turin — the westernmost city with a left-hand label — is the
-         only one that reaches past the edge, and 28 units clears it. */
+         box, so Turin is the only one that reaches past the edge. */
       viewBox={`-28 0 ${VIEW_WIDTH + 28} ${VIEW_HEIGHT}`}
       className={className}
       role="img"
       aria-label="A map of Italy. Sixteen places can be opened for more about each."
     >
       <defs>
-        {/* The land: the tricolour laid across the country rather than in
-            bands, so it reads as light on stone. */}
         <linearGradient id={id('land')} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor={TRICOLOUR.green} />
           <stop offset="46%" stopColor={TRICOLOUR.ivory} />
           <stop offset="100%" stopColor={TRICOLOUR.red} />
         </linearGradient>
 
-        {/* Renaissance parchment. Fractal noise at a low frequency is the
-            grain of laid paper; kept faint enough to be felt rather than
-            seen. */}
-        <filter id={id('parchment')} x="-10%" y="-10%" width="120%" height="120%">
-          <feTurbulence
-            type="fractalNoise"
-            baseFrequency="0.85"
-            numOctaves="2"
-            seed="7"
-            result="grain"
-          />
-          <feColorMatrix
-            in="grain"
-            type="matrix"
-            values="0 0 0 0 0.42 0 0 0 0 0.35 0 0 0 0 0.24 0 0 0 0.28 0"
-            result="tint"
-          />
-          <feComposite in="tint" in2="SourceGraphic" operator="in" result="paper" />
-          <feBlend in="SourceGraphic" in2="paper" mode="multiply" />
-        </filter>
-
-        {/* The emboss.
-            This was `feSpecularLighting` with a distant light, which looks
-            superb and is the most expensive primitive in the SVG filter set:
-            it evaluates a lighting model per pixel over the whole country,
-            and it sat inside the group that breathes. An inner highlight
-            built from an offset, blurred alpha reads the same at this size
-            for a small fraction of the work. */}
-        <filter id={id('emboss')} x="-15%" y="-15%" width="130%" height="130%">
-          <feOffset in="SourceAlpha" dx="-1.5" dy="-2" result="up" />
-          <feGaussianBlur in="up" stdDeviation="2.5" result="soft" />
-          <feComposite
-            in="soft"
-            in2="SourceAlpha"
-            operator="in"
-            result="inner"
-          />
-          <feFlood floodColor="#FFFBF2" floodOpacity="0.55" result="light" />
-          <feComposite in="light" in2="inner" operator="in" result="sheen" />
-          <feMerge>
-            <feMergeNode in="SourceGraphic" />
-            <feMergeNode in="sheen" />
-          </feMerge>
-        </filter>
-
-        {/* Sitting on the page rather than printed on it. */}
-        <filter id={id('lift')} x="-25%" y="-15%" width="150%" height="140%">
-          <feDropShadow
-            dx="0"
-            dy="14"
-            stdDeviation="16"
-            floodColor="#2a2118"
-            floodOpacity="0.22"
-          />
-        </filter>
-
-        {/* The shimmer: a narrow band of gold that crosses the country every
-            now and then. It is a gradient whose stops move, masked to the
-            land, so it costs no layout and no repaint of anything else. */}
-        <linearGradient id={id('shimmer')} x1="0" y1="0" x2="1" y2="0.35">
-          <stop offset="0%" stopColor="#C9A227" stopOpacity="0" />
-          <stop offset="45%" stopColor="#E8CE7A" stopOpacity="0.55" />
-          <stop offset="50%" stopColor="#F6E7B0" stopOpacity="0.7" />
-          <stop offset="55%" stopColor="#E8CE7A" stopOpacity="0.55" />
-          <stop offset="100%" stopColor="#C9A227" stopOpacity="0" />
-          {!still && (
-            <animateTransform
-              attributeName="gradientTransform"
-              type="translate"
-              values="-1.6 0; 1.6 0"
-              dur="7s"
-              begin="2s;shimmer.end+11s"
-              id="shimmer"
-              repeatCount="1"
-              fill="freeze"
-            />
-          )}
-        </linearGradient>
-
-        <clipPath id={id('land-clip')}>
-          {ITALY_PATHS.map((d, i) => (
-            <path key={i} d={d} />
-          ))}
-        </clipPath>
-
-        {/* The lighting pool. Its centre drifts, which is what keeps the
-            surface from looking like a flat fill. */}
-        <radialGradient id={id('sheen')} cx="0.38" cy="0.28" r="0.75">
-          <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.5" />
-          <stop offset="55%" stopColor="#FFFFFF" stopOpacity="0.08" />
-          <stop offset="100%" stopColor="#6B5B3E" stopOpacity="0.14" />
+        {/* The lighting pool, as a paint rather than as a lighting filter. */}
+        <radialGradient id={id('sheen')} cx="0.36" cy="0.24" r="0.8">
+          <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.42" />
+          <stop offset="52%" stopColor="#FFFFFF" stopOpacity="0.06" />
+          <stop offset="100%" stopColor="#6B5B3E" stopOpacity="0.16" />
         </radialGradient>
+
+        {/* The shadow the country sits in. One ellipse, no blur primitive:
+            the gradient IS the softness. */}
+        <radialGradient id={id('lift')} cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0%" stopColor="#2A2118" stopOpacity="0.3" />
+          <stop offset="60%" stopColor="#2A2118" stopOpacity="0.12" />
+          <stop offset="100%" stopColor="#2A2118" stopOpacity="0" />
+        </radialGradient>
+
+        {/* Parchment. A 6-unit tile of three specks, repeated by the renderer
+            rather than generated per pixel by feTurbulence. */}
+        <pattern
+          id={id('grain')}
+          width="7"
+          height="7"
+          patternUnits="userSpaceOnUse"
+        >
+          <circle cx="1.5" cy="2" r="0.7" fill="#6B5B3E" opacity="0.16" />
+          <circle cx="5" cy="4.5" r="0.55" fill="#8A7350" opacity="0.13" />
+          <circle cx="3" cy="6" r="0.45" fill="#4E4230" opacity="0.1" />
+        </pattern>
       </defs>
 
-      {/* THE COUNTRY.
-          The breathing is on a group rather than on the paths, so the markers
-          inside ride with it and never drift off their cities. */}
-      {/* THE BREATHING IS ON THE OUTSIDE OF THE FILTERS.
-          It used to be on the same group that carries the drop shadow, with
-          the emboss and the parchment nested inside it, so every frame of a
-          thirteen-second loop asked the engine to re-evaluate three filters
-          over the whole country. Out here it is a plain transform on an
-          already-rasterised subtree, which is the compositor's job and not
-          the CPU's. */}
-      <motion.g
-        animate={still ? undefined : { scale: [1, 1.012, 1] }}
-        transition={{ duration: 13, repeat: Infinity, ease: 'easeInOut' }}
-        style={{
-          transformOrigin: 'center',
-          transformBox: 'fill-box',
-          willChange: still ? undefined : 'transform',
-        }}
-      >
-      <g filter={`url(#${id('lift')})`}>
-        <g filter={`url(#${id('emboss')})`}>
-          {ITALY_PATHS.map((d, i) => (
-            <path key={i} d={d} fill={`url(#${id('land')})`} />
-          ))}
-        </g>
+      {/* The lift. Behind everything, and it never moves. */}
+      <ellipse
+        cx={VIEW_WIDTH / 2}
+        cy={VIEW_HEIGHT * 0.56}
+        rx={VIEW_WIDTH * 0.52}
+        ry={VIEW_HEIGHT * 0.5}
+        fill={`url(#${id('lift')})`}
+      />
 
-        {/* Everything from here is clipped to the land, so no wash, shimmer
-            or speck of dust ever appears in the sea. */}
-        <g clipPath={`url(#${id('land-clip')})`}>
-          <rect
-            width={VIEW_WIDTH}
-            height={VIEW_HEIGHT}
-            fill={`url(#${id('land')})`}
-            filter={`url(#${id('parchment')})`}
-            opacity="0.5"
-          />
-          <motion.rect
-            width={VIEW_WIDTH}
-            height={VIEW_HEIGHT}
-            fill={`url(#${id('sheen')})`}
-            animate={still ? undefined : { x: [-18, 22, -18], y: [-10, 14, -10] }}
-            transition={{ duration: 26, repeat: Infinity, ease: 'easeInOut' }}
-          />
-          <rect
-            width={VIEW_WIDTH}
-            height={VIEW_HEIGHT}
-            fill={`url(#${id('shimmer')})`}
-            style={{ mixBlendMode: 'screen' }}
-          />
-          {!still && <Dust />}
-        </g>
-
-        {/* The outline. Always faintly there so the shape has an edge;
-            gold once the exhibit is awake. */}
+      {/* The emboss: the country again, up and to the left, in pale ink.
+          What shows is the sliver that the land on top does not cover, which
+          is exactly the highlight a blind stamp leaves. */}
+      <g transform="translate(-1.6 -2.2)" opacity="0.75">
         {ITALY_PATHS.map((d, i) => (
-          <motion.path
-            key={i}
-            d={d}
-            fill="none"
-            stroke={awake ? '#C9A227' : '#8A7B5C'}
-            strokeWidth={awake ? 2.2 : 1}
-            strokeLinejoin="round"
-            animate={{ opacity: awake ? 0.95 : 0.45 }}
-            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-            style={
-              awake
-                ? { filter: 'drop-shadow(0 0 6px rgba(201,162,39,0.45))' }
-                : undefined
-            }
-          />
+          <path key={i} d={d} fill="#FFFBF2" />
         ))}
       </g>
-      </motion.g>
+
+      {/* The land. */}
+      {ITALY_PATHS.map((d, i) => (
+        <path key={i} d={d} fill={`url(#${id('land')})`} />
+      ))}
+
+      {/* Sheen and grain, painted INTO the same shape, which is why no clip
+          path is needed to keep them out of the sea. */}
+      {ITALY_PATHS.map((d, i) => (
+        <path key={`s${i}`} d={d} fill={`url(#${id('sheen')})`} />
+      ))}
+      {ITALY_PATHS.map((d, i) => (
+        <path key={`g${i}`} d={d} fill={`url(#${id('grain')})`} opacity="0.5" />
+      ))}
+
+      {/* The outline. Gold once the exhibit is awake. A CSS transition on two
+          presentation attributes, so waking costs one style recalculation
+          rather than a React pass over anything. */}
+      {ITALY_PATHS.map((d, i) => (
+        <path
+          key={`o${i}`}
+          d={d}
+          fill="none"
+          stroke={awake ? '#C9A227' : '#8A7B5C'}
+          strokeWidth={awake ? 2 : 1}
+          strokeOpacity={awake ? 0.95 : 0.45}
+          strokeLinejoin="round"
+          style={{
+            transition: still
+              ? undefined
+              : 'stroke 0.6s ease-out, stroke-width 0.6s ease-out, stroke-opacity 0.6s ease-out',
+          }}
+        />
+      ))}
+
+      {/* Dust. Six CSS keyframe animations on transform and opacity, which is
+          the only thing left on this map that moves at all. */}
+      {!still && awake && <Dust />}
 
       {children}
     </svg>
   );
 });
 
-/**
- * Floating dust. Twelve motes, each with its own drift and period, seeded
- * from the index so the pattern is stable between renders rather than
- * re-randomising on every paint.
- */
 function Dust() {
   return (
     <g aria-hidden="true">
@@ -248,11 +170,6 @@ function Dust() {
         const r = 1.6 + ((i * 7) % 5) * 0.5;
         const dur = 18 + ((i * 5) % 11);
         return (
-          /* CSS, not Framer. Twelve JS-driven infinite animations meant
-             twelve subscriptions ticking on the main thread for the life of
-             the page, updating attributes React then had to leave alone.
-             Six CSS keyframe animations on transform and opacity run on the
-             compositor and cost the main thread nothing at all. */
           <circle
             key={i}
             cx={x * VIEW_WIDTH}
@@ -262,7 +179,6 @@ function Dust() {
             opacity={0}
             style={{
               animation: `italia-dust ${dur}s ease-in-out ${(i * dur) / 6}s infinite`,
-              willChange: 'transform, opacity',
             }}
           />
         );

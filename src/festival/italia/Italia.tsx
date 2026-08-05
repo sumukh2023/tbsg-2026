@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { TextEffect } from '@/components/motion/text-effect';
 import { EASE } from '@/utils/motion';
@@ -27,6 +27,16 @@ import { PLACES } from './places';
  * whoever is holding it.
  */
 export function Italia() {
+  /**
+   * NOTHING IS RENDERED UNTIL THE SECTION IS NEARLY ON SCREEN.
+   *
+   * The map is four simplified coastlines drawn five times over plus sixteen
+   * marker groups, and a landing page that builds all of it during the first
+   * paint pays for it whether or not anyone scrolls that far. A single
+   * IntersectionObserver with a screen of margin mounts it just before it is
+   * needed and never unmounts it, so scrolling back up costs nothing.
+   */
+  const [mounted, setMounted] = useState(false);
   const [awake, setAwake] = useState(false);
   const [openSlug, setOpenSlug] = useState<string | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
@@ -49,6 +59,26 @@ export function Italia() {
     []
   );
 
+  useEffect(() => {
+    const node = mapRef.current;
+    if (!node || mounted) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      setMounted(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setMounted(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '600px 0px' }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [mounted]);
+
   const explore = useCallback(() => {
     setAwake(true);
     mapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -58,6 +88,11 @@ export function Italia() {
     <section
       id="italia"
       aria-labelledby="italia-heading"
+      /* `content-visibility` lets the engine skip layout and paint for this
+         whole section while it is off screen, which is most of the time and
+         all of the time on a phone scrolling past. `contain-intrinsic-size`
+         is what stops that turning into a scrollbar that jumps. */
+      style={{ contentVisibility: 'auto', containIntrinsicSize: '1px 1400px' }}
       className="relative overflow-hidden border-y border-border/70 bg-secondary/30 py-24 md:py-32"
     >
       <div className="mx-auto grid max-w-6xl gap-14 px-6 md:px-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)] lg:items-center lg:gap-20">
@@ -144,9 +179,13 @@ export function Italia() {
             }
             className="relative mx-auto w-full max-w-[30rem] lg:max-w-none"
           >
+            {/* The box keeps its height whether or not the map is in it, so
+                mounting cannot shift the page. */}
+            <div className="h-[52vh] w-full md:h-[60vh] lg:h-[68vh]">
+              {mounted && (
             <ItalyMap
               awake={awake}
-              className="h-[52vh] w-full touch-pan-y md:h-[60vh] lg:h-[68vh]"
+              className="h-full w-full touch-pan-y"
             >
               {/* No AnimatePresence: nothing here ever unmounts, so all it
                   was doing was wrapping sixteen children in a context that
@@ -165,8 +204,10 @@ export function Italia() {
                   />
                 ))}
             </ItalyMap>
+              )}
+            </div>
 
-            {!awake && (
+            {mounted && !awake && (
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}

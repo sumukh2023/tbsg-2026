@@ -165,6 +165,25 @@ export const PlaceMarker = memo(function PlaceMarker({
           transformBox: 'view-box',
         }}
       >
+        {/* The warm glow, PAINTED rather than filtered. It was a CSS
+            drop-shadow, and WebKit rasterises those on the CPU: sixteen of
+            them, re-run whenever the plate scales, is a hover that stutters
+            on exactly the browser this map was worst on. A soft ring behind
+            the plate reads the same and costs a fill. */}
+        {active && (
+          <rect
+            x={place.x - PLATE - 4}
+            y={place.y - PLATE - 4}
+            width={(PLATE + 4) * 2}
+            height={(PLATE + 4) * 2}
+            rx={(PLATE + 4) * 0.62}
+            fill="none"
+            stroke="#C9A227"
+            strokeWidth="3"
+            strokeOpacity="0.28"
+          />
+        )}
+
         {/* Its own shadow, deepening when live. */}
         <ellipse
           cx={place.x}
@@ -183,11 +202,6 @@ export const PlaceMarker = memo(function PlaceMarker({
           fill="#2A2622"
           stroke="#C9A227"
           strokeWidth={active ? 1.8 : 0}
-          style={
-            active
-              ? { filter: 'drop-shadow(0 0 9px rgba(201,162,39,0.55))' }
-              : undefined
-          }
         />
         <g
           transform={`translate(${place.x} ${place.y}) scale(1.05)`}
