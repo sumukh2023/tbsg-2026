@@ -853,11 +853,11 @@ export default function MissionPage() {
         </div>
       </Band>
 
-      {/* 05 · Why Italy -------------------------------------------- */}
+      {/* 05 · The theme --------------------------------------------- */}
       <Band>
         <div className="grid gap-14 md:grid-cols-12 md:gap-16">
           <div className="md:col-span-6 md:row-start-1">
-            <Marker n="05" label="Why Italy" />
+            <Marker n="05" label="The theme" />
             <Rise delay={0.1} className="mt-5">
               <h2 className="font-display text-4xl font-medium leading-[1.08] tracking-tight sm:text-5xl md:text-6xl">
                 A country that built

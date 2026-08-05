@@ -1,5 +1,6 @@
 import { Printer } from 'lucide-react';
 import { PassCard, type PassData } from './PassCard';
+import { printPass } from './printPass';
 
 /**
  * The pass, plus the button that puts it on paper.
@@ -27,14 +28,12 @@ export function PrintablePass({
 }) {
   return (
     <div className={className}>
-      <div data-print="pass">
-        <PassCard pass={pass} />
-      </div>
+      <PassCard pass={pass} />
 
       <div className="mt-5 flex justify-center print:hidden">
         <button
           type="button"
-          onClick={() => window.print()}
+          onClick={() => void printPass(pass)}
           className="inline-flex items-center gap-2 rounded-full border border-border px-6 py-2.5 font-body text-sm font-medium text-foreground transition-colors duration-300 hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Printer aria-hidden="true" className="h-4 w-4" />

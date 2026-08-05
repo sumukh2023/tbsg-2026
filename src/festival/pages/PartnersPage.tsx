@@ -33,8 +33,7 @@ import { CHAPTERS } from './chapters';
  * Built on the same shell, tokens, type and motion vocabulary as Our Mission,
  * and deliberately NOT on its compositions. Mission is a ceremonial page: a
  * centred hero pool, arched doorways, a dialog that opens over everything.
- * This is a business page and reads like one. The hero copy is centred on a
- * rule of its own rather than floating in a pool, the sponsorship
+ * This is a business page and reads like one. The sponsorship
  * categories open IN PLACE rather than over the page, and the partner wall is
  * a quiet grid. Same house, different room.
  *
@@ -53,7 +52,6 @@ const CATEGORIES = [
     summary: 'One organisation, named alongside the festival itself.',
     body: [
       'The Powered By partner is the single organisation whose name sits with Flash @ Brigade wherever the festival appears: the gate, the stage, the passes, the programme, and every announcement made on the day.',
-      'It is one name because it is meant to be one relationship. The partner is not a logo among many; they are the reason the day runs at the scale it does.',
     ],
   },
   {
@@ -63,7 +61,6 @@ const CATEGORIES = [
     summary: 'Several organisations, each carrying a part of the day.',
     body: [
       'Co-powered By is where most partnerships sit, and it is a group by design. Several organisations each take on a part of the festival: a district of the piazza, a stage, the mercato, the volunteer effort behind it.',
-      'Every Co-powered partner is named in the same weight as the others. There is no ranking inside the group, because the day does not happen without all of it.',
     ],
   },
   {
@@ -72,8 +69,7 @@ const CATEGORIES = [
     role: 'Event partner',
     summary: 'The organisation that helps put the day on its feet.',
     body: [
-      'The Event Organised By partner works on the festival rather than beside it: production, staging, sound, and the logistics of turning a school into a piazza for a day and back again by the evening.',
-      'It is the partnership with the most contact with the student committee, and the one most often taken up by an organisation that would rather give its craft than a cheque.',
+      'The Event Organised By partner works on the festival rather than beside it: production, staging, sound, and the logistics of turning a school into a memorable piazza, creating an unforgettable experience for visitors.',
     ],
   },
 ] as const;
@@ -111,7 +107,7 @@ const BENEFITS = [
   },
   {
     icon: MonitorSmartphone,
-    title: 'Digital and On-ground Exposure',
+    title: 'Digital & On-ground',
     body: 'Named on this site and across the festival\u2019s channels, as well as everywhere the day itself is signed.',
   },
 ] as const;
@@ -132,11 +128,6 @@ const RECOGNITION = [
     title: 'Stage Branding',
     body: 'The backdrop behind every performance and every announcement.',
     tone: ['hsl(var(--accent)/0.2)', 'hsl(var(--primary)/0.12)'],
-  },
-  {
-    title: 'Website Acknowledgement',
-    body: 'Named on this page, and on the festival pages a visitor actually reads.',
-    tone: ['hsl(var(--primary)/0.16)', 'hsl(var(--accent)/0.2)'],
   },
   {
     title: 'Social Media',
@@ -172,7 +163,7 @@ const quietButton =
 /* -------------------------------------------------------------------- */
 
 /**
- * Full-viewport film with the words centred on the rule they hang from.
+ * Full-viewport film with the words centred in the frame.
  *
  * The parallax is the same two-speed idea the rest of the site uses: film
  * slower than copy, and that difference IS the depth.
@@ -224,24 +215,16 @@ function PartnersHero() {
         style={{ y: copyY, opacity: copyFade }}
         className="relative z-10 mx-auto w-full max-w-3xl px-6 text-center md:px-10"
       >
-        {/* The spine, stood on its end. It runs down the page at the head of
-            every section below; here it is the vertical stroke the centred
-            column hangs from, so the page's one identifying mark survives the
-            move to the middle. */}
-        <motion.div
-          aria-hidden="true"
-          initial={{ scaleY: 0 }}
-          animate={{ scaleY: 1 }}
-          transition={{ duration: 1.1, delay: 0.3, ease: EASE.out }}
-          className="mx-auto h-16 w-px origin-top bg-gradient-to-b from-transparent via-accent/60 to-accent"
-        />
+        {/* The wordmark reads as ink, with the @ carrying the page's accent.
+            One character of colour is enough to place it, and it keeps the
+            eyebrow from competing with the title underneath. */}
         <motion.p
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.55, ease: EASE.out }}
-          className="mt-7 font-body text-xs font-semibold uppercase tracking-[0.3em] text-accent"
+          transition={{ duration: 0.8, delay: 0.4, ease: EASE.out }}
+          className="font-body text-xs font-semibold uppercase tracking-[0.3em] text-foreground"
         >
-          Flash @ Brigade
+          Flash <span className="text-accent">@</span> Brigade
         </motion.p>
         <TextEffect
           as="h1"
@@ -552,16 +535,17 @@ export default function PartnersPage() {
         <div className="mt-9 grid items-start gap-8 lg:grid-cols-12 lg:gap-12">
           {/* The picture takes the wider column, so the section is asymmetric
               rather than a two-up. */}
-          <Reveal className="lg:col-span-7">
+          <Reveal className="lg:col-span-8">
             <figure className="relative">
               <div className="overflow-hidden rounded-2xl">
                 <motion.img
-                  src="/partners-ground.jpg"
-                  alt="The Brigade School's ground seen from the air, with students on the field."
+                  // The space in the filename is percent-encoded, exactly as
+                  // "Our Mission.mp4" is: an unencoded space is not a valid
+                  // URL and Safari will not fetch it.
+                  src="/carnival%20ground.png"
+                  alt="The carnival in full swing on the school ground, seen from the air."
                   loading="lazy"
                   decoding="async"
-                  width={1810}
-                  height={814}
                   initial={{ scale: 1.08 }}
                   whileInView={{ scale: 1 }}
                   viewport={{ once: true, margin: '-10%' }}
@@ -572,7 +556,7 @@ export default function PartnersPage() {
             </figure>
           </Reveal>
 
-          <div className="lg:col-span-5">
+          <div className="lg:col-span-4">
             <AnimatedGroup preset="blur-slide" className="space-y-6">
               <p className="font-body text-lg leading-relaxed text-foreground">
                 Flash @ Brigade is a charitable carnival run by the students of
@@ -622,9 +606,9 @@ export default function PartnersPage() {
         />
         <Reveal className="mt-8">
           <p className="max-w-2xl pl-16 font-body text-base leading-relaxed text-muted-foreground md:pl-24">
-            Flash does not sell tiers. It has three kinds of partner, and they
-            differ in what the partnership involves rather than in what it
-            costs. Open one to read what it means.
+            Flash offers three partnership categories, each defined by the
+            nature of the collaboration rather than sponsorship value. Open a
+            category to learn more.
           </p>
         </Reveal>
 
@@ -645,7 +629,10 @@ export default function PartnersPage() {
           title="What a partnership carries"
         />
 
-        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {/* `auto-rows-fr` is the fix for the sixth card standing taller than
+            the rest: without it each ROW sizes to its own tallest card, so one
+            title wrapping to a second line lifted the whole bottom row. */}
+        <div className="mt-12 grid auto-rows-fr gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {BENEFITS.map((benefit, i) => (
             <Reveal key={benefit.title} delay={i * 0.07}>
               <BenefitCard benefit={benefit} />
@@ -670,7 +657,7 @@ export default function PartnersPage() {
           </p>
         </Reveal>
 
-        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-12 grid auto-rows-fr gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {RECOGNITION.map((item, i) => (
             <Reveal key={item.title} delay={i * 0.06}>
               <RecognitionCard item={item} />
@@ -684,7 +671,7 @@ export default function PartnersPage() {
         <SectionHead
           n="05"
           eyebrow="Current sponsors"
-          title="Confirmed partners for 2026"
+          title="Confirmed partners"
         />
 
         <Reveal className="mt-12">
