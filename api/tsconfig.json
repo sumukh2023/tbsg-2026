@@ -1,0 +1,49 @@
+{
+  // THE SERVERLESS FUNCTIONS' OWN COMPILER SETTINGS, and the reason this file
+  // exists at all.
+  //
+  // `@vercel/node` type-checks each function at deploy time using the nearest
+  // tsconfig.json it can find, walking UP from the entrypoint. Before this
+  // file, that walk reached the repository root — where tsconfig.json is a
+  // solution file (`"files": []` plus two references) carrying no
+  // compilerOptions whatsoever. The functions were therefore compiled at
+  // TypeScript's bare defaults, with `strict` off.
+  //
+  // That is not a cosmetic difference. With `strictNullChecks` off,
+  // TypeScript will not narrow a union by a boolean discriminant, so
+  //
+  //     if (!result.sent) console.error(result.reason)
+  //
+  // fails with TS2339 even though `MailResult` is a textbook discriminated
+  // union — which is exactly the error that broke the deploy from
+  // api/enquiry.ts, and only that error, because `noImplicitAny` was off too.
+  //
+  // The code was always right; the compiler reading it was not configured.
+  // These settings mirror tsconfig.app.json's strictness so that what the
+  // deploy checks is what the code was written against, and
+  // `npm run typecheck` runs this project too so the two can no longer
+  // disagree in the direction of a red deployment.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["node"],
+    "skipLibCheck": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+
+    // Deliberately NOT `isolatedModules`. The app project sets it because
+    // Vite transpiles file by file; @vercel/node does not, and `_auth.ts`
+    // reads `Algorithm.Argon2id` — an ambient const enum from
+    // @node-rs/argon2, which isolatedModules forbids. Turning it on here
+    // would fail a file the deploy compiles happily, which is the mistake
+    // this whole file exists to stop making in the other direction.
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["**/*.ts"]
+}

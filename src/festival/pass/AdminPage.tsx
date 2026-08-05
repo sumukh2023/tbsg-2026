@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ScanLine } from 'lucide-react';
@@ -27,7 +27,17 @@ type ActivityRow = {
   pass_reference: string | null;
   volunteer_name: string;
   volunteer_role: string;
+  attendee_name: string | null;
 };
+
+/** One screenful. The API caps at 200; this is what "Show more" adds. */
+const ACTIVITY_PAGE = 25;
+
+/**
+ * Long enough that typing a name is one request rather than nine, short
+ * enough that it still feels like the list is following you.
+ */
+const SEARCH_DEBOUNCE_MS = 350;
 
 const MIN_PASSWORD_LENGTH = 12;
 
@@ -76,17 +86,78 @@ export default function AdminPage() {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'volunteer' | 'admin'>('volunteer');
 
+  // What is in the box, and what the list on screen was actually fetched
+  // with. Keeping them apart is what lets the field stay responsive while the
+  // results lag a moment behind it.
+  const [search, setSearch] = useState('');
+  const [applied, setApplied] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [moreActivity, setMoreActivity] = useState(false);
+
+  /**
+   * Every activity request gets a number, and only the newest one is allowed
+   * to write to the screen. Debouncing makes an overlap unlikely, not
+   * impossible — pause, type again, and there are two in flight — and if the
+   * FIRST one answers last it would replace the results with the previous
+   * query's while the box shows the new one. That is the classic search bug,
+   * and a guard is the only thing that actually prevents it.
+   */
+  const requestSeq = useRef(0);
+
+  /** The log, from the top. */
+  const loadActivity = useCallback(async (query: string) => {
+    const seq = ++requestSeq.current;
+    setSearching(true);
+    try {
+      const log = await fetch(
+        `/api/admin/activity?view=timeline&limit=${ACTIVITY_PAGE}` +
+          `&q=${encodeURIComponent(query)}`,
+        { credentials: 'same-origin' }
+      );
+      if (seq !== requestSeq.current) return; // a newer search overtook this
+      if (log.ok) {
+        const data = await log.json();
+        setActivity(data.rows ?? []);
+        setMoreActivity(Boolean(data.more));
+      } else setError('Could not load activity.');
+    } catch {
+      if (seq === requestSeq.current) setError('Could not reach the portal.');
+    }
+    if (seq === requestSeq.current) setSearching(false);
+  }, []);
+
+  /** The next page, appended. Same query, offset by what is already shown. */
+  const loadMoreActivity = useCallback(async () => {
+    const have = activity?.length ?? 0;
+    const seq = ++requestSeq.current;
+    setSearching(true);
+    try {
+      const log = await fetch(
+        `/api/admin/activity?view=timeline&limit=${ACTIVITY_PAGE}` +
+          `&offset=${have}&q=${encodeURIComponent(applied)}`,
+        { credentials: 'same-origin' }
+      );
+      // Same guard, and it matters more here: appending a stale page would
+      // splice the previous search's rows onto the current list.
+      if (seq !== requestSeq.current) return;
+      if (log.ok) {
+        const data = await log.json();
+        setActivity((rows) => [...(rows ?? []), ...(data.rows ?? [])]);
+        setMoreActivity(Boolean(data.more));
+      }
+    } catch {
+      if (seq === requestSeq.current) setError('Could not reach the portal.');
+    }
+    if (seq === requestSeq.current) setSearching(false);
+  }, [activity, applied]);
+
   const load = useCallback(async () => {
     try {
-      const [list, log] = await Promise.all([
-        fetch('/api/admin/volunteers', { credentials: 'same-origin' }),
-        fetch('/api/admin/activity?view=timeline&limit=25', {
-          credentials: 'same-origin',
-        }),
-      ]);
+      const list = await fetch('/api/admin/volunteers', {
+        credentials: 'same-origin',
+      });
       if (list.ok) setAccounts((await list.json()).volunteers ?? []);
       else setError('Could not load the team.');
-      if (log.ok) setActivity((await log.json()).rows ?? []);
     } catch {
       setError('Could not reach the portal.');
     }
@@ -95,6 +166,21 @@ export default function AdminPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Typing settles, then the search runs. The button below submits the same
+  // query immediately for anyone who would rather press it than wait, and
+  // because a search control with no button is not obviously a search control.
+  useEffect(() => {
+    const timer = setTimeout(
+      () => setApplied(search.trim()),
+      SEARCH_DEBOUNCE_MS
+    );
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    void loadActivity(applied);
+  }, [applied, loadActivity]);
 
   /** Every mutation goes through here, then reloads, so the view never lies. */
   const act = async (body: Record<string, unknown>, done: string) => {
@@ -444,43 +530,121 @@ export default function AdminPage() {
           <h2 className="font-display text-2xl font-medium tracking-tight text-foreground">
             Recent gate activity
           </h2>
+
+          {/* A real form, so Enter submits and the browser offers the field's
+              history. Submitting skips the debounce rather than duplicating
+              the fetch: it just applies what is typed, now. */}
+          <form
+            role="search"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setApplied(search.trim());
+            }}
+            className="mt-4 flex flex-wrap items-center gap-2"
+          >
+            <label htmlFor="activity-search" className="sr-only">
+              Search gate activity by name, email, mobile, ticket, pass or
+              volunteer
+            </label>
+            <input
+              id="activity-search"
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Name, email, mobile, ticket, pass or volunteer"
+              autoComplete="off"
+              className="min-w-0 flex-1 rounded-lg border border-white/15 bg-white/5 px-3 py-2 font-body text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            <button
+              type="submit"
+              className="rounded-lg bg-primary px-4 py-2 font-body text-sm font-medium text-primary-foreground transition-all duration-300 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98]"
+            >
+              Search
+            </button>
+            {applied && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('');
+                  setApplied('');
+                }}
+                className="rounded-lg border border-white/15 px-3 py-2 font-body text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Clear
+              </button>
+            )}
+          </form>
+
+          {/* Announced rather than just drawn: someone searching with a screen
+              reader needs to hear that the list underneath changed. */}
+          <p aria-live="polite" className="sr-only">
+            {searching
+              ? 'Searching gate activity'
+              : applied
+                ? `${activity?.length ?? 0} results for ${applied}`
+                : ''}
+          </p>
+
           {activity === null ? (
             <p className="mt-4 font-body text-sm text-muted-foreground">
               Loading…
             </p>
           ) : activity.length === 0 ? (
             <p className="mt-4 font-body text-sm text-muted-foreground">
-              Nothing yet. Every verification, check-in and undo will appear
-              here with the name of whoever did it.
+              {applied
+                ? `Nothing matches “${applied}”. Searches look at the attendee's name, email and mobile, the ticket and pass references, and the volunteer who acted.`
+                : 'Nothing yet. Every verification, check-in and undo will appear here with the name of whoever did it.'}
             </p>
           ) : (
-            <ul className="mt-4 divide-y divide-border/60">
-              {activity.map((row) => (
-                <li
-                  key={row.id}
-                  className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-3"
+            <>
+              <ul className="mt-4 divide-y divide-border/60">
+                {activity.map((row) => (
+                  <li
+                    key={row.id}
+                    className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-3"
+                  >
+                    <span className="font-body text-sm text-foreground">
+                      {row.volunteer_name}{' '}
+                      <span className="text-muted-foreground">
+                        {row.action === 'checkin'
+                          ? 'checked in'
+                          : row.action === 'undo'
+                            ? 'undid a check-in for'
+                            : row.action === 'lookup_failed'
+                              ? 'scanned an unknown code'
+                              : 'verified'}
+                      </span>{' '}
+                      {row.pass_reference && (
+                        <span className="tracking-wide">
+                          {row.pass_reference}
+                        </span>
+                      )}
+                      {/* Only shown when it is known: a scan of an unknown
+                          code resolves to no attendee at all. */}
+                      {row.attendee_name && (
+                        <span className="text-muted-foreground">
+                          {' · '}
+                          {row.attendee_name}
+                        </span>
+                      )}
+                    </span>
+                    <span className="font-body text-xs text-muted-foreground">
+                      {when(row.created_at)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {moreActivity && (
+                <button
+                  type="button"
+                  onClick={() => void loadMoreActivity()}
+                  disabled={searching}
+                  className="mt-4 rounded-lg border border-white/15 px-4 py-2 font-body text-sm text-foreground transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
                 >
-                  <span className="font-body text-sm text-foreground">
-                    {row.volunteer_name}{' '}
-                    <span className="text-muted-foreground">
-                      {row.action === 'checkin'
-                        ? 'checked in'
-                        : row.action === 'undo'
-                          ? 'undid a check-in for'
-                          : row.action === 'lookup_failed'
-                            ? 'scanned an unknown code'
-                            : 'verified'}
-                    </span>{' '}
-                    {row.pass_reference && (
-                      <span className="tracking-wide">{row.pass_reference}</span>
-                    )}
-                  </span>
-                  <span className="font-body text-xs text-muted-foreground">
-                    {when(row.created_at)}
-                  </span>
-                </li>
-              ))}
-            </ul>
+                  {searching ? 'Loading…' : 'Show more'}
+                </button>
+              )}
+            </>
           )}
         </section>
       </motion.div>

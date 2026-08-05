@@ -8,6 +8,13 @@ import { Grain } from '../materials';
 import { CarnivalMark } from '../CarnivalMark';
 import { PassCard } from './PassCard';
 import {
+  describeLine,
+  quoteFor,
+  type Quote,
+  type VisitorType,
+} from './pricing';
+import { formatRupees } from '@/utils/money';
+import {
   Consent,
   FloatingInput,
   FloatingTextarea,
@@ -420,6 +427,55 @@ function SummaryRow({
   );
 }
 
+/**
+ * What the booking costs, itemised. One row per category actually booked,
+ * each showing the arithmetic rather than just its answer, and a grand total
+ * under a rule.
+ *
+ * Every number here comes from `quoteFor`. Nothing in this component
+ * multiplies anything, so a change to the rate card in `pricing.ts` moves the
+ * lines and the total together and cannot leave them disagreeing.
+ */
+function PriceSummary({ quote }: { quote: Quote }) {
+  if (quote.lines.length === 0) return null;
+  return (
+    <div className="mt-6 rounded-2xl border border-border/60 bg-card/60 p-5">
+      <h3 className="font-body text-xs uppercase tracking-[0.14em] text-muted-foreground">
+        Amount payable
+      </h3>
+      <dl className="mt-4 space-y-3">
+        {quote.lines.map((line) => (
+          <div
+            key={line.type}
+            className="flex items-baseline justify-between gap-4"
+          >
+            <dt className="font-body text-sm text-foreground">{line.label}</dt>
+            <dd className="font-body text-sm tabular-nums text-muted-foreground">
+              <span aria-hidden="true">{describeLine(line)}</span>
+              <span className="sr-only">
+                {line.quantity} at {formatRupees(line.unitPrice)} each, {}
+                {formatRupees(line.subtotal)}
+              </span>
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <div className="mt-4 flex items-baseline justify-between gap-4 border-t border-border/60 pt-4">
+        <span className="font-body text-sm font-medium text-foreground">
+          Grand total
+        </span>
+        <span className="font-display text-2xl font-medium tabular-nums text-foreground">
+          {formatRupees(quote.total)}
+        </span>
+      </div>
+      <p className="mt-3 font-body text-xs leading-relaxed text-muted-foreground">
+        Payable at the gate on the day. Reserving passes here does not charge
+        you anything now.
+      </p>
+    </div>
+  );
+}
+
 export default function GetPassesPage() {
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
@@ -459,6 +515,23 @@ export default function GetPassesPage() {
     if (Object.values(stepErrors).some(Boolean)) return;
     goTo(step + 1);
   };
+
+  /**
+   * Priced from the booking as it actually stands. A booking is one category
+   * today, so this is a map with one entry — but it is a MAP, so the day the
+   * form lets someone book two categories at once, the confirmation page
+   * itemises both without being touched.
+   */
+  const quote = useMemo(() => {
+    // Built into a TYPED variable rather than passed as an object literal
+    // with a computed key: a computed key widens the literal to
+    // `{ [x: string]: … }`, which slips past the parameter's type and let the
+    // form's `passes` — a STRING, because it is bound to a text input — reach
+    // a function expecting a number. It priced the booking at nothing.
+    const counts: Partial<Record<VisitorType, number>> = {};
+    counts[form.visitorType as VisitorType] = Number(form.passes);
+    return quoteFor(counts);
+  }, [form.visitorType, form.passes]);
 
   const visitorLabel = useMemo(
     () => VISITOR_TYPES.find((t) => t.value === form.visitorType)?.label ?? '',
@@ -888,6 +961,8 @@ export default function GetPassesPage() {
                             />
                           )}
                         </dl>
+
+                        <PriceSummary quote={quote} />
 
                         {/* Consent sits immediately above Confirm booking, so
                             it is the last thing read before the commitment. */}

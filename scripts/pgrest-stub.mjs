@@ -27,26 +27,90 @@ const parseValue = (raw) => {
   return decodeURIComponent(raw);
 };
 
+/** One `column.op.value` condition. Shared by plain filters and `or=(…)`. */
+function condition(row, key, raw) {
+  const [op, ...rest] = raw.split('.');
+  const value = parseValue(rest.join('.'));
+  const actual = row[key];
+  if (op === 'eq') return String(actual) === String(value);
+  if (op === 'is') {
+    return value === null
+      ? actual === null || actual === undefined
+      : actual === value;
+  }
+  if (op === 'gte') return new Date(actual) >= new Date(value);
+  if (op === 'ilike') {
+    // PostgREST spells the wildcard `*`; Postgres uses `%`. Either arrives.
+    if (actual === null || actual === undefined) return false;
+    const pattern = String(value)
+      .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+      .replace(/[*%]/g, '.*');
+    return new RegExp(`^${pattern}$`, 'i').test(String(actual));
+  }
+  throw new Error(`stub does not implement operator ${op}`);
+}
+
+/**
+ * `or=(a.ilike.*x*,b.eq.y)` — a flat OR group, which is all the API sends.
+ * Splitting on commas is safe here for the same reason the API has to strip
+ * commas out of a search term before building one: a comma IS the separator.
+ */
+function orGroup(row, raw) {
+  const inner = raw.replace(/^\(/, '').replace(/\)$/, '');
+  return inner
+    .split(',')
+    .map((c) => c.trim())
+    .filter(Boolean)
+    .some((c) => {
+      const at = c.indexOf('.');
+      return condition(row, c.slice(0, at), c.slice(at + 1));
+    });
+}
+
 function matches(row, params) {
   for (const [key, raw] of params) {
     if (['select', 'limit', 'order', 'offset'].includes(key)) continue;
-    const [op, ...rest] = raw.split('.');
-    const value = parseValue(rest.join('.'));
-    const actual = row[key];
-    if (op === 'eq') {
-      if (String(actual) !== String(value)) return false;
-    } else if (op === 'is') {
-      if (value === null ? actual !== null && actual !== undefined : actual !== value) {
-        return false;
-      }
-    } else if (op === 'gte') {
-      if (!(new Date(actual) >= new Date(value))) return false;
-    } else {
-      throw new Error(`stub does not implement operator ${op}`);
+    if (key === 'or') {
+      if (!orGroup(row, raw)) return false;
+      continue;
     }
+    if (!condition(row, key, raw)) return false;
   }
   return true;
 }
+
+/**
+ * The reporting VIEWS, resolved from the fixture tables the same way the SQL
+ * resolves them. Without this a test of the activity log would be reading an
+ * empty table called `verification_activity` and passing for the wrong
+ * reason — the joins are most of what the view is.
+ */
+const VIEWS = {
+  verification_activity() {
+    return db.verification_events.map((e) => {
+      const v = db.volunteers.find((x) => x.id === e.volunteer_id) ?? null;
+      // LEFT joins: an unknown-code scan has no pass and no registration.
+      const p = db.passes.find((x) => x.id === e.pass_id) ?? null;
+      const r = p
+        ? (db.registrations.find((x) => x.id === p.registration_id) ?? null)
+        : null;
+      return {
+        id: e.id,
+        created_at: e.created_at,
+        action: e.action,
+        result: e.result ?? null,
+        pass_reference: e.pass_reference ?? null,
+        volunteer_id: e.volunteer_id,
+        volunteer_name: v?.full_name ?? null,
+        volunteer_role: e.volunteer_role ?? null,
+        pass_id: e.pass_id ?? null,
+        attendee_name: r?.full_name ?? null,
+        attendee_email: r?.email ?? null,
+        attendee_phone: r?.phone ?? null,
+      };
+    });
+  },
+};
 
 /** Resolve `alias:table!fk(cols)` and `table(cols)` embeds against fixtures. */
 function embed(row, table, select) {
@@ -92,7 +156,7 @@ export function start(port = 5599) {
     for await (const chunk of req) body += chunk;
     const payload = body ? JSON.parse(body) : null;
 
-    const rows = db[table] ?? [];
+    const rows = VIEWS[table] ? VIEWS[table]() : (db[table] ?? []);
     const send = (status, data) => {
       res.writeHead(status, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(data));
@@ -115,6 +179,12 @@ export function start(port = 5599) {
         // the previous version sliced EVERY unlimited GET down to nothing and
         // answered `[]` however many rows matched. Any test whose subject
         // counts rows was silently measuring that instead of its own code.
+        // Offset before limit, as PostgREST applies them.
+        const rawOffset = url.searchParams.get('offset');
+        if (rawOffset !== null) {
+          const offset = Number(rawOffset);
+          if (Number.isInteger(offset) && offset > 0) found = found.slice(offset);
+        }
         const rawLimit = url.searchParams.get('limit');
         if (rawLimit !== null) {
           const limit = Number(rawLimit);

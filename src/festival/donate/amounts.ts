@@ -16,8 +16,3 @@ export const PRESETS = [500, 1000, 2500, 5000, 10000] as const;
  * button happens to say ₹500.
  */
 export const MIN_DONATION = 100;
-
-/** ₹1,00,000 rather than ₹100,000: this is an Indian site. */
-export function formatRupees(amount: number): string {
-  return `₹${amount.toLocaleString('en-IN')}`;
-}

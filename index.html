@@ -2,8 +2,22 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- ICONS. `favicon.ico` is the one that must exist as a FILE: Safari
+         asks the site root for it whatever this document declares, and a
+         missing one here does not 404 — vercel.json's SPA catch-all answers
+         with index.html at HTTP 200, and a browser handed HTML where it asked
+         for an image draws a blank white square. Everything else is a
+         preference: SVG first for the browsers that take it, a PNG behind it,
+         an opaque apple-touch-icon because iOS composites transparency on
+         black, and a monochrome mask for Safari's pinned tabs.
+         All of them are generated from the seagull in CarnivalMark.tsx by
+         `node scripts/make-favicons.mjs`. -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="mask-icon" href="/mask-icon.svg" color="#2B6686" />
+    <link rel="manifest" href="/site.webmanifest" />
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"

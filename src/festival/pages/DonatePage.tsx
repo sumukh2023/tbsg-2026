@@ -9,7 +9,8 @@ import { GoldRule, Grain } from '../materials';
 import { CarnivalMark } from '../CarnivalMark';
 import { Consent, FloatingInput, RadioPills } from '../getpasses/fields';
 import { AmountField } from '../donate/AmountField';
-import { formatRupees, MIN_DONATION } from '../donate/amounts';
+import { formatRupees } from '@/utils/money';
+import { MIN_DONATION } from '../donate/amounts';
 import {
   PAYMENTS_LIVE,
   settleDonation,

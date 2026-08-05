@@ -3,7 +3,8 @@ import { motion } from 'framer-motion';
 import { Check } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { EASE } from '@/utils/motion';
-import { formatRupees, PRESETS } from './amounts';
+import { formatRupees } from '@/utils/money';
+import { PRESETS } from './amounts';
 
 /**
  * The donation amount: five preset plates and a custom field.

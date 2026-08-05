@@ -84,6 +84,22 @@ stage=notify id=… reason=rejected`.
 
 #### With a domain
 
+The intended end state, once `flashatbrigade.com` is bought:
+
+| Address | Role | Setting |
+| --- | --- | --- |
+| `noreply@flashatbrigade.com` | The sender on both the desk copy and the visitor's acknowledgement. Nobody reads replies to it — the desk copy's `Reply-To` is the visitor, so hitting Reply writes to *them*, not here. | `RESEND_FROM` |
+| `enquiries@flashatbrigade.com` | Where the desk copy lands, i.e. the inbox the team actually works from. | `ENQUIRY_RECIPIENT` |
+
+Nothing in the code needs to change for that switch — both are environment
+variables, `ENQUIRY_RECIPIENT` already overrides the default recipient, and
+`api/_email.ts` reads the sender from the environment and nowhere else. It is
+a Vercel settings change plus a redeploy.
+
+`enquiries@` must be a real mailbox that a person opens. `noreply@` only has
+to exist well enough for the domain's DKIM/SPF to cover it; it does not need
+to receive.
+
 1. Create a Resend account and **add the sending domain**. Resend will give
    you DKIM, SPF and (optionally) DMARC records to add at the DNS host for
    whichever domain the site sends as. Wait for it to verify.

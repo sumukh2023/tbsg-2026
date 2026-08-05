@@ -73,7 +73,15 @@ system with QR + gate verification, and realtime Live Updates.
   Retry, stops tracks on close), `LoginPage.tsx`, `ProfilePage.tsx`,
   `PortalShell.tsx` (dark ground + the signed-in profile chip),
   `AdminPage.tsx` (festival desk: add/disable/unlock/reset/promote, gate
-  activity — admins land here on sign-in; volunteers land on the scanner),
+  activity — admins land here on sign-in; volunteers land on the scanner).
+  **Gate activity is SEARCHABLE server-side** over attendee name, email and
+  mobile, ticket and pass references, and volunteer name — the desk searches
+  for the guest in front of them and that check-in may be thousands of rows
+  down, so filtering a loaded page would be the wrong shape. Email and mobile
+  are searchABLE but are not returned to the browser. `20260805_activity_search.sql`
+  extends `verification_activity` with the two joins that reach the attendee
+  (LEFT, so unknown-code scans survive) and adds the trigram indexes ILIKE
+  needs. Covered by `npm run e2e:activity`.
   `session.tsx` + `session-context.ts` (provider, `RequireVolunteer` guard).
   **Scan Next Guest appears on every completed outcome
   (`state.result !== 'valid'`)**. Auth is a session cookie, never an access
@@ -111,6 +119,32 @@ system with QR + gate verification, and realtime Live Updates.
   Vercel dashboard before `/_vercel/{insights,speed-insights}/script.js`
   exists at all, and `vercel.json`'s SPA catch-all must keep excluding
   `_vercel/` or the scripts are rewritten to index.html.
+- `api/tsconfig.json` — **the serverless functions' compiler settings, and
+  they are not optional.** `@vercel/node` type-checks each function using the
+  nearest tsconfig, walking up from `api/`; without this file that walk
+  reached the root solution config, which carries NO compilerOptions, so the
+  deploy compiled the functions with `strict` off. `strictNullChecks: false`
+  will not narrow a union by a boolean discriminant, which is how correct code
+  in `api/enquiry.ts` failed a deployment with TS2339 while every local gate
+  was green. `npm run typecheck` now runs this project too.
+- `public/` favicons — `favicon.ico` (16/32/48), `favicon.svg`,
+  `favicon-96.png`, `apple-touch-icon.png`, `mask-icon.svg`, `icon-192/512`,
+  `site.webmanifest`. All generated from the seagull in `CarnivalMark.tsx` by
+  `node scripts/make-favicons.mjs` (a one-off authoring tool; Playwright is
+  the rasteriser and is deliberately not a dependency). **`favicon.ico` must
+  exist as a real file**: Safari asks for `/favicon.ico` whatever the document
+  declares, and a missing one here does not 404 — the SPA catch-all answers it
+  with index.html at HTTP 200, and a browser handed HTML in place of an image
+  draws a blank white square. That was the "white border in Safari".
+- **The films carry no audio track at all** (stripped 5 Aug 2026 with
+  `ffmpeg -map 0:v -c:v copy -an`, a lossless remux: the H.264 bitstreams are
+  byte-identical to before and `faststart` is preserved). `muted` in the
+  markup stays as well — it is what permits autoplay — but the assets
+  themselves are silent, so nothing can ever leak sound.
+- `src/festival/getpasses/pricing.ts` — the ONLY place that knows what a pass
+  costs (student ₹200, parent ₹250, other ₹250). A rate card plus a pure
+  `quoteFor`; nothing else multiplies a quantity by a price. `src/utils/money.ts`
+  holds `formatRupees`, shared with the donations flow.
 
 ## Page architecture — the five districts
 

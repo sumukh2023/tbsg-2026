@@ -12,12 +12,13 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p api/tsconfig.json",
     "prepare": "git config core.hooksPath .githooks || true",
     "slop:check": "npx --yes impeccable@2.3.2 detect src/",
     "design:check": "node scripts/verify-design-process.mjs",
     "e2e:auth": "npm run build && node scripts/e2e-auth.mjs",
     "e2e:enquiry": "node scripts/e2e-enquiry.mjs",
+    "e2e:activity": "node scripts/e2e-activity.mjs",
     "scrub:restore": "node scripts/restore-scrub.mjs"
   },
   "dependencies": {

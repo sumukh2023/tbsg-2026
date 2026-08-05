@@ -9,7 +9,8 @@
  *   GET  /api/admin/activity?view=timeline     recent actions, newest first
  *                          ?view=totals        per-volunteer counts
  *                          ?view=logins        recent sign-in attempts
- *                          &volunteer=<uuid>&limit=<1..200>
+ *                          &volunteer=<uuid>&limit=<1..200>&offset=<n>
+ *                          &q=<search>         timeline only; see SEARCH_ON
  *
  * One function serving both resources, dispatched on `?resource=` — the paths
  * above are rewritten to it in vercel.json. They were two files until the
@@ -187,12 +188,52 @@ async function manageVolunteers(
 }
 
 /**
+ * The columns the timeline search looks in. Email and mobile are searchABLE
+ * but are deliberately NOT in `TIMELINE_SELECT` below: the desk needs to find
+ * a row by typing an address it already has, which does not require the log
+ * to hand every address back to the browser. Search reads more than it
+ * returns, on purpose.
+ */
+const SEARCH_ON = [
+  'pass_reference',
+  'attendee_name',
+  'attendee_email',
+  'attendee_phone',
+  'volunteer_name',
+] as const;
+
+const TIMELINE_SELECT =
+  'select=id,created_at,action,result,pass_reference,volunteer_id,' +
+  'volunteer_name,volunteer_role,pass_id,attendee_name';
+
+/**
+ * PostgREST's filter grammar is not quoted here, so a comma, a bracket or a
+ * quote in the term would end one condition and start something else — the
+ * shape of an injection. The wildcards are ours to place, so `*` and `%` come
+ * out too, and what is left is a plain substring.
+ *
+ * Length-capped because this becomes five ILIKEs; a kilobyte of search term
+ * is not a search.
+ */
+function searchTerm(raw: string | undefined): string {
+  return (raw ?? '')
+    .replace(/[,()"'\\*%]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80);
+}
+
+/**
  * Reads the `verification_activity` and `volunteer_checkin_totals` views,
  * both of which JOIN the volunteer's name rather than storing a copy — so a
  * corrected spelling corrects the whole history at once.
  *
  * The login view reports attempts WITHOUT any IP address: it answers "is
  * someone hammering us", which is its purpose, and not "who was where".
+ *
+ * Searching and paging are done by the DATABASE, not by filtering a page of
+ * rows in the browser: the desk searches for the guest who is standing in
+ * front of them, and that guest's check-in may be four thousand rows down.
  */
 async function readActivity(
   req: VercelRequest,
@@ -206,6 +247,11 @@ async function readActivity(
   const limit = Number.isInteger(limitRaw)
     ? Math.min(200, Math.max(1, limitRaw))
     : 50;
+  const offsetRaw = Number(one(req.query.offset));
+  const offset = Number.isInteger(offsetRaw)
+    ? Math.min(10000, Math.max(0, offsetRaw))
+    : 0;
+  const query = searchTerm(one(req.query.q));
 
   let path: string;
   if (view === 'totals') {
@@ -213,13 +259,28 @@ async function readActivity(
   } else if (view === 'logins') {
     path =
       'volunteer_login_attempts?select=created_at,successful,reason,volunteer_id' +
-      `&order=created_at.desc&limit=${limit}`;
+      `&order=created_at.desc&limit=${limit}&offset=${offset}`;
   } else {
     const volunteer = one(req.query.volunteer);
     const filter = UUID.test(volunteer)
       ? `&volunteer_id=eq.${volunteer}`
       : '';
-    path = `verification_activity?select=*&order=created_at.desc&limit=${limit}${filter}`;
+
+    // A UUID is the pass ID itself. `pass_id` is a uuid column and ILIKE has
+    // no meaning on one, so it joins the OR group only when the term really
+    // is a UUID — otherwise PostgREST would reject the whole filter and the
+    // search would fail rather than simply not match.
+    let search = '';
+    if (query) {
+      const like = encodeURIComponent(`*${query}*`);
+      const conditions = SEARCH_ON.map((c) => `${c}.ilike.${like}`);
+      if (UUID.test(query)) conditions.push(`pass_id.eq.${query}`);
+      search = `&or=(${conditions.join(',')})`;
+    }
+
+    path =
+      `verification_activity?${TIMELINE_SELECT}&order=created_at.desc` +
+      `&limit=${limit}&offset=${offset}${filter}${search}`;
   }
 
   const response = await fetch(`${auth.env.url}/rest/v1/${path}`, {
@@ -229,7 +290,17 @@ async function readActivity(
     console.error(`[admin] stage=activity supabase_status=${response.status}`);
     return send(res, 503, { error: 'Could not load activity.' });
   }
-  return send(res, 200, { view, rows: await response.json() });
+  const rows = (await response.json()) as unknown[];
+  // `more` rather than a total: counting every matching row on each keystroke
+  // costs a second scan for a number the page only uses to decide whether to
+  // draw one button.
+  return send(res, 200, {
+    view,
+    rows,
+    offset,
+    query,
+    more: Array.isArray(rows) && rows.length === limit,
+  });
 }
 
 export default async function handler(
