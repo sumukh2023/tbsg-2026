@@ -21,7 +21,7 @@ import { Overture } from './festival/Overture';
 import { PiazzaBento } from './festival/PiazzaBento';
 import { Regions } from './festival/Regions';
 import { Programme } from './festival/Programme';
-import { Mercato } from './festival/Mercato';
+import { Italia } from './festival/italia/Italia';
 import { Voci } from './festival/Voci';
 import { Giorno } from './festival/Giorno';
 import { Domande } from './festival/Domande';
@@ -142,7 +142,7 @@ function HomePage() {
       <PiazzaBento />
       <Regions />
       <Programme />
-      <Mercato />
+      <Italia />
       <Voci />
       <Giorno />
       <Domande />
