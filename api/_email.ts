@@ -52,6 +52,22 @@ function mailEnv(): { key: string; from: string } | null {
   return { key, from };
 }
 
+/**
+ * WHERE THE DESK READS ITS MAIL. One value for the whole site.
+ *
+ * Every form that notifies a human — the enquiry form, the partner
+ * Expression of Interest, and whatever comes next — sends here. It is
+ * deliberately NOT a constant repeated per route: the day
+ * `enquiries@flashatbrigade.com` exists, `ENQUIRY_RECIPIENT` is set once in
+ * the Vercel project and every form follows without a code change.
+ *
+ * The literal is a fallback so the forms still reach somebody before the
+ * domain is bought, not a preference.
+ */
+export function deskInbox(): string {
+  return process.env.ENQUIRY_RECIPIENT?.trim() || 'sumukh.nayak@outlook.com';
+}
+
 /** True when email can be sent at all. Callers use this to tell the truth. */
 export function emailConfigured(): boolean {
   return Boolean(process.env.RESEND_API_KEY?.trim() && process.env.RESEND_FROM?.trim());

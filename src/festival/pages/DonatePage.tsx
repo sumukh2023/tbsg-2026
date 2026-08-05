@@ -6,7 +6,12 @@ import { TextEffect } from '@/components/motion/text-effect';
 import { cn } from '@/utils/cn';
 import { EASE } from '@/utils/motion';
 import { GoldRule, Grain } from '../materials';
-import { CarnivalMark } from '../CarnivalMark';
+import { FormChrome, FormSection } from '../forms/FormShell';
+import {
+  ghostButton,
+  primaryButton,
+  useOwnGround,
+} from '../forms/formStyles';
 import { Consent, FloatingInput, RadioPills } from '../getpasses/fields';
 import { AmountField } from '../donate/AmountField';
 import { formatRupees } from '@/utils/money';
@@ -116,66 +121,6 @@ function validate(form: Form): Errors {
 /*  Shell                                                                */
 /* -------------------------------------------------------------------- */
 
-function Chrome() {
-  return (
-    <motion.nav
-      initial={{ y: -16, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.8, delay: 0.2, ease: EASE.out }}
-      className="fixed inset-x-0 top-0 z-50 flex h-16 items-center justify-between border-b border-border/70 bg-background/80 px-6 backdrop-blur-xl md:px-10"
-      aria-label="Support"
-    >
-      <Link
-        to="/"
-        aria-label="Flash @ Brigade home"
-        className="text-foreground transition-colors duration-300 hover:text-primary"
-      >
-        <CarnivalMark className="h-7 w-auto md:h-8" />
-      </Link>
-      <Link
-        to="/"
-        className="group inline-flex items-center gap-2 font-body text-sm text-muted-foreground transition-colors duration-300 hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4 transition-transform duration-300 group-hover:-translate-x-0.5" />
-        Back to the piazza
-      </Link>
-    </motion.nav>
-  );
-}
-
-/** A titled block inside the glass panel. */
-function Section({
-  n,
-  title,
-  children,
-}: {
-  n: string;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="border-t border-border/60 pt-8 first:border-t-0 first:pt-0">
-      <div className="flex items-baseline gap-3">
-        <span
-          aria-hidden="true"
-          className="font-display text-sm tabular-nums text-primary"
-        >
-          {n}
-        </span>
-        <h2 className="font-display text-xl font-medium tracking-tight text-foreground md:text-2xl">
-          {title}
-        </h2>
-      </div>
-      <div className="mt-6">{children}</div>
-    </section>
-  );
-}
-
-const primaryButton =
-  'inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-primary px-8 py-3.5 font-body text-sm font-medium text-primary-foreground transition-all duration-300 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60';
-const ghostButton =
-  'inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-border px-8 py-3.5 font-body text-sm font-medium text-foreground transition-all duration-300 hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98]';
-
 /* -------------------------------------------------------------------- */
 
 export default function DonatePage() {
@@ -190,21 +135,7 @@ export default function DonatePage() {
     setErrors((e) => ({ ...e, [key]: undefined }));
   };
 
-  // The page paints its own dark ground while `body` stays marble. Any moment
-  // the root is shorter than the visual viewport shows that marble as a pale
-  // band; painting the same ground onto the document removes it. Same reason
-  // as PassPage, same technique.
-  const ground = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = ground.current;
-    if (!el) return;
-    const { body } = document;
-    const previous = body.style.backgroundColor;
-    body.style.backgroundColor = getComputedStyle(el).backgroundColor;
-    return () => {
-      body.style.backgroundColor = previous;
-    };
-  }, []);
+  const ground = useOwnGround();
 
   // Each screen replaces the last in place, so without this the reader lands
   // part-way down whatever they had scrolled to on the previous one.
@@ -256,7 +187,7 @@ export default function DonatePage() {
         <div className="absolute inset-0 bg-[radial-gradient(70%_45%_at_50%_-5%,hsl(var(--accent)/0.14),transparent_70%)]" />
         <Grain className="opacity-[0.04]" />
       </div>
-      <Chrome />
+      <FormChrome label="Support" />
 
       <main className="relative z-10 mx-auto flex min-h-[100dvh] max-w-3xl flex-col px-6 pb-[env(safe-area-inset-bottom)] pt-16 md:px-8">
         <header ref={headingRef} className="pb-10 pt-14 md:pt-20">
@@ -303,7 +234,7 @@ export default function DonatePage() {
               noValidate
               className="liquid-glass mb-16 space-y-8 rounded-xl border border-white/10 p-6 md:p-10"
             >
-              <Section n="01" title="Your donation">
+              <FormSection n="01" title="Your donation">
                 <AmountField
                   value={form.amount}
                   custom={form.custom}
@@ -330,9 +261,9 @@ export default function DonatePage() {
                     columns={4}
                   />
                 </div>
-              </Section>
+              </FormSection>
 
-              <Section n="02" title="Your details">
+              <FormSection n="02" title="Your details">
                 <div className="space-y-1">
                   <FloatingInput
                     id="donor-name"
@@ -390,9 +321,9 @@ export default function DonatePage() {
                     )}
                   </AnimatePresence>
                 </div>
-              </Section>
+              </FormSection>
 
-              <Section n="03" title="Recognition">
+              <FormSection n="03" title="Recognition">
                 <RadioPills
                   legend="Recognition preference"
                   name="recognition"
@@ -406,9 +337,9 @@ export default function DonatePage() {
                     ? 'Your name will not appear in any public acknowledgement of donors. We will still use it on your receipt and to contact you.'
                     : 'Your name may appear where donors are thanked publicly. Choose Anonymous if you would rather it did not.'}
                 </p>
-              </Section>
+              </FormSection>
 
-              <Section n="04" title="Stay connected">
+              <FormSection n="04" title="Stay connected">
                 <Consent
                   id="donor-marketing"
                   checked={form.marketingOptIn}
@@ -416,9 +347,9 @@ export default function DonatePage() {
                 >
                   Keep me informed about Flash @ Brigade updates.
                 </Consent>
-              </Section>
+              </FormSection>
 
-              <Section n="05" title="Consent">
+              <FormSection n="05" title="Consent">
                 <Consent
                   id="donor-terms"
                   checked={form.termsAccepted}
@@ -441,7 +372,7 @@ export default function DonatePage() {
                   </Link>
                   .
                 </Consent>
-              </Section>
+              </FormSection>
 
               <div className="flex justify-end pt-2">
                 <button type="submit" className={primaryButton}>

@@ -153,6 +153,16 @@ export function FloatingTextarea({
  * matches. The label sits raised permanently, since a select always shows a
  * value once one is chosen and the empty option carries the placeholder.
  */
+/**
+ * An option is either a bare string — where what is stored and what is read
+ * are the same word, as with a class or a section — or a pair, where they
+ * differ. The pair form exists because most enumerated columns in this
+ * project store a slug (`small-business`) and show a phrase (`Small
+ * Business`), and a form that mapped one to the other by hand at submit time
+ * would be one rename away from writing an invalid value.
+ */
+export type SelectOption = string | { value: string; label: string };
+
 export function FloatingSelect({
   id,
   label,
@@ -166,11 +176,14 @@ export function FloatingSelect({
   label: string;
   value: string;
   onChange: (value: string) => void;
-  options: readonly string[];
+  options: readonly SelectOption[];
   error?: string;
   hint?: string;
 }) {
   const errorId = `${id}-error`;
+  const items = options.map((option) =>
+    typeof option === 'string' ? { value: option, label: option } : option
+  );
   return (
     <FieldShell error={error} hint={hint} errorId={errorId}>
       <div className="relative">
@@ -196,9 +209,9 @@ export function FloatingSelect({
           )}
         >
           <option value="" />
-          {options.map((option) => (
-            <option key={option} value={option}>
-              {option}
+          {items.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
             </option>
           ))}
         </select>

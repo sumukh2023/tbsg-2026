@@ -20,6 +20,7 @@ import {
   supabaseEnv,
 } from './_shared.js';
 import {
+  deskInbox,
   detailRow,
   emailConfigured,
   emailShell,
@@ -38,10 +39,6 @@ const SUBJECTS = {
   other: 'Other',
 } as const;
 type Subject = keyof typeof SUBJECTS;
-
-/** Where the desk copy goes. Overridable without a deploy. */
-const DESK_INBOX =
-  process.env.ENQUIRY_RECIPIENT?.trim() || 'sumukh.nayak@outlook.com';
 
 /* -------------------------------------------------------------------- */
 /*  Rate limiting                                                        */
@@ -367,7 +364,7 @@ export default async function handler(
   const ack = acknowledgementEmail(payload);
   const [deskResult, ackResult] = await Promise.all([
     sendMail({
-      to: DESK_INBOX,
+      to: deskInbox(),
       subject: desk.subject,
       html: desk.html,
       text: desk.text,

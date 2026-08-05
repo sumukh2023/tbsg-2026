@@ -93,12 +93,15 @@ system with QR + gate verification, and realtime Live Updates.
 - `api/_shared.ts`, `api/_auth.ts` (Argon2id, sessions, cookies, rate limiting,
   `requireVolunteer`/`requireAdmin`, audit writes),
   `api/register|verify|pass|retrieve|updates|wallet-*.ts`,
-  `api/auth.ts` (login/logout/session/password) and `api/admin.ts`
-  (volunteers/activity) — one function each, dispatched on `?action=` /
-  `?resource=`, with `vercel.json` rewriting the pretty paths onto them.
+  `api/auth.ts` (login/logout/session/password), `api/admin.ts`
+  (volunteers/activity) and `api/partner-interest.ts` — one function each,
+  dispatched on `?action=` / `?resource=`, with `vercel.json` rewriting the
+  pretty paths onto them.
   **Vercel Hobby allows 12 serverless functions per deployment**; a file per
   action made 13 and the build failed. Count before adding a route:
-  `find api -name '*.ts' | grep -v '/_' | wc -l` (currently 11 of 12)
+  `find api -name '*.ts' | grep -v '/_' | wc -l` — **currently 12 of 12, i.e.
+  FULL.** The next route must fold into an existing function behind a
+  `?resource=`/`?action=` parameter; a thirteenth file fails the build.
 - `scripts/hash-password.mjs` — Argon2id hash + SQL for the FIRST admin account
 - `api/_email.ts` — the project's ONLY email integration (Resend, added
   3 Aug 2026 for /enquiry). Underscore-prefixed so it is not a route. It owns
@@ -106,6 +109,25 @@ system with QR + gate verification, and realtime Live Updates.
   may talk to Resend. Email is BEST EFFORT everywhere: a send that fails never
   fails the request that triggered it, and the caller reports honestly whether
   it went. Needs `RESEND_API_KEY` + `RESEND_FROM` on a verified domain.
+  **`deskInbox()` here is the single place any form reads the desk address
+  from** (`ENQUIRY_RECIPIENT`, falling back to the outlook address until the
+  domain exists). /enquiry and /partner-interest both call it, so switching to
+  `enquiries@flashatbrigade.com` is one environment variable and no code.
+- `src/festival/forms/` — the furniture every transactional page shares:
+  `FormShell.tsx` (the slim bar, the numbered section) and `formStyles.ts`
+  (the two button shapes, `useOwnGround`). Split in two because a module
+  exporting both components and plain values breaks Fast Refresh. Donate and
+  Partner Interest both sit on it; the FORMS themselves are deliberately not
+  shared.
+- `src/festival/pages/PartnersPage.tsx` + `PartnerInterestPage.tsx` +
+  `api/partner-interest.ts` + `20260805_partner_interest.sql` — sponsorship.
+  The page is the same shell, tokens and motion as Mission and deliberately
+  NONE of its compositions (hero copy low-left on a gold spine, categories
+  that open IN PLACE rather than in a dialog, a quiet logo wall). The film is
+  `ground.mp4`/`.webm`, retired from the scrub and now in use again — and the
+  only hero film that can be VERIFIED playing in this sandbox, because the
+  container's Chromium has no H.264 decoder but does have VP9. See
+  `docs/PARTNERS.md`.
 - `supabase/schema.sql`, `docs/PASS_SYSTEM.md`, `docs/VOLUNTEER_AUTH.md`,
   `docs/DONATIONS.md`, `docs/ENQUIRIES.md`
 - `.design/brief.md` — design-system record (required by the design gate)

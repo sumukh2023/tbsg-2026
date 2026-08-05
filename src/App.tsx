@@ -43,6 +43,9 @@ const PartnersPage = lazy(() => import('./festival/pages/PartnersPage'));
 const GalleryPage = lazy(() => import('./festival/pages/GalleryPage'));
 const EnquiryPage = lazy(() => import('./festival/pages/EnquiryPage'));
 const DonatePage = lazy(() => import('./festival/pages/DonatePage'));
+const PartnerInterestPage = lazy(
+  () => import('./festival/pages/PartnerInterestPage')
+);
 const TermsPage = lazy(() => import('./festival/legal/TermsPage'));
 const PrivacyPage = lazy(() => import('./festival/legal/PrivacyPage'));
 
@@ -258,6 +261,18 @@ export default function App() {
               element={
                 <Suspense fallback={<PageFallback />}>
                   <DonatePage />
+                </Suspense>
+              }
+            />
+            {/* Where the Partners page's "Partner With Us" leads. An evening
+                page like Donate and the pass flow, not a district: it is a
+                task, so it gets the transactional shell rather than the
+                marble one. */}
+            <Route
+              path="/partner-interest"
+              element={
+                <Suspense fallback={<PageFallback />}>
+                  <PartnerInterestPage />
                 </Suspense>
               }
             />
