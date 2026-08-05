@@ -97,14 +97,118 @@ Nothing else is needed: `/api/partner-interest` is a file-named route, so
 `vercel.json` needs no rewrite, and the SPA catch-all already excludes
 `/api/`.
 
-## 5. What is deliberately not built
+## 5. Supporting documents
 
-**File upload.** The Additional Information section says, in the interface,
-that uploads are not open and asks for attachments as a reply to the
-acknowledgement email instead. There is no storage bucket, no signed-upload
-route and no size or type gate anywhere in this project; a control that
-looked like an upload would have been a lie to whoever used it. When storage
-is added, that panel is where the real control goes.
+One optional attachment per approach: PDF, Word or PowerPoint, up to 10 MB,
+into a **private** Supabase Storage bucket called `partner-documents`.
+
+| Piece | Where |
+| --- | --- |
+| The control | `src/festival/forms/DocumentField.tsx` |
+| The rules (client copy) | `src/festival/forms/documentRules.ts` |
+| The transfer | `src/festival/forms/uploadDocument.ts` |
+| The rules (authority) | `api/_storage.ts` |
+| The columns and the bucket | `supabase/migrations/20260805_partner_documents.sql` |
+
+### Why the bytes do not go through the API
+
+A Vercel serverless function accepts a **4.5 MB** request body. A 10 MB file
+base64'd into JSON is 13.3 MB, so a file routed through the function could
+not be sent at the briefed size at all. Instead:
+
+1. `POST /api/partner-interest?action=upload` with `{ filename, size }`
+   returns a one-off **signed upload URL**, the storage path, an HMAC token
+   over that path, and the content type to send.
+2. The browser `PUT`s the file **straight to Supabase Storage**. Vercel never
+   sees the bytes.
+3. `POST /api/partner-interest` carries `document: { path, token, name }`.
+   The server verifies the token, then **reads the object back out of
+   Storage** and records the size and content type it actually finds there.
+
+`?action=upload` hangs off the existing route rather than being a route of
+its own because `api/` holds **twelve** functions and the Vercel Hobby plan
+allows twelve. A thirteenth file does not deploy — it fails the build.
+
+### What is trusted, and what is not
+
+- The client never chooses the storage path. The server generates
+  `<uuid>/<sanitised-name>`.
+- The path comes back **signed**, so a submit cannot attach an object the
+  server did not issue a place for.
+- The content type is derived from the **extension by the server**, not read
+  from what the browser claimed — browsers report `.doc` and `.ppt` as
+  `application/octet-stream` often enough that trusting the claim means
+  either rejecting real documents or accepting anything.
+- `document_size` and `document_type` on the row are **read from Storage**
+  after the upload. The declared size is checked first only so an oversized
+  file is refused before it is sent.
+- Executables and archives are refused by name; everything outside the
+  five-type allowlist is refused anyway.
+- Both emails carry a **signed URL that expires in 30 days**. No code path
+  here produces a public URL.
+- An approach that is rate-limited, duplicated or fails to insert **deletes
+  its uploaded object** rather than leaving a stranger's file in the bucket.
+
+### Post-deployment steps
+
+Do these in order, before the first real submission.
+
+**1. Run the migration.** `supabase/migrations/20260805_partner_documents.sql`
+in the Supabase SQL editor. It adds the four `document_*` columns, the
+"complete or absent" check constraint, the partial index, **and creates the
+bucket** with its size and MIME limits. Safe to run more than once.
+
+**2. Confirm the bucket is private and capped.** Storage → `partner-documents`
+→ Settings, or:
+
+```sql
+select id, public, file_size_limit, allowed_mime_types
+from storage.buckets where id = 'partner-documents';
+```
+
+`public` must be `false` and `file_size_limit` `10485760`. These bucket-level
+limits are the real enforcement: between the signed URL being issued and the
+file landing there is no code of ours in the path, so the bucket is what
+stops a signed URL being used to upload something enormous.
+
+**3. Confirm no policy exposes it.** `storage.objects` has RLS on by default,
+and with no policy naming this bucket `anon` cannot read, list or write in
+it. This must come back empty:
+
+```sql
+select policyname from pg_policies
+where schemaname = 'storage' and tablename = 'objects'
+  and qual like '%partner-documents%';
+```
+
+Do **not** add a "public read" policy to make the email links work — they are
+signed URLs and work without one.
+
+**4. No new environment variables.** The upload signs paths with
+`SUPABASE_SERVICE_ROLE_KEY`, which is already set. Nothing to add in Vercel.
+
+**5. Send one real approach** with a small PDF attached and check three
+things: the row has all four `document_*` columns filled, the desk email
+carries a link that opens the file, and the link still names the file the
+sender chose.
+
+### Housekeeping
+
+An upload whose form is then abandoned in the browser leaves an object with
+no row. Nothing deletes those automatically. Once a term, list the orphans:
+
+```sql
+select name, created_at, (metadata->>'size')::bigint as bytes
+from storage.objects o
+where o.bucket_id = 'partner-documents'
+  and not exists (
+    select 1 from public.partner_interest p where p.document_path = o.name
+  )
+order by created_at;
+```
+
+and delete them from the Storage browser. Signed download links expire after
+30 days; re-issue one from the Storage browser if the desk needs it later.
 
 ## 6. Reading the approaches
 
@@ -112,10 +216,15 @@ No admin UI yet. Until there is one, in the Supabase table editor:
 
 ```sql
 select created_at, organisation_name, contact_person, email, mobile,
-       sponsorship_interest, estimated_value, status
+       sponsorship_interest, estimated_value, status,
+       document_name, document_path
 from public.partner_interest
 where status = 'new'
 order by created_at desc;
 ```
+
+A `document_path` is an object key, not a URL. To open one, find it under
+Storage → `partner-documents` and use "Get URL" there, which mints a fresh
+signed link.
 
 Then move each row's `status` on as the team works through them.

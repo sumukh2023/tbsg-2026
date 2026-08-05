@@ -19,7 +19,7 @@
 import { build } from 'esbuild';
 import { createServer } from 'node:http';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { start, db } from './pgrest-stub.mjs';
+import { start, db, storage } from './pgrest-stub.mjs';
 
 const OUT = new URL('./node_modules/.e2e-partner/', import.meta.url).pathname;
 mkdirSync(OUT, { recursive: true });
@@ -91,7 +91,7 @@ const check = (name, ok, detail = '') => {
   if (!ok) failures++;
 };
 
-async function post(body, headers = {}) {
+async function post(body, headers = {}, query = {}) {
   let status = 0;
   let payload = null;
   const res = {
@@ -105,7 +105,10 @@ async function post(body, headers = {}) {
     },
     setHeader() {},
   };
-  await handler({ method: 'POST', headers, body }, res);
+  // `query` is always present on a real Vercel request. Omitting it here
+  // made the harness unfaithful in a way that mattered the moment the route
+  // started reading it.
+  await handler({ method: 'POST', headers, body, query }, res);
   return { status, payload };
 }
 
@@ -318,6 +321,214 @@ console.log('\nUnconfigured Resend must not lose the approach either');
     payload.acknowledgement_sent === false
   );
   process.env.RESEND_API_KEY = key;
+}
+
+/* ==================================================================== *
+ *  Supporting documents
+ *
+ *  The subject here is a single question: does the row describe the file
+ *  that is ACTUALLY IN THE BUCKET, or the file the request said it was?
+ *  Every case below makes the two disagree and checks which one wins.
+ * ==================================================================== */
+
+const PDF = 'application/pdf';
+
+/** Ask the real handler for an upload ticket, the way the browser does. */
+const ticketFor = (filename, size) =>
+  post({ filename, size }, {}, { action: 'upload' });
+
+/** Put an object in the bucket, as the browser's direct PUT would. */
+const putObject = (path, size, mimetype) => {
+  storage.objects.push({
+    bucket: 'partner-documents',
+    name: path,
+    size,
+    mimetype,
+  });
+};
+
+console.log('\nAn upload ticket');
+{
+  const { status, payload } = await ticketFor('Company Profile.pdf', 300_000);
+  check('is issued for a real document', status === 200, `got ${status}`);
+  check('names a path the SERVER chose', /^[0-9a-f-]{36}\//.test(payload.path));
+  check(
+    'sanitises the filename into the path',
+    payload.path.endsWith('/Company-Profile.pdf'),
+    payload.path
+  );
+  check(
+    'declares the type from the EXTENSION, not the browser',
+    payload.content_type === PDF
+  );
+  check('carries a signature over that path', /^[0-9a-f]{64}$/.test(payload.token));
+
+  const zip = await ticketFor('payload.zip', 2048);
+  check('an archive is refused', zip.status === 422, `got ${zip.status}`);
+  check(
+    'and the refusal names the reason',
+    /Programs and archives/.test(zip.payload.error ?? '')
+  );
+
+  const exe = await ticketFor('setup.exe', 2048);
+  check('an executable is refused', exe.status === 422, `got ${exe.status}`);
+
+  const huge = await ticketFor('deck.pdf', 11 * 1024 * 1024);
+  check('over 10 MB is refused up front', huge.status === 422, `got ${huge.status}`);
+
+  const traversal = await ticketFor('../../etc/passwd.pdf', 1024);
+  check(
+    'path traversal cannot escape the generated directory',
+    traversal.status === 200 &&
+      traversal.payload.path.split('/').length === 2 &&
+      !traversal.payload.path.includes('..'),
+    traversal.payload.path
+  );
+}
+
+console.log('\nAn approach with a document attached');
+{
+  const { payload: ticket } = await ticketFor('Sponsorship Deck.pdf', 240_000);
+  putObject(ticket.path, 240_000, PDF);
+
+  const { status, payload } = await post(
+    org({ document: { path: ticket.path, token: ticket.token, name: 'Sponsorship Deck.pdf' } })
+  );
+  check('answers 201', status === 201, `got ${status}`);
+
+  const row = db.partner_interest.at(-1);
+  check('the row records the path', row.document_path === ticket.path);
+  check('and the name the sender gave it', row.document_name === 'Sponsorship Deck.pdf');
+  check('and the size read back FROM STORAGE', row.document_size === 240_000);
+  check('and the type read back FROM STORAGE', row.document_type === PDF);
+  check('the object is still in the bucket', storage.objects.some((o) => o.name === ticket.path));
+  check('and the request succeeded', payload.id === row.id);
+
+  const desk = sentMail.at(-2);
+  const ack = sentMail.at(-1);
+  const signed = `/object/sign/partner-documents/${ticket.path}`;
+  check('the desk copy links the document', desk.html.includes(signed));
+  check('the acknowledgement links it too', ack.html.includes(signed));
+  check(
+    'both links are SIGNED, never public',
+    !desk.html.includes('/object/public/') &&
+      !ack.html.includes('/object/public/')
+  );
+  check(
+    'and the plain-text parts carry it as well',
+    desk.text.includes(signed) && ack.text.includes(signed)
+  );
+}
+
+console.log('\nA document the server did not issue a place for');
+{
+  const { payload: ticket } = await ticketFor('deck.pdf', 1024);
+  putObject(ticket.path, 1024, PDF);
+  const before = db.partner_interest.length;
+
+  const { status, payload } = await post(
+    org({ document: { path: ticket.path, token: 'f'.repeat(64), name: 'deck.pdf' } })
+  );
+  check('is refused', status === 422, `got ${status}`);
+  check('with a sentence a human can act on', /attach it again/.test(payload.error ?? ''));
+  check('and NOTHING is stored', db.partner_interest.length === before);
+}
+
+console.log('\nA path with no object behind it');
+{
+  const { payload: ticket } = await ticketFor('deck.pdf', 1024);
+  // Deliberately not uploaded: the browser said it finished and did not.
+  const before = db.partner_interest.length;
+  const { status, payload } = await post(
+    org({ document: { path: ticket.path, token: ticket.token, name: 'deck.pdf' } })
+  );
+  check('is refused', status === 422, `got ${status}`);
+  check(
+    'and says the upload did not finish',
+    /did not finish uploading/.test(payload.error ?? '')
+  );
+  check('and NOTHING is stored', db.partner_interest.length === before);
+}
+
+console.log('\nAn object whose REAL type is not what was promised');
+{
+  // The ticket was issued for a PDF. What actually landed is a zip. Only the
+  // read-back can catch this, which is exactly why the read-back exists.
+  const { payload: ticket } = await ticketFor('deck.pdf', 4096);
+  putObject(ticket.path, 4096, 'application/zip');
+  const before = db.partner_interest.length;
+
+  const { status } = await post(
+    org({ document: { path: ticket.path, token: ticket.token, name: 'deck.pdf' } })
+  );
+  check('is refused', status === 422, `got ${status}`);
+  check('nothing is stored', db.partner_interest.length === before);
+  check(
+    'and the object is DELETED, not left in the bucket',
+    !storage.objects.some((o) => o.name === ticket.path)
+  );
+}
+
+console.log('\nAn object whose REAL size is over the limit');
+{
+  const { payload: ticket } = await ticketFor('deck.pdf', 1024);
+  putObject(ticket.path, 11 * 1024 * 1024, PDF);
+  const before = db.partner_interest.length;
+
+  const { status } = await post(
+    org({ document: { path: ticket.path, token: ticket.token, name: 'deck.pdf' } })
+  );
+  check('the declared size does not save it', status === 422, `got ${status}`);
+  check('nothing is stored', db.partner_interest.length === before);
+  check(
+    'and the object is deleted',
+    !storage.objects.some((o) => o.name === ticket.path)
+  );
+}
+
+console.log('\nA duplicate submit does not leave its upload behind');
+{
+  const shape = org();
+  const first = await ticketFor('deck.pdf', 2048);
+  putObject(first.payload.path, 2048, PDF);
+  await post({
+    ...shape,
+    document: { path: first.payload.path, token: first.payload.token, name: 'deck.pdf' },
+  });
+
+  const second = await ticketFor('deck.pdf', 2048);
+  putObject(second.payload.path, 2048, PDF);
+  const { status, payload } = await post({
+    ...shape,
+    document: { path: second.payload.path, token: second.payload.token, name: 'deck.pdf' },
+  });
+
+  check('the second answers 200 as a duplicate', status === 200, `got ${status}`);
+  check('and says so', payload.duplicate === true);
+  check(
+    'the first document is kept',
+    storage.objects.some((o) => o.name === first.payload.path)
+  );
+  check(
+    'and the orphan from the second is removed',
+    !storage.objects.some((o) => o.name === second.payload.path)
+  );
+}
+
+console.log('\nAn approach with no document is unchanged');
+{
+  const { status } = await post(org());
+  const row = db.partner_interest.at(-1);
+  check('still answers 201', status === 201, `got ${status}`);
+  check(
+    'and all four document columns are null',
+    row.document_path === null &&
+      row.document_name === null &&
+      row.document_size === null &&
+      row.document_type === null
+  );
+  const ack = sentMail.at(-1);
+  check('no Attachment block appears in the email', !ack.html.includes('Attachment'));
 }
 
 console.log('\nThe API key never leaves the server');

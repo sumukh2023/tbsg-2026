@@ -29,9 +29,23 @@ import {
   detailRow,
   emailConfigured,
   emailShell,
+  escapeHtml,
   escapeParagraph,
   sendMail,
 } from './_email.js';
+import {
+  DOCUMENT_TYPES,
+  describeDocument,
+  documentInfo,
+  documentPath,
+  documentToken,
+  documentTokenValid,
+  humanSize,
+  MAX_DOCUMENT_BYTES,
+  removeDocument,
+  signDownload,
+  signUpload,
+} from './_storage.js';
 
 /** Stored value -> the words a human reads. Kept together so they cannot drift. */
 const ORGANISATION_TYPES = {
@@ -89,6 +103,13 @@ type Payload = {
   privacy_accepted_at: string;
   status: 'new';
   ip_hash: string | null;
+  /* The attachment, if there is one. Filled in by the handler AFTER reading
+     the object back out of Storage — `validate` cannot set these, because
+     nothing the client says about its own file is trusted. */
+  document_name: string | null;
+  document_path: string | null;
+  document_size: number | null;
+  document_type: string | null;
 };
 
 /**
@@ -230,6 +251,10 @@ function validate(
     privacy_accepted_at: new Date().toISOString(),
     status: 'new',
     ip_hash: ipHash,
+    document_name: null,
+    document_path: null,
+    document_size: null,
+    document_type: null,
   };
 }
 
@@ -285,7 +310,47 @@ function rupees(amount: number): string {
 /*  The two messages                                                     */
 /* -------------------------------------------------------------------- */
 
-function deskEmail(payload: Payload, receivedAt: Date) {
+/**
+ * The attachment, as a block in an email.
+ *
+ * `link` is a SIGNED, EXPIRING url or nothing. Never a public one: the bucket
+ * is private and stays private, so if signing failed the email says the
+ * document is on file rather than linking somewhere that will 400. Losing a
+ * link costs a click in the Supabase dashboard; making the bucket public to
+ * avoid that would cost a stranger's company deck being world-readable.
+ */
+function documentBlock(payload: Payload, link: string | null): string {
+  if (!payload.document_name) return '';
+  const size = payload.document_size ? ` · ${humanSize(payload.document_size)}` : '';
+  const line = link
+    ? `<a href="${escapeHtml(link)}" style="color:#9a4a28;">${escapeHtml(payload.document_name)}</a>${escapeHtml(size)}
+       <br /><span style="font:400 12px/1.6 Helvetica,Arial,sans-serif;color:#8b7f6f;">
+         This link expires in 30 days.
+       </span>`
+    : `${escapeHtml(payload.document_name)}${escapeHtml(size)}
+       <br /><span style="font:400 12px/1.6 Helvetica,Arial,sans-serif;color:#8b7f6f;">
+         Held in the partner documents bucket.
+       </span>`;
+  return `<div style="height:1px;background:#e4dbcb;margin:24px 0;"></div>
+    <p style="margin:0 0 8px 0;font:600 12px/1.5 Helvetica,Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#8b7f6f;">
+      Attachment
+    </p>
+    <p style="margin:0;font:400 15px/1.7 Helvetica,Arial,sans-serif;color:#241d16;">${line}</p>`;
+}
+
+function documentLines(payload: Payload, link: string | null): string[] {
+  if (!payload.document_name) return [];
+  const size = payload.document_size ? ` (${humanSize(payload.document_size)})` : '';
+  return [
+    '',
+    'Attachment',
+    '----------',
+    `${payload.document_name}${size}`,
+    ...(link ? [link, 'This link expires in 30 days.'] : []),
+  ];
+}
+
+function deskEmail(payload: Payload, receivedAt: Date, link: string | null) {
   const stamp = receivedAt.toLocaleString('en-IN', {
     dateStyle: 'full',
     timeStyle: 'short',
@@ -321,7 +386,8 @@ function deskEmail(payload: Payload, receivedAt: Date) {
       ${detailRow('Updates opt-in', payload.marketing_opt_in ? 'Yes' : 'No')}
       ${detailRow('Received', `${stamp} IST`)}
     </table>
-    ${proposal}`;
+    ${proposal}
+    ${documentBlock(payload, link)}`;
 
   return {
     subject: `[Partner Interest] ${payload.organisation_name}`,
@@ -354,13 +420,14 @@ function deskEmail(payload: Payload, receivedAt: Date) {
       ...(payload.proposal
         ? ['', 'Proposal', '--------', payload.proposal]
         : []),
+      ...documentLines(payload, link),
       '',
       'Replying to this email goes straight back to the sender.',
     ].join('\n'),
   };
 }
 
-function acknowledgementEmail(payload: Payload) {
+function acknowledgementEmail(payload: Payload, link: string | null) {
   const body = `
     <p style="margin:0;font:400 15px/1.7 Helvetica,Arial,sans-serif;color:#241d16;">
       A member of the organising team will be in touch to talk it through.
@@ -373,7 +440,8 @@ function acknowledgementEmail(payload: Payload) {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
       ${detailRow('Organisation', payload.organisation_name)}
       ${detailRow('Interest', SPONSORSHIP_INTERESTS[payload.sponsorship_interest])}
-    </table>`;
+    </table>
+    ${documentBlock(payload, link)}`;
 
   return {
     subject: 'We have your Expression of Interest',
@@ -393,6 +461,7 @@ function acknowledgementEmail(payload: Payload) {
       '',
       `Organisation: ${payload.organisation_name}`,
       `Interest:     ${SPONSORSHIP_INTERESTS[payload.sponsorship_interest]}`,
+      ...documentLines(payload, link),
       '',
       'Flash @ Brigade 2026 · The Brigade School @ Malleswaram',
     ].join('\n'),
@@ -413,6 +482,46 @@ export default async function handler(
   const body = jsonBody(req);
   if (!body) return send(res, 400, { error: 'A JSON body is required.' });
 
+  /* ------------------------------------------------------------------ *
+   * ?action=upload — hand back a one-off URL for the attachment.
+   *
+   * A SECOND ROUTE WOULD HAVE BEEN CLEANER AND THERE IS NO ROOM FOR ONE.
+   * `api/` holds twelve functions and the Vercel Hobby plan allows twelve;
+   * a thirteenth file does not deploy, it fails the build. So the upload
+   * hangs off the route it belongs to, behind a parameter, rather than
+   * costing the project a function it does not have.
+   * ------------------------------------------------------------------ */
+  if (req.query?.action === 'upload') {
+    const env = supabaseEnv('partner-interest');
+    if (!env) {
+      return send(res, 503, {
+        error: 'Attachments are not configured yet. Please try later.',
+      });
+    }
+    const claim = describeDocument(body.filename, body.size);
+    if (typeof claim === 'string') return send(res, 422, { error: claim });
+
+    const path = documentPath(claim.safeName);
+    const uploadUrl = await signUpload(env, path);
+    if (!uploadUrl) {
+      return send(res, 502, {
+        error: 'We could not prepare the upload just now. Please try again.',
+      });
+    }
+    return send(res, 200, {
+      upload_url: uploadUrl,
+      path,
+      // Proves, at submit time, that this path is one WE issued.
+      token: await documentToken(path),
+      // The browser must PUT with this exact type. It is derived from the
+      // extension here rather than taken from the file, because browsers
+      // report .doc and .ppt as application/octet-stream often enough that
+      // the claim is not worth having.
+      content_type: claim.contentType,
+      max_bytes: MAX_DOCUMENT_BYTES,
+    });
+  }
+
   const forwarded = req.headers['x-forwarded-for'];
   const rawIp = (Array.isArray(forwarded) ? forwarded[0] : forwarded)
     ?.split(',')[0]
@@ -430,11 +539,31 @@ export default async function handler(
     });
   }
 
+  /* The attachment the browser says it uploaded. Nothing here is believed
+     yet — this is only the CLAIM. It is picked up before the refusals below
+     so that a request which gets turned away can take its orphaned object
+     with it instead of leaving a stranger's file in the bucket forever. */
+  const claimed =
+    body.document && typeof body.document === 'object'
+      ? (body.document as Record<string, unknown>)
+      : null;
+  const claimedPath =
+    typeof claimed?.path === 'string' && claimed.path.length <= 300
+      ? claimed.path
+      : null;
+  const claimIsOurs =
+    claimedPath !== null && (await documentTokenValid(claimedPath, claimed?.token));
+  /** Drop the uploaded object on any path that does not end in a stored row. */
+  const discard = async () => {
+    if (claimIsOurs && claimedPath) await removeDocument(env, claimedPath);
+  };
+
   // A double click, or a page restored from the back/forward cache and
   // submitted again. Answer as though it worked, because from the sender's
   // point of view it did: their approach is already with us.
   const duplicate = await findRecentDuplicate(env, payload);
   if (duplicate) {
+    await discard();
     return send(res, 200, {
       id: duplicate,
       duplicate: true,
@@ -456,11 +585,57 @@ export default async function handler(
     (byEmail !== null && byEmail >= MAX_PER_EMAIL) ||
     (bySource !== null && bySource >= MAX_PER_IP)
   ) {
+    await discard();
     res.setHeader('Retry-After', String(WINDOW_MINUTES * 60));
     return send(res, 429, {
       error:
         'We already have an Expression of Interest from you. Give us a little while to come back to you before sending another.',
     });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * The attachment, verified.
+   *
+   * The size and the content type stored on the row are read back OUT OF
+   * STORAGE, not taken from what the browser announced. That is the whole
+   * reason this step exists: everything before it is a claim, and a claim
+   * about a file is exactly the thing that must not become a database
+   * record. An object that is not there, is too big, or is not one of the
+   * five accepted types is refused and deleted, and the approach itself is
+   * refused with it — silently dropping the attachment would tell the
+   * sender their deck was received when it was not.
+   * ------------------------------------------------------------------ */
+  if (claimedPath) {
+    if (!claimIsOurs) {
+      console.error('[partner] stage=document reason=bad_token');
+      return send(res, 422, {
+        error: 'That attachment could not be verified. Please attach it again.',
+      });
+    }
+    const info = await documentInfo(env, claimedPath);
+    if (!info) {
+      return send(res, 422, {
+        error: 'The attachment did not finish uploading. Please attach it again.',
+      });
+    }
+    const accepted: string[] = Object.values(DOCUMENT_TYPES);
+    if (info.size > MAX_DOCUMENT_BYTES || !accepted.includes(info.contentType)) {
+      console.error(
+        `[partner] stage=document reason=rejected size=${info.size} type=${info.contentType}`
+      );
+      await removeDocument(env, claimedPath);
+      return send(res, 422, {
+        error:
+          'That attachment is not a PDF, Word or PowerPoint document under 10 MB.',
+      });
+    }
+    payload.document_path = claimedPath;
+    payload.document_size = info.size;
+    payload.document_type = info.contentType;
+    // The name a human sees is the one they gave it, cleaned but not
+    // mangled into the ASCII the storage path had to be.
+    payload.document_name =
+      cleanText(claimed?.name, 200) ?? claimedPath.split('/').pop() ?? 'Attachment';
   }
 
   const insert = await fetch(`${env.url}/rest/v1/partner_interest`, {
@@ -473,6 +648,7 @@ export default async function handler(
     // Status only, never the body: it echoes the row back, and the row names
     // a company, a person and what they are willing to spend.
     console.error(`[partner] stage=insert supabase_status=${insert.status}`);
+    await discard();
     return send(res, 502, {
       error: 'We could not record that just now. Please try again.',
     });
@@ -486,8 +662,13 @@ export default async function handler(
   const receivedAt = row?.created_at ? new Date(row.created_at) : new Date();
 
   // STORED. Everything from here is best effort and cannot fail the request.
-  const desk = deskEmail(payload, receivedAt);
-  const ack = acknowledgementEmail(payload);
+  // Signed once and shared by both messages: it is the same document, and
+  // two signatures would mean two links to expire and two to revoke.
+  const link = payload.document_path
+    ? await signDownload(env, payload.document_path)
+    : null;
+  const desk = deskEmail(payload, receivedAt, link);
+  const ack = acknowledgementEmail(payload, link);
   const [deskResult, ackResult] = await Promise.all([
     sendMail({
       to: deskInbox(),

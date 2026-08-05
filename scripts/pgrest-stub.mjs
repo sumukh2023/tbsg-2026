@@ -18,6 +18,18 @@ export const db = {
   donations: [],
 };
 
+/**
+ * Supabase Storage, to the depth api/_storage.ts uses it: sign an upload,
+ * accept the PUT, list a prefix, sign a download, delete.
+ *
+ * Objects are `{ bucket, name, size, mimetype }`. The SIZE AND TYPE HERE ARE
+ * THE ONES THE STORAGE SERVER WOULD REPORT, not the ones a client claimed —
+ * which is the whole point of stubbing this rather than mocking the module.
+ * The handler's job is to believe this and not the request body, and a test
+ * can only show that if the two are allowed to disagree.
+ */
+export const storage = { objects: [] };
+
 export const stats = { queries: [] };
 
 const parseValue = (raw) => {
@@ -144,9 +156,90 @@ function embed(row, table, select) {
   return out;
 }
 
+/** The `/storage/v1/...` surface. Returns true when it handled the request. */
+async function handleStorage(req, res, url) {
+  if (!url.pathname.startsWith('/storage/v1/')) return false;
+  const path = url.pathname.replace('/storage/v1/', '');
+  stats.queries.push(`${req.method} ${path}`);
+
+  let raw = '';
+  for await (const chunk of req) raw += chunk;
+  const send = (status, data) => {
+    res.writeHead(status, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(data));
+  };
+
+  // POST object/upload/sign/{bucket}/{key...}
+  if (req.method === 'POST' && path.startsWith('object/upload/sign/')) {
+    const rest = path.replace('object/upload/sign/', '');
+    send(200, { url: `/object/upload/sign/${rest}?token=stub` });
+    return true;
+  }
+
+  // PUT object/upload/sign/{bucket}/{key...} — the browser's direct upload.
+  if (req.method === 'PUT' && path.startsWith('object/upload/sign/')) {
+    const rest = decodeURI(path.replace('object/upload/sign/', ''));
+    const slash = rest.indexOf('/');
+    storage.objects.push({
+      bucket: rest.slice(0, slash),
+      name: rest.slice(slash + 1),
+      size: Buffer.byteLength(raw),
+      mimetype: req.headers['content-type'] ?? 'application/octet-stream',
+    });
+    send(200, { Key: rest });
+    return true;
+  }
+
+  // POST object/list/{bucket}
+  if (req.method === 'POST' && path.startsWith('object/list/')) {
+    const bucket = path.replace('object/list/', '');
+    const { prefix = '' } = raw ? JSON.parse(raw) : {};
+    const found = storage.objects
+      .filter((o) => o.bucket === bucket && o.name.startsWith(prefix))
+      .map((o) => ({
+        // PostgREST-side listing returns the name RELATIVE to the prefix
+        // directory, which is what api/_storage.ts matches against.
+        name: o.name.slice(prefix ? prefix.length + 1 : 0),
+        metadata: { size: o.size, mimetype: o.mimetype },
+      }));
+    send(200, found);
+    return true;
+  }
+
+  // POST object/sign/{bucket}/{key...}
+  if (req.method === 'POST' && path.startsWith('object/sign/')) {
+    const rest = decodeURI(path.replace('object/sign/', ''));
+    const slash = rest.indexOf('/');
+    const exists = storage.objects.some(
+      (o) => o.bucket === rest.slice(0, slash) && o.name === rest.slice(slash + 1)
+    );
+    if (!exists) {
+      send(404, { message: 'not found' });
+      return true;
+    }
+    send(200, { signedURL: `/object/sign/${rest}?token=stub` });
+    return true;
+  }
+
+  // DELETE object/{bucket}/{key...}
+  if (req.method === 'DELETE' && path.startsWith('object/')) {
+    const rest = decodeURI(path.replace('object/', ''));
+    const slash = rest.indexOf('/');
+    storage.objects = storage.objects.filter(
+      (o) => !(o.bucket === rest.slice(0, slash) && o.name === rest.slice(slash + 1))
+    );
+    send(200, {});
+    return true;
+  }
+
+  send(405, { message: 'storage stub does not implement this' });
+  return true;
+}
+
 export function start(port = 5599) {
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, `http://localhost:${port}`);
+    if (await handleStorage(req, res, url)) return;
     const table = url.pathname.replace('/rest/v1/', '');
     const params = [...url.searchParams.entries()];
     const select = url.searchParams.get('select');

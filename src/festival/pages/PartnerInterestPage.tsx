@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Check, Paperclip } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
 import { TextEffect } from '@/components/motion/text-effect';
 import { EASE } from '@/utils/motion';
 import { GoldRule, Grain } from '../materials';
@@ -17,6 +17,9 @@ import {
   FloatingSelect,
   FloatingTextarea,
 } from '../getpasses/fields';
+import { DocumentField } from '../forms/DocumentField';
+import { uploadDocument, uploadMessage } from '../forms/uploadDocument';
+import type { UploadedDocument } from '../forms/uploadDocument';
 import { formatRupees } from '@/utils/money';
 
 /**
@@ -159,10 +162,20 @@ export default function PartnerInterestPage() {
   const [acknowledged, setAcknowledged] = useState(false);
   const ground = useOwnGround();
 
+  /* The attachment. Held as a File until submit — see DocumentField for why
+     it is not uploaded the moment it is chosen. `progress` is null except
+     while bytes are actually moving. */
+  const [document_, setDocument] = useState<File | null>(null);
+  const [documentError, setDocumentError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<number | null>(null);
+
   // Guards the one thing a form like this must never do twice. `step` alone
   // is not enough: the click that starts the request and the click that
   // lands a millisecond later both see `step === 'form'`.
   const inFlight = useRef(false);
+
+  /** The object already in the bucket, so a retry does not upload it again. */
+  const uploaded = useRef<{ file: File; doc: UploadedDocument } | null>(null);
 
   const set = <K extends keyof Form>(key: K, value: Form[K]) => {
     setForm((f) => ({ ...f, [key]: value }));
@@ -191,6 +204,33 @@ export default function PartnerInterestPage() {
     setFailure(null);
     setStep('sending');
     try {
+      /* THE FILE GOES FIRST. The row is the record, and a record that names
+         an attachment nobody can open is worse than one with no attachment:
+         so if the upload fails, nothing is submitted and everything typed is
+         still on the form. */
+      let attached: UploadedDocument | null = null;
+      if (document_) {
+        // A submit that failed AFTER the file landed must not send it twice
+        // on the retry: that is a second 10 MB upload for the sender and a
+        // second object in the bucket for us, and the first one is already
+        // exactly what we want. Identity on the File is the right key —
+        // choosing a different document produces a different object.
+        if (uploaded.current?.file === document_) {
+          attached = uploaded.current.doc;
+        } else {
+          try {
+            setProgress(0);
+            attached = await uploadDocument(document_, setProgress);
+            uploaded.current = { file: document_, doc: attached };
+          } catch (cause) {
+            setDocumentError(uploadMessage(cause));
+            setProgress(null);
+            setStep('form');
+            return;
+          }
+        }
+      }
+
       const response = await fetch('/api/partner-interest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -208,6 +248,7 @@ export default function PartnerInterestPage() {
           proposal: form.proposal.trim() || null,
           marketing_opt_in: form.marketingOptIn,
           privacy_accepted: true,
+          document: attached,
         }),
       });
       const data = (await response.json().catch(() => null)) as {
@@ -237,12 +278,18 @@ export default function PartnerInterestPage() {
 
   const startAnother = () => {
     setForm(EMPTY);
+    setDocument(null);
+    setDocumentError(null);
+    setProgress(null);
+    uploaded.current = null;
     setErrors({});
     setFailure(null);
     setStep('form');
   };
 
   const preview = valuePreview(form.estimatedValue);
+  /** Bytes are still moving. Once they stop, the wait is the API call. */
+  const uploading = progress !== null && progress < 1;
 
   return (
     <div
@@ -436,44 +483,35 @@ export default function PartnerInterestPage() {
               </FormSection>
 
               <FormSection n="04" title="Additional information">
-                {/* HONEST PLACEHOLDER. There is no file upload anywhere in
-                    this project: no storage bucket, no signed-upload route,
-                    no size or type gate, and a control that looked like one
-                    would be a lie to anyone who used it. So this says what is
-                    actually true and gives a route that works today. */}
-                <div className="rounded-xl border border-dashed border-border/70 bg-background/30 p-5">
-                  <p className="flex items-center gap-2.5 font-body text-sm font-medium text-foreground">
-                    <Paperclip aria-hidden="true" className="h-4 w-4" />
-                    Supporting material, optional
-                  </p>
-                  <p className="mt-2.5 font-body text-sm leading-relaxed text-muted-foreground">
-                    If you have something that would help us understand your
-                    organisation, we would like to see it. A company profile,
-                    an organisation brochure, a sponsorship deck, a capability
-                    statement, a corporate presentation, or anything similar.
-                  </p>
-                  <ul className="mt-4 flex flex-wrap gap-1.5">
-                    {[
-                      'Company profile',
-                      'Organisation brochure',
-                      'Sponsorship deck',
-                      'Capability statement',
-                      'Corporate presentation',
-                    ].map((kind) => (
-                      <li
-                        key={kind}
-                        className="rounded-full bg-foreground/[0.06] px-3 py-1 font-body text-[0.7rem] text-foreground/75"
-                      >
-                        {kind}
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="mt-4 border-t border-border/60 pt-4 font-body text-sm leading-relaxed text-muted-foreground">
-                    Attaching a document here is not open yet. Until it is,
-                    reply to the confirmation email you will receive in a
-                    moment and send it that way. It reaches the same people,
-                    with your Expression of Interest already on the thread.
-                  </p>
+                <p className="font-body text-sm leading-relaxed text-muted-foreground">
+                  If you have something that would help us understand your
+                  organisation, we would like to see it. A company profile, an
+                  organisation brochure, a sponsorship deck, a capability
+                  statement, a corporate presentation, or anything similar.
+                </p>
+                <ul className="mt-4 flex flex-wrap gap-1.5">
+                  {[
+                    'Company profile',
+                    'Organisation brochure',
+                    'Sponsorship deck',
+                    'Capability statement',
+                    'Corporate presentation',
+                  ].map((kind) => (
+                    <li
+                      key={kind}
+                      className="rounded-full bg-foreground/[0.06] px-3 py-1 font-body text-[0.7rem] text-foreground/75"
+                    >
+                      {kind}
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-5">
+                  <DocumentField
+                    file={document_}
+                    onChange={setDocument}
+                    error={documentError ?? undefined}
+                    onError={setDocumentError}
+                  />
                 </div>
 
                 <div className="mt-6 space-y-3">
@@ -531,11 +569,37 @@ export default function PartnerInterestPage() {
                 className="mx-auto block h-10 w-10 animate-spin rounded-full border-2 border-primary/25 border-t-primary"
               />
               <p className="mt-8 font-display text-2xl italic text-foreground">
-                Sending it to the desk
+                {uploading ? 'Sending your document' : 'Sending it to the desk'}
               </p>
               <p className="mx-auto mt-3 max-w-sm font-body text-sm leading-relaxed text-muted-foreground">
                 One moment. Please do not close this page.
               </p>
+
+              {/* REAL BYTES ON THE WIRE, not a spinner pretending to be one.
+                  A 10 MB deck on a mobile connection takes long enough that a
+                  screen which only says "one moment" reads as frozen. */}
+              {uploading && document_ && (
+                <div className="mx-auto mt-8 max-w-sm">
+                  <div
+                    role="progressbar"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.round((progress ?? 0) * 100)}
+                    aria-label={`Uploading ${document_.name}`}
+                    className="h-1 overflow-hidden rounded-full bg-foreground/10"
+                  >
+                    <motion.div
+                      className="h-full rounded-full bg-accent"
+                      initial={false}
+                      animate={{ width: `${Math.max(4, (progress ?? 0) * 100)}%` }}
+                      transition={{ duration: 0.3, ease: EASE.out }}
+                    />
+                  </div>
+                  <p className="mt-3 truncate font-body text-xs text-muted-foreground">
+                    {document_.name} · {Math.round((progress ?? 0) * 100)}%
+                  </p>
+                </div>
+              )}
             </motion.div>
           )}
 
