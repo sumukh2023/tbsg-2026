@@ -6,7 +6,8 @@ import { TextEffect } from '@/components/motion/text-effect';
 import { EASE } from '@/utils/motion';
 import { Grain } from '../materials';
 import { CarnivalMark } from '../CarnivalMark';
-import { PassCard, type PassData } from '../getpasses/PassCard';
+import { type PassData } from '../getpasses/PassCard';
+import { PrintablePass } from '../getpasses/PrintablePass';
 import { FloatingInput } from '../getpasses/fields';
 
 type LoadState =
@@ -286,7 +287,7 @@ export default function PassPage() {
           transition={{ duration: 0.9, ease: EASE.out }}
           className="mb-16"
         >
-          <PassCard pass={state.pass} />
+          <PrintablePass pass={state.pass} />
           {state.pass.status === 'checked_in' && state.checkedInAt && (
             <p className="mt-4 text-center font-body text-xs text-muted-foreground">
               Checked in at{' '}

@@ -480,11 +480,14 @@ export function LiveUpdates() {
                   <h2 className="font-display text-3xl font-medium tracking-tight text-foreground">
                     Live Updates
                   </h2>
-                  <p className="mt-1 font-body text-xs text-muted-foreground">
-                    {live
-                      ? 'Connected, updates arrive as they are published'
-                      : 'Refreshed every minute'}
-                  </p>
+                  {/* Only the FALLBACK is worth saying. A live connection
+                      announcing itself is the software talking about itself;
+                      the panel being live is evident from it being live. */}
+                  {!live && (
+                    <p className="mt-1 font-body text-xs text-muted-foreground">
+                      Refreshed every minute
+                    </p>
+                  )}
                 </div>
                 <button
                   ref={closeRef}

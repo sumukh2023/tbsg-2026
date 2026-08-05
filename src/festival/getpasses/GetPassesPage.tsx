@@ -6,7 +6,7 @@ import { TextEffect } from '@/components/motion/text-effect';
 import { EASE } from '@/utils/motion';
 import { Grain } from '../materials';
 import { CarnivalMark } from '../CarnivalMark';
-import { PassCard } from './PassCard';
+import { PrintablePass } from './PrintablePass';
 import {
   describeLine,
   quoteFor,
@@ -341,7 +341,7 @@ function SuccessView({ pass, form }: { pass: MintedPass; form: FormState }) {
           transition={{ duration: 0.9, delay: 1.6, ease: EASE.out }}
           className="mt-10 w-full"
         >
-          <PassCard
+          <PrintablePass
             pass={{
               token: pass.token,
               reference: pass.reference,
