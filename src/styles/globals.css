@@ -458,9 +458,17 @@
    plain black tint over a saturated backdrop blur, a hairline rim and a
    soft lift. No gradient washes, no specular overlays. */
 .liquid-glass-elevated {
-  background: rgba(18, 20, 18, 0.44);
-  backdrop-filter: blur(18px) saturate(160%);
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  /* A FIXED element with a backdrop-filter makes the compositor re-sample
+     everything behind it on every scrolled frame, and this capsule floats
+     over every page on the site. That is the cost the sections above and
+     below it were paying. The blur comes down from 18px to 10px and the
+     saturate is gone (a second full-surface pass for an effect nobody can
+     name), and the tint is raised slightly so the glass still reads. Its own
+     layer, so the rest of the page is not dragged into its repaints. */
+  background: rgba(18, 20, 18, 0.56);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transform: translateZ(0);
   border: none;
   box-shadow:
     inset 0 1px 1px rgba(255, 255, 255, 0.18),
@@ -605,4 +613,16 @@
       transparent
     );
   }
+}
+
+/* The Italia map's floating dust. CSS rather than JavaScript so it runs on
+   the compositor: transform and opacity only, nothing that touches layout. */
+@keyframes italia-dust {
+  0% { opacity: 0; transform: translate3d(0, 0, 0); }
+  35% { opacity: 0.5; }
+  100% { opacity: 0; transform: translate3d(0, -52px, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [style*='italia-dust'] { animation: none !important; opacity: 0 !important; }
 }

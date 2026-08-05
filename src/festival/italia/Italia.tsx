@@ -28,7 +28,6 @@ import { PLACES } from './places';
  */
 export function Italia() {
   const [awake, setAwake] = useState(false);
-  const [hovered, setHovered] = useState<string | null>(null);
   const [openSlug, setOpenSlug] = useState<string | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
 
@@ -42,6 +41,13 @@ export function Italia() {
   );
 
   const wake = useCallback(() => setAwake(true), []);
+
+  /** Stable, so `memo` on the marker actually holds. */
+  const toggle = useCallback(
+    (slug: string) =>
+      setOpenSlug((current) => (current === slug ? null : slug)),
+    []
+  );
 
   const explore = useCallback(() => {
     setAwake(true);
@@ -112,7 +118,11 @@ export function Italia() {
           role="group"
           aria-label="Interactive map of Italy. Continue with Tab to move between places, Enter to open one."
           className="relative rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
-          onMouseEnter={wake}
+          /* pointerenter, not mouseenter: the same reason the markers use
+             pointer events. And the section wakes on ENTERING VIEW on every
+             device, not only on touch, so a visitor who never crosses the map
+             with a cursor still sees the exhibit fill in. */
+          onPointerEnter={wake}
           onFocus={wake}
         >
           <motion.div
@@ -122,9 +132,7 @@ export function Italia() {
             transition={{ duration: 1.1, ease: EASE.out }}
             /* On touch there is no hover to wake it, so coming into view
                does. `once` so it never re-fires on the way back up. */
-            onViewportEnter={() => {
-              if (compact) wake();
-            }}
+            onViewportEnter={wake}
             /* When a card opens the country steps aside rather than being
                covered by it. A panel that hides the exhibit it belongs to is
                a modal with extra steps; this keeps both on screen, which is
@@ -140,22 +148,22 @@ export function Italia() {
               awake={awake}
               className="h-[52vh] w-full touch-pan-y md:h-[60vh] lg:h-[68vh]"
             >
-              <AnimatePresence>
-                {awake &&
-                  PLACES.map((place, i) => (
-                    <PlaceMarker
-                      key={place.slug}
-                      place={place}
-                      index={i}
-                      open={openSlug === place.slug}
-                      hovered={hovered === place.slug}
-                      onHover={setHovered}
-                      onOpen={(slug) =>
-                        setOpenSlug((current) => (current === slug ? null : slug))
-                      }
-                    />
-                  ))}
-              </AnimatePresence>
+              {/* No AnimatePresence: nothing here ever unmounts, so all it
+                  was doing was wrapping sixteen children in a context that
+                  re-renders them. `openSlug` is passed as a boolean per
+                  marker and `toggle` is stable, so opening a city re-renders
+                  the one that opened and the one that closed, never the
+                  other fourteen. */}
+              {awake &&
+                PLACES.map((place, i) => (
+                  <PlaceMarker
+                    key={place.slug}
+                    place={place}
+                    index={i}
+                    open={openSlug === place.slug}
+                    onOpen={toggle}
+                  />
+                ))}
             </ItalyMap>
 
             {!awake && (

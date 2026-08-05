@@ -67,8 +67,8 @@ export const ItalyMap = memo(function ItalyMap({
         <filter id={id('parchment')} x="-10%" y="-10%" width="120%" height="120%">
           <feTurbulence
             type="fractalNoise"
-            baseFrequency="0.9"
-            numOctaves="4"
+            baseFrequency="0.85"
+            numOctaves="2"
             seed="7"
             result="grain"
           />
@@ -82,31 +82,28 @@ export const ItalyMap = memo(function ItalyMap({
           <feBlend in="SourceGraphic" in2="paper" mode="multiply" />
         </filter>
 
-        {/* The emboss. A displaced, blurred copy of the shape lit from the
-            top left — the same trick a printer's blind stamp uses, which is
-            why it reads as pressed rather than as a bevel. */}
-        <filter id={id('emboss')} x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur" />
-          <feSpecularLighting
-            in="blur"
-            surfaceScale="2.5"
-            specularConstant="0.5"
-            specularExponent="18"
-            lightingColor="#fffaf0"
-            result="spec"
-          >
-            <feDistantLight azimuth="315" elevation="58" />
-          </feSpecularLighting>
-          <feComposite in="spec" in2="SourceAlpha" operator="in" result="lit" />
+        {/* The emboss.
+            This was `feSpecularLighting` with a distant light, which looks
+            superb and is the most expensive primitive in the SVG filter set:
+            it evaluates a lighting model per pixel over the whole country,
+            and it sat inside the group that breathes. An inner highlight
+            built from an offset, blurred alpha reads the same at this size
+            for a small fraction of the work. */}
+        <filter id={id('emboss')} x="-15%" y="-15%" width="130%" height="130%">
+          <feOffset in="SourceAlpha" dx="-1.5" dy="-2" result="up" />
+          <feGaussianBlur in="up" stdDeviation="2.5" result="soft" />
           <feComposite
-            in="SourceGraphic"
-            in2="lit"
-            operator="arithmetic"
-            k1="0"
-            k2="1"
-            k3="0.85"
-            k4="0"
+            in="soft"
+            in2="SourceAlpha"
+            operator="in"
+            result="inner"
           />
+          <feFlood floodColor="#FFFBF2" floodOpacity="0.55" result="light" />
+          <feComposite in="light" in2="inner" operator="in" result="sheen" />
+          <feMerge>
+            <feMergeNode in="SourceGraphic" />
+            <feMergeNode in="sheen" />
+          </feMerge>
         </filter>
 
         {/* Sitting on the page rather than printed on it. */}
@@ -161,12 +158,23 @@ export const ItalyMap = memo(function ItalyMap({
       {/* THE COUNTRY.
           The breathing is on a group rather than on the paths, so the markers
           inside ride with it and never drift off their cities. */}
+      {/* THE BREATHING IS ON THE OUTSIDE OF THE FILTERS.
+          It used to be on the same group that carries the drop shadow, with
+          the emboss and the parchment nested inside it, so every frame of a
+          thirteen-second loop asked the engine to re-evaluate three filters
+          over the whole country. Out here it is a plain transform on an
+          already-rasterised subtree, which is the compositor's job and not
+          the CPU's. */}
       <motion.g
-        filter={`url(#${id('lift')})`}
         animate={still ? undefined : { scale: [1, 1.012, 1] }}
         transition={{ duration: 13, repeat: Infinity, ease: 'easeInOut' }}
-        style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
+        style={{
+          transformOrigin: 'center',
+          transformBox: 'fill-box',
+          willChange: still ? undefined : 'transform',
+        }}
       >
+      <g filter={`url(#${id('lift')})`}>
         <g filter={`url(#${id('emboss')})`}>
           {ITALY_PATHS.map((d, i) => (
             <path key={i} d={d} fill={`url(#${id('land')})`} />
@@ -218,6 +226,7 @@ export const ItalyMap = memo(function ItalyMap({
             }
           />
         ))}
+      </g>
       </motion.g>
 
       {children}
@@ -233,29 +242,27 @@ export const ItalyMap = memo(function ItalyMap({
 function Dust() {
   return (
     <g aria-hidden="true">
-      {Array.from({ length: 12 }, (_, i) => {
+      {Array.from({ length: 6 }, (_, i) => {
         const x = ((i * 137) % 90) / 100;
         const y = ((i * 211) % 88) / 100;
         const r = 1.6 + ((i * 7) % 5) * 0.5;
         const dur = 18 + ((i * 5) % 11);
         return (
-          <motion.circle
+          /* CSS, not Framer. Twelve JS-driven infinite animations meant
+             twelve subscriptions ticking on the main thread for the life of
+             the page, updating attributes React then had to leave alone.
+             Six CSS keyframe animations on transform and opacity run on the
+             compositor and cost the main thread nothing at all. */
+          <circle
             key={i}
             cx={x * VIEW_WIDTH}
             cy={y * VIEW_HEIGHT}
             r={r}
             fill="#F6E7B0"
-            initial={{ opacity: 0 }}
-            animate={{
-              opacity: [0, 0.5, 0],
-              y: [0, -26 - (i % 4) * 8, -52],
-              x: [0, (i % 3) - 1, 0],
-            }}
-            transition={{
-              duration: dur,
-              repeat: Infinity,
-              delay: (i * dur) / 12,
-              ease: 'easeInOut',
+            opacity={0}
+            style={{
+              animation: `italia-dust ${dur}s ease-in-out ${(i * dur) / 6}s infinite`,
+              willChange: 'transform, opacity',
             }}
           />
         );

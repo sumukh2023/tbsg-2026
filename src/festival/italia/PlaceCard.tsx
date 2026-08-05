@@ -94,7 +94,7 @@ export function PlaceCard({
             ? { opacity: 0, y: 40 }
             : { opacity: 0, y: 14, scale: 0.96 }
       }
-      transition={{ duration: still ? 0.15 : 0.52, ease: EASE_OUT_QUART }}
+      transition={{ duration: still ? 0.12 : 0.34, ease: EASE_OUT_QUART }}
       className={cn(
         'relative overflow-hidden text-left shadow-[0_28px_70px_-24px_rgba(35,28,20,0.6)] focus:outline-none',
         // 22px, as asked. No border: the shadow and the glass do the
@@ -110,7 +110,10 @@ export function PlaceCard({
 
       {/* The glass. Sitting over the plate rather than under it, so the
           colour of the place shows through the type. */}
-      <div className="relative z-10 backdrop-blur-xl backdrop-saturate-125">
+      {/* blur-md, not blur-xl: the plate underneath is a soft gradient, so
+          a heavier blur costs a large-surface filter pass and changes almost
+          nothing on screen. */}
+      <div className="relative z-10 backdrop-blur-md">
         <div className="bg-[hsl(40_47%_97%/0.82)] px-6 pb-6 pt-6 md:px-7">
           {sheet && (
             <div
@@ -197,7 +200,7 @@ export function PlaceCard({
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.38, ease: EASE_OUT_QUART }}
+                        transition={{ duration: 0.26, ease: EASE_OUT_QUART }}
                         className="overflow-hidden"
                       >
                         <p className="pb-4 pl-7 pr-2 font-body text-[0.82rem] leading-relaxed text-muted-foreground">
@@ -238,6 +241,7 @@ function Backdrop({ place, still }: { place: PlacedPlace; still: boolean }) {
         className="absolute inset-[-8%]"
         style={{
           background: `radial-gradient(120% 90% at 20% 15%, ${from} 0%, ${to} 62%, #1B140E 100%)`,
+          willChange: still ? undefined : 'transform',
         }}
         animate={still ? undefined : { scale: [1, 1.12, 1], x: [0, -10, 0] }}
         transition={{ duration: 34, repeat: Infinity, ease: 'easeInOut' }}

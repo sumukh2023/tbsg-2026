@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import type { PlacedPlace } from './places';
 
@@ -50,28 +50,38 @@ const GLYPH_FOR: Record<string, keyof typeof GLYPHS> = {
   dolomiti: 'peak',
 };
 
-const PLATE = 17; // half-width of the rounded plate, in view units
+// Half-width of the plate. Down from 17: the markers were reading as buttons
+// on a map rather than as marks on an exhibit, and sixteen of them at that
+// size is most of Tuscany.
+const PLATE = 14;
 const EASE_OUT_QUART = [0.165, 0.84, 0.44, 1] as const;
 
 export const PlaceMarker = memo(function PlaceMarker({
   place,
   index,
   open,
-  hovered,
-  onHover,
   onOpen,
 }: {
   place: PlacedPlace;
   index: number;
   open: boolean;
-  hovered: boolean;
-  onHover: (slug: string | null) => void;
   onOpen: (slug: string) => void;
 }) {
   const still = useReducedMotion();
+  /**
+   * HOVER LIVES HERE, not in the section.
+   *
+   * It used to be one `hovered` slug in the parent, which meant moving the
+   * cursor across the map re-rendered ALL SIXTEEN markers on every enter and
+   * every leave: thirty-two renders to light one plate. Owning it locally
+   * means a hover re-renders exactly the marker under the cursor, and the
+   * other fifteen never hear about it.
+   */
+  const [hovered, setHovered] = useState(false);
   const active = hovered || open;
   const dir = place.side === 'left' ? -1 : 1;
-  const labelX = place.x + dir * (PLATE + 14);
+  // More air between the plate and its name than before (14 -> 20).
+  const labelX = place.x + dir * (PLATE + 20);
   const anchor = place.side === 'left' ? 'end' : 'start';
 
   return (
@@ -81,10 +91,14 @@ export const PlaceMarker = memo(function PlaceMarker({
       aria-label={`${place.name}, ${place.epithet}. Open`}
       aria-expanded={open}
       className="cursor-pointer focus:outline-none"
-      onHoverStart={() => onHover(place.slug)}
-      onHoverEnd={() => onHover(null)}
-      onFocus={() => onHover(place.slug)}
-      onBlur={() => onHover(null)}
+      /* POINTER events, not mouse. Framer's onHoverStart is a mouse-event
+         wrapper, and it is the reason hover was unreliable outside Chrome;
+         pointerenter/leave are what every current engine implements the same
+         way, and they cover pen and touch as well. */
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => setHovered(false)}
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
       onClick={() => onOpen(place.slug)}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -131,7 +145,7 @@ export const PlaceMarker = memo(function PlaceMarker({
           strokeWidth="1.2"
           initial={{ scale: 1, opacity: 0.55 }}
           animate={{ scale: 2.1, opacity: 0 }}
-          transition={{ duration: 1.5, repeat: Infinity, ease: 'easeOut' }}
+          transition={{ duration: 0.9, ease: 'easeOut' }}
           style={{
             transformOrigin: `${place.x}px ${place.y}px`,
             transformBox: 'view-box',
@@ -195,7 +209,7 @@ export const PlaceMarker = memo(function PlaceMarker({
         textAnchor={anchor}
         dominantBaseline="middle"
         className="pointer-events-none select-none font-display"
-        style={{ fontSize: 30, fontWeight: 500 }}
+        style={{ fontSize: 27, fontWeight: 500 }}
         animate={{ fill: active ? '#B08D2F' : '#332C24' }}
         transition={{ duration: 0.3 }}
       >

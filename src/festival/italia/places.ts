@@ -288,7 +288,7 @@ const PLACES_RAW: Omit<Place, 'x' | 'y'>[] = [
     lat: 43.7228,
     lon: 10.4017,
     side: 'left',
-    nudge: { y: -2 },
+    nudge: { y: 14 },
     landmarks: ['The Leaning Tower', 'The Piazza dei Miracoli'],
     lede: 'A maritime republic remembered for a mistake in its foundations.',
     facets: [

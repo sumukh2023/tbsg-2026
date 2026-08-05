@@ -215,7 +215,8 @@ function PartnersHero() {
         style={{ y: copyY, opacity: copyFade }}
         className="relative z-10 mx-auto w-full max-w-3xl px-6 text-center md:px-10"
       >
-        {/* The wordmark reads as ink, with the @ carrying the page's accent.
+        {/* The wordmark reads as ink, with the @ carrying the page's own
+            burgundy (`--primary`, the partners chapter's schematic colour).
             One character of colour is enough to place it, and it keeps the
             eyebrow from competing with the title underneath. */}
         <motion.p
@@ -224,7 +225,7 @@ function PartnersHero() {
           transition={{ duration: 0.8, delay: 0.4, ease: EASE.out }}
           className="font-body text-xs font-semibold uppercase tracking-[0.3em] text-foreground"
         >
-          Flash <span className="text-accent">@</span> Brigade
+          Flash <span className="text-primary">@</span> Brigade
         </motion.p>
         <TextEffect
           as="h1"
@@ -569,7 +570,7 @@ export default function PartnersPage() {
                 the gate in years, teachers, and much of the neighbourhood.
               </p>
               <p className="font-body text-base leading-relaxed text-muted-foreground">
-                The Brigade Foundation looks for partners rather than patrons:
+                Brigade Foundation looks for partners rather than patrons:
                 people and organisations who share the concern and want to put
                 weight behind it.
               </p>
