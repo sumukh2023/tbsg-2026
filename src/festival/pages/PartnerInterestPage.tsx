@@ -20,15 +20,15 @@ import {
 import { formatRupees } from '@/utils/money';
 
 /**
- * /partner-interest — the sponsor Expression of Interest.
+ * /partner-interest, the sponsor Expression of Interest.
  *
  * Three screens on one route (form, sending, done) rather than three routes,
  * for the same reasons /donate is: a half-filled approach is not something
  * anyone should land on from a bookmark, and everything typed has to survive
  * a failed submit.
  *
- * Built entirely from pieces that already existed — the Get Passes field
- * primitives, the shared form chrome, the evening ground — so it reads as the
+ * Built entirely from pieces that already existed: the Get Passes field
+ * primitives, the shared form chrome, the evening ground, so it reads as the
  * same site as Donate and Get Passes without any of it being reimplemented
  * here. What is specific to this page is the QUESTIONS, which is as it should
  * be: nothing else about it is new.
@@ -52,10 +52,10 @@ const ORGANISATION_TYPES = [
  * deliberately not Gold/Silver/Bronze.
  */
 const SPONSORSHIP_INTERESTS = [
-  { value: 'powered-by', label: 'Powered By — title partner' },
-  { value: 'co-powered-by', label: 'Co-powered By — supporting partner' },
-  { value: 'event-organised-by', label: 'Event Organised By — event partner' },
-  { value: 'undecided', label: 'Not sure yet — talk it through with us' },
+  { value: 'powered-by', label: 'Powered By · title partner' },
+  { value: 'co-powered-by', label: 'Co-powered By · supporting partner' },
+  { value: 'event-organised-by', label: 'Event Organised By · event partner' },
+  { value: 'undecided', label: 'Not sure yet, talk it through with us' },
 ] as const;
 
 type Form = {
@@ -122,6 +122,16 @@ function validate(form: Form): Errors {
   }
   if (!form.sponsorshipInterest) {
     errors.sponsorshipInterest = 'Please choose which partnership interests you.';
+  }
+  // Required now, and validated on the VALUE rather than on the string: an
+  // estimate written as "5,00,000" or "₹5 lakh" is a real answer, and only a
+  // field with no digits in it at all is a blank one.
+  if (!/\d/.test(form.estimatedValue)) {
+    errors.estimatedValue =
+      'Please give a rough figure. An estimate is enough.';
+  }
+  if (form.proposal.trim().length < 10) {
+    errors.proposal = 'Please tell us a little about what you have in mind.';
   }
   if (!form.privacyAccepted) {
     errors.privacyAccepted = 'Please accept the Privacy Policy to continue.';
@@ -207,7 +217,7 @@ export default function PartnerInterestPage() {
 
       if (!response.ok) {
         // Back to the form with everything still typed in it, and the
-        // server's own sentence rather than a generic one — it is the only
+        // server's own sentence rather than a generic one. It is the only
         // thing that knows whether this was a bad address or too many tries.
         setFailure(data?.error ?? 'We could not send that just now.');
         setStep('form');
@@ -335,7 +345,6 @@ export default function PartnerInterestPage() {
                     onChange={(v) => set('website', v)}
                     autoComplete="url"
                     maxLength={300}
-                    hint="acme.com is fine — we will make it a link."
                   />
                   <FloatingSelect
                     id="organisationType"
@@ -406,44 +415,64 @@ export default function PartnerInterestPage() {
                   />
                   <FloatingInput
                     id="estimatedValue"
-                    label="Estimated sponsorship value (optional)"
+                    label="Estimated sponsorship value"
                     value={form.estimatedValue}
                     onChange={(v) => set('estimatedValue', v)}
                     inputMode="numeric"
                     maxLength={20}
-                    hint={
-                      preview
-                        ? `We will read that as ${preview}. Nothing is committed by writing it here.`
-                        : 'In rupees. An estimate is enough, and it commits you to nothing.'
-                    }
+                    error={errors.estimatedValue}
+                    hint={preview ? `We will read that as ${preview}.` : undefined}
                   />
                   <FloatingTextarea
                     id="proposal"
-                    label="Message or proposal (optional)"
+                    label="Message or proposal"
                     value={form.proposal}
                     onChange={(v) => set('proposal', v)}
                     maxLength={4000}
                     rows={7}
+                    error={errors.proposal}
                   />
                 </div>
               </FormSection>
 
               <FormSection n="04" title="Additional information">
                 {/* HONEST PLACEHOLDER. There is no file upload anywhere in
-                    this project — no storage bucket, no signed-upload route,
-                    no size or type gate — and a control that looked like one
+                    this project: no storage bucket, no signed-upload route,
+                    no size or type gate, and a control that looked like one
                     would be a lie to anyone who used it. So this says what is
                     actually true and gives a route that works today. */}
                 <div className="rounded-xl border border-dashed border-border/70 bg-background/30 p-5">
                   <p className="flex items-center gap-2.5 font-body text-sm font-medium text-foreground">
                     <Paperclip aria-hidden="true" className="h-4 w-4" />
-                    Company profile or deck
+                    Supporting material, optional
                   </p>
                   <p className="mt-2.5 font-body text-sm leading-relaxed text-muted-foreground">
-                    Uploads are not open yet. Send anything you would like us
-                    to see as a reply to the confirmation email you will get in
-                    a moment — it reaches the same people, with your
-                    Expression of Interest already attached to the thread.
+                    If you have something that would help us understand your
+                    organisation, we would like to see it. A company profile,
+                    an organisation brochure, a sponsorship deck, a capability
+                    statement, a corporate presentation, or anything similar.
+                  </p>
+                  <ul className="mt-4 flex flex-wrap gap-1.5">
+                    {[
+                      'Company profile',
+                      'Organisation brochure',
+                      'Sponsorship deck',
+                      'Capability statement',
+                      'Corporate presentation',
+                    ].map((kind) => (
+                      <li
+                        key={kind}
+                        className="rounded-full bg-foreground/[0.06] px-3 py-1 font-body text-[0.7rem] text-foreground/75"
+                      >
+                        {kind}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-4 border-t border-border/60 pt-4 font-body text-sm leading-relaxed text-muted-foreground">
+                    Attaching a document here is not open yet. Until it is,
+                    reply to the confirmation email you will receive in a
+                    moment and send it that way. It reaches the same people,
+                    with your Expression of Interest already on the thread.
                   </p>
                 </div>
 

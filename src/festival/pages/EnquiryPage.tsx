@@ -16,7 +16,7 @@ import { CHAPTERS } from './chapters';
 const chapter = CHAPTERS[4];
 
 /**
- * /enquiry — the front desk.
+ * /enquiry, the festival desk.
  *
  * The form is INLINE, not a floating panel. Get Passes and Donate are tasks
  * you arrived to perform, so they get their own evening shell and a glass
@@ -225,9 +225,7 @@ export default function EnquiryPage() {
               Ask us anything
             </h2>
             <p className="mt-5 font-body text-base leading-relaxed text-muted-foreground md:text-lg">
-              One form, read by the organising team. If it is about the
-              carnival it belongs here, and you will get a reply from a person
-              rather than a queue number.
+              One form, read by the organising team.
             </p>
           </div>
 

@@ -7,7 +7,17 @@ import {
   useScroll,
   useTransform,
 } from 'framer-motion';
-import { ArrowRight, Plus } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowRight,
+  Eye,
+  GraduationCap,
+  HeartHandshake,
+  MonitorSmartphone,
+  Plus,
+  Sprout,
+  Users,
+} from 'lucide-react';
 import { TextEffect } from '@/components/motion/text-effect';
 import { AnimatedGroup } from '@/components/motion/animated-group';
 import { cn } from '@/utils/cn';
@@ -18,13 +28,13 @@ import { PageShell, Band } from './PageShell';
 import { CHAPTERS } from './chapters';
 
 /**
- * /partners — sponsorship.
+ * /partners, sponsorship.
  *
  * Built on the same shell, tokens, type and motion vocabulary as Our Mission,
  * and deliberately NOT on its compositions. Mission is a ceremonial page: a
  * centred hero pool, arched doorways, a dialog that opens over everything.
- * This is a business page and reads like one — the hero copy sits low and
- * left against a rule instead of floating in the middle, the sponsorship
+ * This is a business page and reads like one. The hero copy is centred on a
+ * rule of its own rather than floating in a pool, the sponsorship
  * categories open IN PLACE rather than over the page, and the partner wall is
  * a quiet grid. Same house, different room.
  *
@@ -52,7 +62,7 @@ const CATEGORIES = [
     role: 'Supporting partners',
     summary: 'Several organisations, each carrying a part of the day.',
     body: [
-      'Co-powered By is where most partnerships sit, and it is a group by design. Several organisations each take on a part of the festival — a district of the piazza, a stage, the mercato, the volunteer effort behind it.',
+      'Co-powered By is where most partnerships sit, and it is a group by design. Several organisations each take on a part of the festival: a district of the piazza, a stage, the mercato, the volunteer effort behind it.',
       'Every Co-powered partner is named in the same weight as the others. There is no ranking inside the group, because the day does not happen without all of it.',
     ],
   },
@@ -69,33 +79,103 @@ const CATEGORIES = [
 ] as const;
 
 /**
- * Flash 1.0's partners, from 2023. PLACEHOLDERS: no logo artwork exists in
- * this repository, so each mark is set typographically in the display face
- * rather than shown as a fake image. When the artwork arrives each entry
- * gains a `logo` and the plate renders that instead — the grid is unchanged.
+ * What a partner actually gets. Written as six things rather than three
+ * paragraphs because this is the part a sponsor scans, not the part they
+ * read.
  */
-const FLASH_ONE = [
-  { name: 'Hombale Films' },
-  { name: 'Prem' },
-  { name: 'Living Bean' },
-  { name: 'HCrazy Holidays' },
-  { name: 'SwimLife' },
-  { name: 'EUR' },
+const BENEFITS = [
+  {
+    icon: Eye,
+    title: 'Brand Visibility',
+    body: 'Your name on the gate, the stage, the passes and the programme, in front of everyone who comes through.',
+  },
+  {
+    icon: Users,
+    title: 'Thousands of Visitors',
+    body: 'Families, alumni, staff and neighbours across one day, arriving because it is their school\u2019s carnival.',
+  },
+  {
+    icon: HeartHandshake,
+    title: 'Community Engagement',
+    body: 'A local audience that already knows the school, met somewhere they chose to be rather than through an ad.',
+  },
+  {
+    icon: GraduationCap,
+    title: 'Student Collaboration',
+    body: 'The committee is students. Partners work with them directly, which is the part most partners say they remember.',
+  },
+  {
+    icon: Sprout,
+    title: 'CSR Opportunity',
+    body: 'Every rupee raised goes to children\u2019s education and healthcare, with the accounts published afterwards.',
+  },
+  {
+    icon: MonitorSmartphone,
+    title: 'Digital and On-ground Exposure',
+    body: 'Named on this site and across the festival\u2019s channels, as well as everywhere the day itself is signed.',
+  },
+] as const;
+
+/**
+ * EXAMPLES, and the wording has to keep saying so. Nothing here is promised
+ * to any partner: what a given partnership carries is settled in the
+ * conversation, and a page that reads like a rate card would be writing
+ * cheques the committee has not agreed to.
+ */
+const RECOGNITION = [
+  {
+    title: 'Main Entrance Branding',
+    body: 'The arch everyone walks through, and the first thing photographed.',
+    tone: ['hsl(var(--primary)/0.22)', 'hsl(var(--accent)/0.14)'],
+  },
+  {
+    title: 'Stage Branding',
+    body: 'The backdrop behind every performance and every announcement.',
+    tone: ['hsl(var(--accent)/0.2)', 'hsl(var(--primary)/0.12)'],
+  },
+  {
+    title: 'Website Acknowledgement',
+    body: 'Named on this page, and on the festival pages a visitor actually reads.',
+    tone: ['hsl(var(--primary)/0.16)', 'hsl(var(--accent)/0.2)'],
+  },
+  {
+    title: 'Social Media',
+    body: 'In the run-up and on the day, across the festival\u2019s own channels.',
+    tone: ['hsl(var(--accent)/0.18)', 'hsl(var(--primary)/0.16)'],
+  },
+  {
+    title: 'Event Announcements',
+    body: 'Read out from the stage through the day, not only at the opening.',
+    tone: ['hsl(var(--primary)/0.2)', 'hsl(var(--accent)/0.12)'],
+  },
+  {
+    title: 'Digital Screens',
+    body: 'The screens beside the stage and around the piazza, between acts.',
+    tone: ['hsl(var(--accent)/0.16)', 'hsl(var(--primary)/0.2)'],
+  },
+  {
+    title: 'Printed Collateral',
+    body: 'Programmes, passes, signage and the map handed out at the gate.',
+    tone: ['hsl(var(--primary)/0.14)', 'hsl(var(--accent)/0.18)'],
+  },
 ] as const;
 
 const primaryButton =
   'inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-primary px-9 py-4 font-body text-sm font-medium text-primary-foreground transition-all duration-300 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]';
+
+/** The second action, which must not compete with the first. */
+const quietButton =
+  'inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-border bg-background/50 px-9 py-4 font-body text-sm font-medium text-foreground backdrop-blur-sm transition-all duration-300 hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]';
 
 /* -------------------------------------------------------------------- */
 /*  Hero                                                                 */
 /* -------------------------------------------------------------------- */
 
 /**
- * Full-viewport film with the words held low and left against a rule.
+ * Full-viewport film with the words centred on the rule they hang from.
  *
- * The parallax is the same two-speed idea the rest of the site uses — film
- * slower than copy, and that difference IS the depth — but the arrangement is
- * this page's own: no centred pool, no wordmark, a horizon instead.
+ * The parallax is the same two-speed idea the rest of the site uses: film
+ * slower than copy, and that difference IS the depth.
  */
 function PartnersHero() {
   const ref = useRef<HTMLDivElement>(null);
@@ -104,91 +184,108 @@ function PartnersHero() {
     offset: ['start start', 'end start'],
   });
   const filmY = useTransform(scrollYProgress, [0, 1], ['0%', '14%']);
-  const copyY = useTransform(scrollYProgress, [0.2, 0.9], [0, -70]);
-  const copyFade = useTransform(scrollYProgress, [0.3, 0.85], [1, 0]);
+  const copyY = useTransform(scrollYProgress, [0.25, 0.9], [0, -70]);
+  const copyFade = useTransform(scrollYProgress, [0.35, 0.85], [1, 0]);
 
   return (
     <header
       ref={ref}
       aria-label="Partners"
-      className="relative isolate flex min-h-[100svh] items-end overflow-hidden"
+      className="relative isolate flex min-h-[100svh] items-center overflow-hidden"
     >
       <motion.div
         aria-hidden="true"
         style={{ y: filmY }}
-        className="pointer-events-none absolute -bottom-[14%] inset-x-0 top-0 -z-10"
+        className="pointer-events-none absolute inset-x-0 -bottom-[14%] top-0 -z-10"
       >
         <HeroFilm
-          // The school's own grounds from the air — the field that becomes
-          // the piazza. Silent, like every film on this site.
-          src="/ground.mp4"
-          webmSrc="/ground.webm"
+          src="/hero.mp4"
+          webmSrc="/hero.webm"
           className="absolute inset-0"
           poster={
-            // Until the film loads, and if it never does, the hero is the
-            // site's own marble rather than a black rectangle.
             <div className="absolute inset-0 bg-background">
               <MarbleVeins className="opacity-60" />
-              <div className="absolute inset-0 bg-[radial-gradient(80%_60%_at_30%_80%,hsl(var(--primary)/0.18),transparent_72%)]" />
+              <div className="absolute inset-0 bg-[radial-gradient(80%_60%_at_50%_40%,hsl(var(--primary)/0.18),transparent_72%)]" />
             </div>
           }
         />
-        {/* Far lighter than Our Mission's 0.7, and deliberately: that hero
-            sets type across the MIDDLE of its frame and needs the whole thing
-            calmed. Here the words are held at the bottom, so the veil only has
-            to seat the film in the site's materials and the gradient below
-            does the actual protecting. Stacking both at full strength was
-            what turned the film into a pale wash. */}
-        <FilmVeil opacity={0.34} />
-        <div className="absolute inset-0 bg-[linear-gradient(to_top,hsl(var(--background)/0.96),hsl(var(--background)/0.72)_30%,hsl(var(--background)/0.2)_58%,transparent_78%)]" />
-        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-background" />
+        {/* Type sits in the MIDDLE of the frame now rather than along the
+            bottom, so the whole film has to be calmed rather than just seated.
+            This is Our Mission's strength for Our Mission's reason. */}
+        <FilmVeil opacity={0.7} />
+        {/* The pool travels with the copy, which is what stops a centred hero
+            reading as a caption laid on a video. */}
+        <div className="absolute inset-0 bg-[radial-gradient(58%_44%_at_50%_50%,hsl(var(--background)/0.72),transparent_72%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-background" />
         <Grain />
       </motion.div>
 
       <motion.div
         style={{ y: copyY, opacity: copyFade }}
-        className="relative z-10 mx-auto w-full max-w-6xl px-6 pb-24 md:px-10 md:pb-32"
+        className="relative z-10 mx-auto w-full max-w-3xl px-6 text-center md:px-10"
       >
-        <div className="flex gap-6 md:gap-8">
-          {/* The spine. It returns at the head of every section below, which
-              is what ties four different layouts into one page without any
-              of them repeating another. */}
-          <motion.div
-            aria-hidden="true"
-            initial={{ scaleY: 0 }}
-            animate={{ scaleY: 1 }}
-            transition={{ duration: 1.1, delay: 0.35, ease: EASE.out }}
-            className="mt-2 w-px origin-top bg-gradient-to-b from-accent via-accent/50 to-transparent"
-          />
-          <div className="min-w-0">
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.5, ease: EASE.out }}
-              className="font-body text-xs font-semibold uppercase tracking-[0.24em] text-accent"
+        {/* The spine, stood on its end. It runs down the page at the head of
+            every section below; here it is the vertical stroke the centred
+            column hangs from, so the page's one identifying mark survives the
+            move to the middle. */}
+        <motion.div
+          aria-hidden="true"
+          initial={{ scaleY: 0 }}
+          animate={{ scaleY: 1 }}
+          transition={{ duration: 1.1, delay: 0.3, ease: EASE.out }}
+          className="mx-auto h-16 w-px origin-top bg-gradient-to-b from-transparent via-accent/60 to-accent"
+        />
+        <motion.p
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.55, ease: EASE.out }}
+          className="mt-7 font-body text-xs font-semibold uppercase tracking-[0.3em] text-accent"
+        >
+          Flash @ Brigade
+        </motion.p>
+        <TextEffect
+          as="h1"
+          per="word"
+          preset="fade-in-blur"
+          delay={0.7}
+          className="mt-6 font-display text-5xl font-medium leading-[1.02] tracking-tight text-foreground sm:text-6xl md:text-7xl lg:text-8xl"
+        >
+          Partner With Us
+        </TextEffect>
+        <motion.p
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1, delay: 1.15, ease: EASE.out }}
+          className="mx-auto mt-8 max-w-xl font-body text-base leading-relaxed text-muted-foreground md:text-lg"
+        >
+          Support a student-led carnival that brings together the community
+          while raising funds for a meaningful cause.
+        </motion.p>
+
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.9, delay: 1.45, ease: EASE.out }}
+          className="mt-11 flex flex-col items-center justify-center gap-4 sm:flex-row"
+        >
+          <Link to="/partner-interest" className={primaryButton}>
+            Partner With Us
+            <ArrowRight aria-hidden="true" className="h-4 w-4" />
+          </Link>
+          <a href="#why-partner" className={quietButton}>
+            Read More
+            {/* The same arrow the landing page uses to send you down the
+                page: it settles, then nudges once under the cursor. */}
+            <motion.span
+              aria-hidden="true"
+              animate={{ y: [0, 4, 0] }}
+              transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+              className="inline-flex"
             >
-              Insieme · Partnership
-            </motion.p>
-            <TextEffect
-              as="h1"
-              per="char"
-              preset="fade-in-blur"
-              delay={0.65}
-              className="mt-5 font-display text-6xl font-medium leading-[0.95] tracking-tight text-foreground sm:text-7xl md:text-8xl lg:text-9xl"
-            >
-              Partners
-            </TextEffect>
-            <motion.p
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1, delay: 1.1, ease: EASE.out }}
-              className="mt-8 max-w-xl font-body text-base leading-relaxed text-muted-foreground md:text-lg"
-            >
-              Support a student-led carnival that brings together the community
-              while raising funds for a meaningful cause.
-            </motion.p>
-          </div>
-        </div>
+              <ArrowDown className="h-4 w-4" />
+            </motion.span>
+          </a>
+        </motion.div>
       </motion.div>
     </header>
   );
@@ -234,7 +331,7 @@ function SectionHead({
  * an IntersectionObserver clips against ancestor overflow, so an element that
  * starts translated out of its own clip box is never observed as visible and
  * the reveal never fires. That cost this project a page of invisible headings
- * once already — see the Mission page's `Rise`.
+ * once already. See the Mission page's `Rise`.
  */
 function Reveal({
   children,
@@ -354,20 +451,105 @@ function CategoryCard({
   );
 }
 
+/**
+ * A benefit. Everything that moves on hover moves TOGETHER, the plate lifting
+ * as the rule draws and the icon warms, because three separate little
+ * animations on one card is a card that fidgets.
+ */
+function BenefitCard({
+  benefit,
+}: {
+  benefit: (typeof BENEFITS)[number];
+}) {
+  const Icon = benefit.icon;
+  return (
+    <motion.article
+      whileHover={{ y: -6 }}
+      transition={{ duration: 0.4, ease: EASE.out }}
+      className="group relative h-full overflow-hidden rounded-2xl border border-border/60 bg-card p-7 transition-shadow duration-500 hover:shadow-[0_24px_50px_-28px_hsl(var(--primary)/0.45)]"
+    >
+      <span
+        aria-hidden="true"
+        className="absolute inset-x-0 top-0 h-px origin-left scale-x-0 bg-gradient-to-r from-accent via-accent/60 to-transparent transition-transform duration-700 group-hover:scale-x-100"
+      />
+      <Icon
+        aria-hidden="true"
+        className="h-6 w-6 text-accent transition-transform duration-500 group-hover:scale-110"
+      />
+      <h3 className="mt-5 font-display text-2xl font-medium tracking-tight text-foreground">
+        {benefit.title}
+      </h3>
+      <p className="mt-3 font-body text-sm leading-relaxed text-muted-foreground">
+        {benefit.body}
+      </p>
+    </motion.article>
+  );
+}
+
+/**
+ * A recognition example.
+ *
+ * The plate at the top is a WASH, not a photograph, and that is not a
+ * placeholder waiting to be filled: there is no photograph of a 2026 entrance
+ * arch because the arch does not exist yet, and staging a mock-up of one
+ * would be showing a sponsor something that has not been built. The wash
+ * carries the page's own colours and the label does the work.
+ */
+function RecognitionCard({
+  item,
+}: {
+  item: (typeof RECOGNITION)[number];
+}) {
+  return (
+    <motion.article
+      whileHover={{ y: -6 }}
+      transition={{ duration: 0.4, ease: EASE.out }}
+      className="group h-full overflow-hidden rounded-2xl border border-border/60 bg-background transition-shadow duration-500 hover:shadow-[0_24px_50px_-28px_hsl(var(--primary)/0.4)]"
+    >
+      <div
+        aria-hidden="true"
+        className="relative h-28 overflow-hidden"
+        style={{
+          background: `linear-gradient(135deg, ${item.tone[0]}, ${item.tone[1]})`,
+        }}
+      >
+        <MarbleVeins className="opacity-40" />
+        <motion.div
+          className="absolute inset-0 bg-[radial-gradient(60%_120%_at_20%_0%,hsl(var(--background)/0.55),transparent_70%)]"
+          initial={false}
+          whileHover={{ opacity: 0.6 }}
+        />
+        <span className="absolute inset-x-0 bottom-0 h-px bg-accent/50" />
+      </div>
+      <div className="p-6">
+        <h3 className="font-display text-xl font-medium tracking-tight text-foreground">
+          {item.title}
+        </h3>
+        <p className="mt-2 font-body text-sm leading-relaxed text-muted-foreground">
+          {item.body}
+        </p>
+      </div>
+    </motion.article>
+  );
+}
+
 /* -------------------------------------------------------------------- */
 
 export default function PartnersPage() {
   return (
     <PageShell chapter={chapter} hero={<PartnersHero />}>
       {/* 01 · Why partner with Flash -------------------------------- */}
-      <Band>
+      <Band id="why-partner">
         <SectionHead
           n="01"
           eyebrow="Why partner"
-          title="A day the whole neighbourhood turns up for"
+          title="A day the whole city turns up for"
         />
 
-        <div className="mt-14 grid items-center gap-12 lg:grid-cols-12 lg:gap-16">
+        {/* Tightened from mt-14/gap-12/gap-16. The picture and the words are
+            one thought and were reading as two, with a corridor of empty
+            column between them. */}
+        <div className="mt-9 grid items-start gap-8 lg:grid-cols-12 lg:gap-12">
           {/* The picture takes the wider column, so the section is asymmetric
               rather than a two-up. */}
           <Reveal className="lg:col-span-7">
@@ -387,9 +569,6 @@ export default function PartnersPage() {
                   className="h-full w-full object-cover"
                 />
               </div>
-              <figcaption className="mt-4 font-body text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                The ground, before it becomes a piazza
-              </figcaption>
             </figure>
           </Reveal>
 
@@ -401,16 +580,14 @@ export default function PartnersPage() {
                 and on 14 November they run it.
               </p>
               <p className="font-body text-base leading-relaxed text-muted-foreground">
-                For one day the school opens to everyone it belongs to —
+                For one day the school opens to everyone it belongs to:
                 students and their families, alumni who have not walked through
-                the gate in years, teachers, neighbours, and much of
-                Malleswaram besides. The first edition raised ₹10 lakh.
+                the gate in years, teachers, and much of the neighbourhood.
               </p>
               <p className="font-body text-base leading-relaxed text-muted-foreground">
-                A partner makes that day possible, and is seen making it
-                possible: in front of a crowd that came because it is their
-                school's carnival, not because they were sold a ticket to
-                something.
+                The Brigade Foundation looks for partners rather than patrons:
+                people and organisations who share the concern and want to put
+                weight behind it.
               </p>
             </AnimatedGroup>
 
@@ -460,41 +637,81 @@ export default function PartnersPage() {
         </div>
       </Band>
 
-      {/* 03 · Flash 1.0 partners ------------------------------------ */}
-      <Band>
+      {/* 03 · What a partnership carries ---------------------------- */}
+      <Band id="benefits">
         <SectionHead
           n="03"
-          eyebrow="Flash 1.0 · 2023"
-          title="Who stood with us the first time"
+          eyebrow="Sponsorship benefits"
+          title="What a partnership carries"
         />
 
-        <Reveal className="mt-14">
-          <ul className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border/60 bg-border/60 sm:grid-cols-3">
-            {FLASH_ONE.map((partner, i) => (
-              <motion.li
-                key={partner.name}
-                initial={{ opacity: 0 }}
-                whileInView={{ opacity: 1 }}
-                viewport={{ once: true, margin: '-8%' }}
-                transition={{ duration: 0.7, delay: i * 0.06, ease: EASE.out }}
-                className="group relative flex min-h-32 items-center justify-center bg-card px-6 py-10 text-center transition-colors duration-500 hover:bg-card/60 md:min-h-40"
-              >
-                {/* A gold hairline that draws itself under the name on hover:
-                    the smallest gesture that still reads as a response. */}
-                <span
-                  aria-hidden="true"
-                  className="absolute inset-x-8 bottom-7 h-px origin-left scale-x-0 bg-accent/70 transition-transform duration-500 group-hover:scale-x-100"
-                />
-                <span className="font-display text-xl font-medium tracking-tight text-muted-foreground transition-colors duration-500 group-hover:text-foreground md:text-2xl">
-                  {partner.name}
-                </span>
-              </motion.li>
-            ))}
-          </ul>
+        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {BENEFITS.map((benefit, i) => (
+            <Reveal key={benefit.title} delay={i * 0.07}>
+              <BenefitCard benefit={benefit} />
+            </Reveal>
+          ))}
+        </div>
+      </Band>
+
+      {/* 04 · Examples of recognition ------------------------------- */}
+      <Band tone="raised" id="recognition">
+        <SectionHead
+          n="04"
+          eyebrow="Recognition"
+          title="Examples of recognition opportunities"
+        />
+        <Reveal className="mt-8">
+          <p className="max-w-2xl pl-16 font-body text-base leading-relaxed text-muted-foreground md:pl-24">
+            These are examples of how a partner can appear across the festival,
+            not a fixed list and not a guarantee. What any particular
+            partnership carries is agreed with the student committee when you
+            talk to them.
+          </p>
+        </Reveal>
+
+        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {RECOGNITION.map((item, i) => (
+            <Reveal key={item.title} delay={i * 0.06}>
+              <RecognitionCard item={item} />
+            </Reveal>
+          ))}
+        </div>
+      </Band>
+
+      {/* 05 · Current sponsors -------------------------------------- */}
+      <Band>
+        <SectionHead
+          n="05"
+          eyebrow="Current sponsors"
+          title="Confirmed partners for 2026"
+        />
+
+        <Reveal className="mt-12">
+          <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-card px-8 py-20 text-center md:py-28">
+            <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+              <MarbleVeins className="opacity-30" />
+              <div className="absolute inset-0 bg-[radial-gradient(60%_60%_at_50%_0%,hsl(var(--accent)/0.14),transparent_70%)]" />
+            </div>
+            <div className="relative">
+              <GoldRule className="mx-auto w-16" />
+              <p className="mt-7 font-display text-4xl font-medium tracking-tight text-foreground md:text-5xl">
+                Coming soon
+              </p>
+              <p className="mx-auto mt-6 max-w-lg font-body text-base leading-relaxed text-muted-foreground">
+                Sponsor applications are currently open. Confirmed partners
+                will be shown here as they join Flash @ Brigade 2026.
+              </p>
+              {/* Flash 1.0's partners are not listed here on purpose: this
+                  section answers who is with us THIS year, and filling it with
+                  2023 would answer a question nobody asked. */}
+            </div>
+          </div>
         </Reveal>
       </Band>
 
-      {/* 04 · Become a partner -------------------------------------- */}
+      {/* Become a partner. Unnumbered: it is the page's close, not another
+          chapter of it. --------------------------------------------- */}
       <Band tone="raised">
         <Reveal>
           <div className="relative overflow-hidden rounded-3xl border border-border/60 bg-background px-8 py-16 text-center md:px-16 md:py-24">
@@ -508,16 +725,14 @@ export default function PartnersPage() {
 
             <div className="relative">
               <p className="font-body text-xs font-semibold uppercase tracking-[0.24em] text-accent">
-                04 · Become a partner
+                Become a partner
               </p>
               <h2 className="mx-auto mt-6 max-w-[18ch] font-display text-4xl font-medium leading-[1.06] tracking-tight text-foreground sm:text-5xl md:text-6xl">
                 Tell us what you have in mind
               </h2>
               <p className="mx-auto mt-7 max-w-xl font-body text-base leading-relaxed text-muted-foreground md:text-lg">
                 Organisations interested in partnering with Flash @ Brigade can
-                send an Expression of Interest. It takes a couple of minutes,
-                commits you to nothing, and puts you in front of the student
-                committee rather than a queue.
+                send an Expression of Interest by filling the form below.
               </p>
 
               <div className="mt-11 flex flex-col items-center gap-4">
