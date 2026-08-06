@@ -1,38 +1,37 @@
 import { cn } from '@/utils/cn';
+import { SEAGULL_PATHS, SEAGULL_VIEWBOX } from './seagull-path';
 
 /**
- * The Brigade School seagull, recreated as a vector mark from the carnival
- * logo. Fills with currentColor so it reads as ink on the marble day theme
- * and marble on the evening theme.
+ * The Brigade Schools seagull.
+ *
+ * TRACED FROM THE ARTWORK, NOT DRAWN BY EYE. The previous mark was a
+ * hand-written bezier approximation of the logo and it had the wings wrong.
+ * `scripts/make-seagull-mark.mjs` reads `public/logo.png`, finds the white
+ * silhouette, walks its outline and simplifies it, so what ships is the
+ * school's own shape rather than an impression of one. Re-run that script if
+ * the artwork is ever replaced.
+ *
+ * THE COLOUR IS FIXED and does not inherit. It is an institutional mark: it
+ * belongs to the school, not to the festival's palette, so it must not
+ * re-tint itself per district the way the site's own branding does, and it
+ * must not change colour on hover. The link around it in the navigation keeps
+ * its focus ring and now fades slightly instead; the bird stays the bird.
  */
+
+/** The school's blue. Not a theme token, deliberately: see above. */
+export const BRIGADE_BLUE = '#2B6686';
+
 export function CarnivalMark({ className }: { className?: string }) {
   return (
     <svg
-      viewBox="40 20 660 360"
+      viewBox={SEAGULL_VIEWBOX}
       aria-hidden="true"
-      className={cn('fill-current', className)}
+      className={cn(className)}
+      fill={BRIGADE_BLUE}
     >
-      <path
-        d="M 60 62
-        C 160 36 268 56 342 104
-        C 372 118 402 124 436 118
-        C 468 110 490 100 506 98
-        C 522 90 542 88 557 94
-        L 536 106
-        C 528 116 522 122 518 126
-        C 542 132 566 142 588 156
-        C 642 190 674 264 687 368
-        C 662 318 622 280 572 258
-        C 542 246 506 243 472 249
-        C 434 256 404 270 380 291
-        L 332 305
-        C 340 288 346 278 352 270
-        L 288 298
-        C 300 276 318 258 340 247
-        C 300 236 250 205 200 168
-        C 152 132 100 94 60 62
-        Z"
-      />
+      {SEAGULL_PATHS.map((d) => (
+        <path key={d} d={d} />
+      ))}
     </svg>
   );
 }

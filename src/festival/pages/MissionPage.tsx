@@ -9,7 +9,6 @@ import { cn } from '@/utils/cn';
 import { EASE, REVEAL_VIEWPORT } from '@/utils/motion';
 import { FilmVeil, GoldRule, Grain, MarbleVeins } from '../materials';
 import { FlashWordmark } from '../FlashWordmark';
-import { BrigadeSchoolsMark } from '../BrigadeSchoolsMark';
 import { Band, PageShell } from './PageShell';
 import { HeroFilm } from './HeroFilm';
 import { PhotoCarousel, type Photo } from './PhotoCarousel';
@@ -692,7 +691,22 @@ export default function MissionPage() {
               transition={{ duration: 1.1, ease: EASE.out }}
               className="overflow-hidden rounded-lg shadow-[0_30px_70px_-45px_hsl(var(--foreground)/0.6)]"
             >
-              <BrigadeSchoolsMark className="aspect-[4/3] w-full" />
+              {/* THE ACTUAL LOGO, not a reconstruction of it. The olive
+                  lockup that stood here was built from the site's own vector
+                  seagull and the site's own type; this is the school's
+                  artwork as the school supplies it. `object-cover` at 4/3
+                  only ever crops the flat blue margin: the mark itself spans
+                  y 430..738 of a 1193px image and a centre crop keeps
+                  102..1091, so nothing of the logo is lost. */}
+              <img
+                src="/logo.png"
+                alt="The Brigade Schools"
+                width={1318}
+                height={1193}
+                loading="lazy"
+                decoding="async"
+                className="aspect-[4/3] w-full object-cover"
+              />
             </motion.div>
           </Drift>
         </div>

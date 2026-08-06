@@ -58,7 +58,7 @@ export function PassCard({ pass }: { pass: PassData }) {
 
         <div className="px-7 pb-6 pt-6">
           <div className="flex items-center justify-between">
-            <CarnivalMark className="h-6 w-auto text-foreground" />
+            <CarnivalMark className="h-6 w-auto" />
             <p className="font-body text-2xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
               Flash <span className="text-primary">@</span> Brigade
             </p>

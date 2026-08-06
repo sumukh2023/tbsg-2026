@@ -118,36 +118,59 @@ const BENEFITS = [
  * conversation, and a page that reads like a rate card would be writing
  * cheques the committee has not agreed to.
  */
+/**
+ * Photographs from last year's festival, one per opportunity.
+ *
+ * `focus` is the object-position for the banner. The photographs are all
+ * about 16:9 and the banner is 16:9, so the crop is a fraction of a percent
+ * and nothing is ever squeezed: the value is there to decide which edge
+ * gives, not to rescue a subject from being cut in half.
+ *
+ * The files are the 1280px JPEGs written by
+ * `scripts/optimise-recognition.mjs`. The originals were 34 MB of PNG for a
+ * banner 540 pixels wide, which is a page nobody on mobile data would have
+ * waited for.
+ */
 const RECOGNITION = [
   {
     title: 'Main Entrance Branding',
     body: 'The arch everyone walks through, and the first thing photographed.',
-    tone: ['hsl(var(--primary)/0.22)', 'hsl(var(--accent)/0.14)'],
+    image: '/recognition/main-entrance.jpg',
+    // The arch sits just above centre, over the road in the foreground.
+    focus: '50% 42%',
   },
   {
     title: 'Stage Branding',
     body: 'The backdrop behind every performance and every announcement.',
-    tone: ['hsl(var(--accent)/0.2)', 'hsl(var(--primary)/0.12)'],
+    image: '/recognition/stage-branding.jpg',
+    focus: '50% 50%',
   },
   {
     title: 'Social Media',
     body: 'In the run-up and on the day, across the festival\u2019s own channels.',
-    tone: ['hsl(var(--accent)/0.18)', 'hsl(var(--primary)/0.16)'],
+    image: '/recognition/social-media.jpg',
+    // The phone, and the branding on its screen, is the subject.
+    focus: '50% 55%',
   },
   {
     title: 'Event Announcements',
     body: 'Read out from the stage through the day, not only at the opening.',
-    tone: ['hsl(var(--primary)/0.2)', 'hsl(var(--accent)/0.12)'],
+    image: '/recognition/event-announcements.jpg',
+    focus: '50% 55%',
   },
   {
     title: 'Digital Screens',
     body: 'The screens beside the stage and around the piazza, between acts.',
-    tone: ['hsl(var(--accent)/0.16)', 'hsl(var(--primary)/0.2)'],
+    image: '/recognition/digital-screens.jpg',
+    // The stage and its screens are in the upper half; the ground is not.
+    focus: '50% 32%',
   },
   {
     title: 'Printed Collateral',
     body: 'Programmes, passes, signage and the map handed out at the gate.',
-    tone: ['hsl(var(--primary)/0.14)', 'hsl(var(--accent)/0.18)'],
+    image: '/recognition/printed-collateral.jpg',
+    // The printed sign sits right of centre.
+    focus: '58% 50%',
   },
 ] as const;
 
@@ -473,11 +496,15 @@ function BenefitCard({
 /**
  * A recognition example.
  *
- * The plate at the top is a WASH, not a photograph, and that is not a
- * placeholder waiting to be filled: there is no photograph of a 2026 entrance
- * arch because the arch does not exist yet, and staging a mock-up of one
- * would be showing a sponsor something that has not been built. The wash
- * carries the page's own colours and the label does the work.
+ * The banner used to be a colour WASH, because in August there was no
+ * photograph of a 2026 entrance arch and staging a mock-up would have been
+ * showing a sponsor something that did not exist. There are now photographs
+ * from last year's festival, which is a truthful answer to "what does this
+ * actually look like" in a way no wash could be.
+ *
+ * 16:9, matching the photographs, so the banner shows essentially the whole
+ * frame: a short letterbox strip would have thrown away half of every picture
+ * and left a sponsor guessing at the thing being sold to them.
  */
 function RecognitionCard({
   item,
@@ -490,20 +517,25 @@ function RecognitionCard({
       transition={{ duration: 0.4, ease: EASE.out }}
       className="group h-full overflow-hidden rounded-2xl border border-border/60 bg-background transition-shadow duration-500 hover:shadow-[0_24px_50px_-28px_hsl(var(--primary)/0.4)]"
     >
-      <div
-        aria-hidden="true"
-        className="relative h-28 overflow-hidden"
-        style={{
-          background: `linear-gradient(135deg, ${item.tone[0]}, ${item.tone[1]})`,
-        }}
-      >
-        <MarbleVeins className="opacity-40" />
-        <motion.div
-          className="absolute inset-0 bg-[radial-gradient(60%_120%_at_20%_0%,hsl(var(--background)/0.55),transparent_70%)]"
-          initial={false}
-          whileHover={{ opacity: 0.6 }}
+      <div className="relative aspect-[16/9] overflow-hidden bg-secondary">
+        <img
+          src={item.image}
+          alt={`${item.title} at Flash @ Brigade`}
+          loading="lazy"
+          decoding="async"
+          style={{ objectPosition: item.focus }}
+          className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
         />
-        <span className="absolute inset-x-0 bottom-0 h-px bg-accent/50" />
+        {/* A whisper of the page's warmth over the photograph, so six
+            different white balances still read as one set. */}
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,transparent_55%,hsl(var(--background)/0.35))]"
+        />
+        <span
+          aria-hidden="true"
+          className="absolute inset-x-0 bottom-0 h-px bg-accent/50"
+        />
       </div>
       <div className="p-6">
         <h3 className="font-display text-xl font-medium tracking-tight text-foreground">
@@ -658,7 +690,11 @@ export default function PartnersPage() {
           </p>
         </Reveal>
 
-        <div className="mt-12 grid auto-rows-fr gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {/* TWO ACROSS, NOT THREE. Each banner gains about half its width
+            again, which is what makes the stage in "Stage Branding" read as a
+            stage rather than a coloured smudge. Uniform across every card, so
+            the set still reads as one grid. */}
+        <div className="mt-12 grid auto-rows-fr gap-5 sm:grid-cols-2">
           {RECOGNITION.map((item, i) => (
             <Reveal key={item.title} delay={i * 0.06}>
               <RecognitionCard item={item} />
