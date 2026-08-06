@@ -66,7 +66,7 @@ export function LegalPage({
             <ArrowLeft className="h-4 w-4 transition-transform duration-300 group-hover:-translate-x-0.5" />
             Back to the piazza
           </Link>
-          <CarnivalMark className="h-6 w-auto" />
+          <CarnivalMark className="h-6 w-auto text-foreground" />
         </motion.nav>
 
         <header className="pb-10 pt-14 md:pb-14 md:pt-20">

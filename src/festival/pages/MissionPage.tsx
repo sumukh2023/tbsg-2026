@@ -17,22 +17,24 @@ import { CHAPTERS, SUPPORT_PATH } from './chapters';
 const chapter = CHAPTERS[0];
 
 /* -------------------------------------------------------------------- */
-/*  Flash 1.0 · Rangeelo Rajasthan, 2023.                                */
+/*  Flash 1.0 · Rangeelo Rajasthan.                                      */
 /*                                                                       */
-/*  The photographs are not in the repo yet, so each plate renders as a   */
-/*  toned frame. Add `src` to a record and that plate becomes a           */
-/*  photograph. Nothing else changes, and the carousel takes any number   */
-/*  of them. `alt` is for assistive technology only: the captions that    */
-/*  used to sit under each plate are gone, so the pictures carry the      */
-/*  section on their own.                                                 */
+/*  The photographs, in the order they were given. They used to be toned  */
+/*  placeholder frames; the plate falls back to one automatically if a    */
+/*  `src` is ever missing, so a broken upload degrades rather than        */
+/*  leaves a hole. `alt` is for assistive technology only: the plates     */
+/*  carry no captions by design, so the pictures carry the section.       */
+/*                                                                       */
+/*  Sources are the 1400px JPEGs from scripts/optimise-photos.mjs. The    */
+/*  originals were 44 MB for a plate 544 pixels wide.                     */
 /* -------------------------------------------------------------------- */
 const RANGEELO: Photo[] = [
-  { alt: 'The courtyard at opening hour, Rangeelo Rajasthan 2023' },
-  { alt: 'Puppetry at the west gate, Rangeelo Rajasthan 2023' },
-  { alt: 'The mehndi stall, Rangeelo Rajasthan 2023' },
-  { alt: 'Ghoomar on the main stage, Rangeelo Rajasthan 2023' },
-  { alt: 'Lanterns over the food street, Rangeelo Rajasthan 2023' },
-  { alt: 'The last hour on the main ground, Rangeelo Rajasthan 2023' },
+  { src: '/rangeelo/1.jpg', alt: 'Cutting the ribbon to open Rangeelo Rajasthan' },
+  { src: '/rangeelo/2.jpg', alt: 'The school choir on the main stage' },
+  { src: '/rangeelo/3.jpg', alt: 'Ghoomar on the main ground, seen from above' },
+  { src: '/rangeelo/4.jpg', alt: 'The band playing in front of the Flash @ Brigade backdrop' },
+  { src: '/rangeelo/5.jpg', alt: 'The crowd dancing between the stalls' },
+  { src: '/rangeelo/6.jpg', alt: 'Visitors on the steps beside the painted courtyard' },
 ];
 
 const HIGHLIGHTS = [
@@ -913,6 +915,23 @@ export default function MissionPage() {
             >
               <div className="absolute inset-0 bg-[radial-gradient(75%_65%_at_50%_20%,hsl(var(--highlight)/0.35),transparent_74%)]" />
               <Grain className="opacity-[0.06]" />
+              {/* The festival's own wordmark, in the housing that was already
+                  here. It sits in the UPPER portion rather than dead centre:
+                  the caption owns the bottom of the plate, and a mark centred
+                  in the whole frame would have crowded it. `object-contain`,
+                  because a wordmark that has been cropped or stretched is not
+                  the wordmark any more. */}
+              <div className="absolute inset-x-0 top-0 flex h-[62%] items-center justify-center px-10">
+                <img
+                  src="/flash-wordmark.png"
+                  alt="Flash @ Brigade"
+                  width={1042}
+                  height={470}
+                  loading="lazy"
+                  decoding="async"
+                  className="h-auto w-full max-w-[16rem] object-contain"
+                />
+              </div>
               <div className="absolute inset-x-0 bottom-0 p-8">
                 <GoldRule className="w-14" />
                 <p className="mt-4 font-display text-3xl font-medium italic leading-tight tracking-tight text-foreground">

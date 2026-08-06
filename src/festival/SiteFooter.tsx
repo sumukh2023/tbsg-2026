@@ -37,7 +37,7 @@ export function SiteFooter() {
         className="mx-auto grid max-w-6xl scroll-mt-20 gap-12 px-6 py-16 md:grid-cols-2 md:px-10 xl:grid-cols-12"
       >
         <div className="xl:col-span-3">
-          <CarnivalMark className="h-9 w-auto" />
+          <CarnivalMark className="h-9 w-auto text-foreground" />
           <FlashWordmark className="mt-4" />
           <p className="mt-3 max-w-sm font-display text-2xl font-medium italic leading-snug text-muted-foreground">
             Namma Mia Carpisa

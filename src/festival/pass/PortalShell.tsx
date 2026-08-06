@@ -59,7 +59,7 @@ export function PortalShell({
       >
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <CarnivalMark className="h-6 w-auto" />
+            <CarnivalMark className="h-6 w-auto text-foreground" />
             <p className="font-body text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
               Gate verification
             </p>

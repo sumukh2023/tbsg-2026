@@ -11,14 +11,14 @@ import { SEAGULL_PATHS, SEAGULL_VIEWBOX } from './seagull-path';
  * school's own shape rather than an impression of one. Re-run that script if
  * the artwork is ever replaced.
  *
- * THE COLOUR IS FIXED and does not inherit. It is an institutional mark: it
- * belongs to the school, not to the festival's palette, so it must not
- * re-tint itself per district the way the site's own branding does, and it
- * must not change colour on hover. The link around it in the navigation keeps
- * its focus ring and now fades slightly instead; the bird stays the bird.
+ * THE COLOUR FOLLOWS `currentColor`, as it did before the shape was fixed.
+ * That is what lets the mark read as ink on the marble day theme and as
+ * marble on the evening one, take each district's own tint, and shift with
+ * the navigation link on hover. Only the SHAPE changed here; the behaviour
+ * around it is deliberately the behaviour that was already there.
  */
 
-/** The school's blue. Not a theme token, deliberately: see above. */
+/** The school's blue, as the favicons use it. Kept for the icon generator. */
 export const BRIGADE_BLUE = '#2B6686';
 
 export function CarnivalMark({ className }: { className?: string }) {
@@ -26,8 +26,7 @@ export function CarnivalMark({ className }: { className?: string }) {
     <svg
       viewBox={SEAGULL_VIEWBOX}
       aria-hidden="true"
-      className={cn(className)}
-      fill={BRIGADE_BLUE}
+      className={cn('fill-current', className)}
     >
       {SEAGULL_PATHS.map((d) => (
         <path key={d} d={d} />

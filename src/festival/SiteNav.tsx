@@ -80,7 +80,7 @@ export function SiteNav() {
               ? 'Flash @ Brigade — back to top'
               : 'Flash @ Brigade — home'
           }
-          className="rounded-sm transition-opacity duration-300 hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="text-foreground transition-colors duration-300 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <CarnivalMark className="h-7 w-auto md:h-8" />
         </Link>
