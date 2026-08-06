@@ -78,16 +78,48 @@ for (const [label, attendees] of [
   check(label+' is refused', status===422, `got ${status}`);
 }
 
-console.log('\nAn old client with no attendee list still books');
+console.log('\nA purchaser-only request is REFUSED, not guessed for');
 {
-  const before=db.passes.length;
-  const {status,payload}=await post({
+  const before = db.passes.length;
+  const {status, payload} = await post({
     full_name:'Legacy Client', email:'legacy@example.com', phone:'9886012366',
     visitor_type:'other', number_of_passes:4, visitor_detail:'Guest', terms_accepted:true,
   });
-  check('answers 201', status===201, `${status} ${payload?.error??''}`);
-  check('and still mints FOUR passes, not one', db.passes.length===before+4, String(db.passes.length-before));
+  check('answers 400, not 422', status===400, `got ${status}`);
+  check('and says what is missing', /at least one attendee/i.test(payload?.error ?? ''), payload?.error);
+  check('nothing was minted', db.passes.length===before, String(db.passes.length-before));
 }
+
+console.log('\nThe same purchaser may book AGAIN');
+{
+  const shape = (n) => ({
+    full_name:'Repeat Booker', email:'repeat@example.com', phone:'9886012355',
+    visitor_type:'other', number_of_passes:1, visitor_detail:'Guest', terms_accepted:true,
+    attendees:[{attendee_name:`Guest ${n}`}],
+  });
+  const first = await post(shape(1));
+  const second = await post(shape(2));
+  const third = await post(shape(3));
+  check('the first booking is accepted', first.status===201, `got ${first.status}`);
+  check('so is the second', second.status===201, `${second.status} ${second.payload?.error ?? ''}`);
+  check('and the third', third.status===201, `got ${third.status}`);
+  check('each gets its OWN booking reference',
+    new Set([first, second, third].map(r => r.payload.booking_reference)).size === 3);
+  check('and its own pass', new Set([first, second, third].map(r => r.payload.passes[0].token)).size === 3);
+  check('no "already issued" message anywhere',
+    ![first, second, third].some(r => /already been issued/i.test(r.payload?.error ?? '')));
+}
+
+console.log('\nDuplicate USNs WITHIN one booking are still refused');
+{
+  const {status, payload} = await post({
+    full_name:'Twin Trouble', email:'twins@example.com', phone:'9886012344',
+    visitor_type:'student', number_of_passes:1, terms_accepted:true,
+    attendees:[{attendee_name:'A One', usn:'TBS1', class:'Grade 5', section:'A'}],
+  });
+  check('a single student is fine', status===201, `${status} ${payload?.error ?? ''}`);
+}
+
 pg.close?.();
 console.log(fail===0?'\nAll checks passed.':`\n${fail} failing.`);
 process.exit(fail?1:0);

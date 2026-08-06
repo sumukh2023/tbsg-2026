@@ -62,6 +62,10 @@ async function presentationOf(env: Env, pass: PassRow) {
       sequence: pass.sequence,
       booking_reference: pass.registrations?.booking_reference ?? null,
       purchaser: pass.registrations?.full_name ?? '',
+      /* The purchaser's address, shown at the gate so a volunteer can
+         answer "which booking is this" without leaving the page. It is the
+         same address the booking was made with; nothing new is exposed. */
+      purchaser_email: pass.registrations?.email ?? null,
       // The school roll: the student's own, or on a parent's pass the child
       // the booking is for.
       student_name: pass.student_name,

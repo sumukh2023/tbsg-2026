@@ -214,12 +214,22 @@ function validateStep(step: number, form: FormState): Errors {
       if (!SECTIONS.includes(form.section as (typeof SECTIONS)[number])) {
         errors.section = 'Choose the section.';
       }
-    } else if (
-      !VISITOR_DETAILS.includes(
-        form.visitorDetail as (typeof VISITOR_DETAILS)[number]
-      )
-    ) {
-      errors.visitorDetail = 'Choose the option that describes you best.';
+    } else if (form.visitorType === 'other') {
+      /* CHECKED ONLY FOR "OTHER", and the `else if` matters.
+         When the roll block above became parent-only, a STUDENT fell into
+         this branch and was required to choose a visitor detail their form
+         never renders. Continue then did nothing at all: an error was
+         raised, but on a field with nothing on screen to attach it to, so
+         there was no message and no red outline to explain the dead button.
+         Naming the category is what keeps the two branches from covering
+         someone neither was written for. */
+      if (
+        !VISITOR_DETAILS.includes(
+          form.visitorDetail as (typeof VISITOR_DETAILS)[number]
+        )
+      ) {
+        errors.visitorDetail = 'Choose the option that describes you best.';
+      }
     }
 
     /* One name per ticket. Errors are POSITIONAL so each lands on the block
@@ -280,7 +290,6 @@ type SubmitState =
   | { phase: 'idle' }
   | { phase: 'submitting' }
   | { phase: 'error'; message: string }
-  | { phase: 'duplicate'; message: string }
   /** Every pass the booking minted, in booking order. */
   | { phase: 'success'; passes: MintedPass[] };
 
@@ -461,11 +470,18 @@ function SuccessView({
         className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center"
       >
         {passes.length > 0 && (
+          /* THE WHOLE BOOKING, not `/pass/<first token>`. That address is one
+             pass, so a family of four followed this button to a screen with
+             three of their passes missing. The tokens travel in router state
+             instead of the URL, for the same reason retrieval keeps them out
+             of it: a token is the credential, and the address bar is history,
+             the back button and anything that syncs either. */
           <Link
-            to={`/pass/${passes[0].token}`}
+            to="/pass"
+            state={{ tokens: passes.map((minted) => minted.token) }}
             className="inline-flex items-center rounded-full border border-border px-8 py-3.5 font-body text-sm font-medium text-foreground transition-colors duration-300 hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            View QR Pass
+            {passes.length === 1 ? 'View QR Pass' : 'View all QR passes'}
           </Link>
         )}
         <Link
@@ -748,15 +764,11 @@ export default function GetPassesPage() {
 
     const data = await response.json().catch(() => null);
 
-    if (response.status === 409) {
-      setSubmit({
-        phase: 'duplicate',
-        message:
-          data?.error ??
-          'We already have a recent registration for this email address.',
-      });
-      return;
-    }
+    /* NO 409 BRANCH. Booking twice on one email address is allowed now, so
+       there is no duplicate to report and nothing to lock the form for. The
+       branch that used to live here also DISABLED the submit button for the
+       rest of the session, which made an unexpected 409 from any layer in
+       front of the function an unrecoverable page. */
     if (!response.ok) {
       // 422 says what to fix, 502 asks to retry, 503 says the desk is not
       // configured; fall back by class only when the body carried nothing.
@@ -1184,45 +1196,15 @@ export default function GetPassesPage() {
                           </Consent>
                         </fieldset>
 
-                        {(submit.phase === 'error' ||
-                          submit.phase === 'duplicate') && (
+                        {submit.phase === 'error' && (
                           <div
                             role="alert"
-                            className={
-                              'mt-6 rounded-lg border px-4 py-3 font-body text-sm ' +
-                              (submit.phase === 'duplicate'
-                                ? 'border-accent/50 text-foreground'
-                                : 'border-destructive/60 text-foreground')
-                            }
+                            className="mt-6 rounded-lg border border-destructive/60 px-4 py-3 font-body text-sm text-foreground"
                           >
-                            {submit.phase === 'duplicate' ? (
-                              <>
-                                A pass has already been issued for this
-                                attendee. Please use{' '}
-                                <Link
-                                  to="/pass"
-                                  className="text-foreground underline decoration-accent/60 underline-offset-4 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                >
-                                  Retrieve your Pass
-                                </Link>{' '}
-                                if you cannot find it. If you'd like to reserve
-                                more passes, contact the{' '}
-                                <Link
-                                  to="/#contact"
-                                  className="text-foreground underline decoration-accent/60 underline-offset-4 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                >
-                                  Front Desk
-                                </Link>
-                                .
-                              </>
-                            ) : (
-                              <>
-                                {submit.message}
-                                <span className="block pt-1 text-muted-foreground">
-                                  Nothing was lost. You can try again below.
-                                </span>
-                              </>
-                            )}
+                            {submit.message}
+                            <span className="block pt-1 text-muted-foreground">
+                              Nothing was lost. You can try again below.
+                            </span>
                           </div>
                         )}
                       </div>
@@ -1255,10 +1237,7 @@ export default function GetPassesPage() {
                   ) : (
                     <button
                       type="submit"
-                      disabled={
-                        submit.phase === 'submitting' ||
-                        submit.phase === 'duplicate'
-                      }
+                      disabled={submit.phase === 'submitting'}
                       className="inline-flex items-center gap-3 rounded-full bg-primary px-8 py-3.5 font-body text-sm font-medium text-primary-foreground transition-all duration-300 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {submit.phase === 'submitting' && (

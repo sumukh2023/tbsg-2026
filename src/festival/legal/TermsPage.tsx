@@ -38,7 +38,7 @@ export default function TermsPage() {
             'Once a QR pass has been checked in at the gate it cannot be used again.',
             <>
               A pass you cannot find can be recovered with{' '}
-              <Link to="/pass">Retrieve Your Passes</Link>, using the email
+              <Link to="/pass">Your Bookings</Link>, using the email
               address and mobile number the booking was made with.
             </>,
           ]}

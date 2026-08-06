@@ -145,6 +145,20 @@ function documentFor(title: string, sheets: string): string {
      default 1cm guess, which differs between engines. */
   @page { size: A4 portrait; margin: 0; }
 
+  /* NOTHING HERE MAY BE SIZED TO THE PAGE. The first version gave .sheet
+     a width of 210mm and a min-height of 297mm, which is exactly one A4
+     page and therefore exactly at the limit: 297mm still fits, 300mm does
+     not. Whatever shrinks the page box below a full A4 then spills the last
+     millimetres onto a second, blank, sheet, once per ticket. The margin
+     dropdown does it, so does "Headers and footers", so does a printer
+     loaded with US Letter, and @page above is only a request. Chromium's
+     headless PDF path honours @page and ignores all of them, which is why
+     this looked fine in a PDF and printed a blank page on paper.
+
+     So the sheets are sized by their CONTENT and separated by an explicit
+     page break. A box shorter than the page cannot overflow it, on any
+     paper size, at any margin setting. */
+
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
   html, body {
@@ -156,13 +170,21 @@ function documentFor(title: string, sheets: string): string {
   }
 
   .sheet {
-    width: 210mm;
-    min-height: 297mm;
-    padding: 24mm 20mm;
+    /* max-width, not width: 210mm is wider than the printable area the
+       moment the dialog adds side margins, and an overflowing line box is
+       the other way to earn a stray page. */
+    width: 100%;
+    max-width: 210mm;
+    /* 14mm, not 20mm, so the whole sheet lands near 220mm: that clears the
+       tightest combination anyone is likely to print with, US Letter at
+       one-inch margins, which leaves only 228mm of page. */
+    padding: 14mm 16mm;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
     align-items: center;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   .card {

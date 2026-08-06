@@ -51,7 +51,11 @@ db.registrations.push({
   full_name: 'Priya Menon',
   email: 'priya@example.com',
   phone: '9886012345',
-  created_at: new Date().toISOString(),
+  booking_reference: 'FB2026-AAAAA',
+  number_of_passes: 3,
+  total_amount: 825,
+  payment_status: 'unpaid',
+  created_at: new Date(Date.now() - 60000).toISOString(),
 });
 // Priya's booking holds THREE passes: herself and two guests. This is the
 // shape the whole overhaul exists for, and retrieval must return all three.
@@ -77,6 +81,10 @@ db.registrations.push({
   full_name: 'Arjun Menon',
   email: 'priya@example.com',
   phone: '9886012345',
+  booking_reference: 'FB2026-SSSSS',
+  number_of_passes: 1,
+  total_amount: 275,
+  payment_status: 'unpaid',
   created_at: new Date(Date.now() + 1000).toISOString(),
 });
 db.passes.push({
@@ -225,6 +233,132 @@ for (const [label, full_name] of [
   const { status, payload } = await post({ ...base, full_name: 'Someone Else' });
   check('a name on NO pass is still refused', status === 404, `got ${status}`);
   check('  with the same sentence as always', payload?.error === GENERIC);
+}
+
+/* ------------------------------------------------------------------ *
+ * A HOUSEHOLD THAT BOOKS TWICE.
+ *
+ * The reason the reply is a list of bookings rather than a flat run of
+ * tokens. Priya books again a month later; both bookings are hers, both have
+ * their own reference and their own total, and the desk will ask for one of
+ * them by name. Returning only one of the two hides passes she paid for, and
+ * flattening them into one deck leaves her unable to say which pass came
+ * from which booking.
+ * ------------------------------------------------------------------ */
+const secondBookingId = randomUUID();
+db.registrations.push({
+  id: secondBookingId,
+  full_name: 'Priya Menon',
+  email: 'priya@example.com',
+  phone: '9886012345',
+  booking_reference: 'FB2026-BBBBB',
+  number_of_passes: 2,
+  total_amount: 550,
+  payment_status: 'paid',
+  // Newest. `order=created_at.desc` is what puts it at the top of the list.
+  created_at: new Date(Date.now() + 5000).toISOString(),
+});
+['Priya Menon', 'Meera Menon'].forEach((attendee_name, i) => {
+  db.passes.push({
+    id: randomUUID(),
+    registration_id: secondBookingId,
+    // One of the two already used, so the booking's own status has to be
+    // something other than a copy of the first pass's.
+    status: i === 0 ? 'checked_in' : 'valid',
+    attendee_name,
+    attendee_category: 'other',
+    sequence: i + 1,
+    verification_token_hash: `second-hash-${i}`,
+    created_at: new Date().toISOString(),
+  });
+});
+
+console.log('\nA purchaser who booked twice gets BOTH bookings');
+{
+  const { status, payload } = await post({ ...base, full_name: 'Priya Menon' });
+  check('answers 200', status === 200, `got ${status}`);
+  check('two bookings, not one', payload.bookings?.length === 2,
+    String(payload.bookings?.length));
+  const [newest, oldest] = payload.bookings ?? [];
+  check('newest first', newest?.reference === 'FB2026-BBBBB', newest?.reference);
+  check('  and the earlier one after it', oldest?.reference === 'FB2026-AAAAA',
+    oldest?.reference);
+  check('each carries its own pass count', newest?.passes === 2 && oldest?.passes === 3,
+    `${newest?.passes} and ${oldest?.passes}`);
+  check('each carries its own total', newest?.total_amount === 550 && oldest?.total_amount === 825,
+    `${newest?.total_amount} and ${oldest?.total_amount}`);
+  check('each carries the date it was booked',
+    Boolean(newest?.booked_at) && Boolean(oldest?.booked_at));
+  check('a part-used booking says so, rather than copying one pass',
+    newest?.status === 'partly_checked_in', newest?.status);
+  check('an untouched booking is active', oldest?.status === 'active', oldest?.status);
+  check('the decks do not bleed into each other',
+    newest?.tokens.length === 2 && oldest?.tokens.length === 3);
+  check('every token across both bookings is distinct',
+    new Set([...newest.tokens, ...oldest.tokens]).size === 5);
+  check('EVERY pass in the SECOND booking was rotated too',
+    db.passes
+      .filter((p) => p.registration_id === secondBookingId)
+      .every((p) => !String(p.verification_token_hash).startsWith('second-hash')));
+  check('the flat `tokens` still carries all of them, newest first',
+    payload.tokens?.length === 5 && payload.tokens[0] === newest.tokens[0]);
+  check('and `token` is still the first of those', payload.token === payload.tokens[0]);
+}
+
+console.log('\nAn attendee who appears in only ONE of them gets only that one');
+{
+  const { status, payload } = await post({ ...base, full_name: 'Meera Menon' });
+  check('answers 200', status === 200, `got ${status}`);
+  check('one booking, not both', payload.bookings?.length === 1,
+    String(payload.bookings?.length));
+  check('and it is the one she is on', payload.bookings?.[0]?.reference === 'FB2026-BBBBB',
+    payload.bookings?.[0]?.reference);
+}
+
+console.log('\nA sibling on the same details still gets only their own');
+{
+  const { status, payload } = await post({ ...base, full_name: 'Arjun Menon' });
+  check('answers 200', status === 200, `got ${status}`);
+  check('exactly one booking', payload.bookings?.length === 1,
+    String(payload.bookings?.length));
+  check('theirs', payload.bookings?.[0]?.reference === 'FB2026-SSSSS',
+    payload.bookings?.[0]?.reference);
+}
+
+console.log('\nA booking whose passes are all cancelled reads as cancelled');
+{
+  const id = randomUUID();
+  db.registrations.push({
+    id,
+    full_name: 'Nikhil Rao',
+    email: 'nikhil@example.com',
+    phone: '9886011111',
+    booking_reference: 'FB2026-XXXXX',
+    number_of_passes: 2,
+    total_amount: 550,
+    payment_status: 'refunded',
+    created_at: new Date().toISOString(),
+  });
+  [0, 1].forEach((i) => {
+    db.passes.push({
+      id: randomUUID(),
+      registration_id: id,
+      status: 'cancelled',
+      attendee_name: `Nikhil Rao ${i}`,
+      attendee_category: 'other',
+      sequence: i + 1,
+      verification_token_hash: `cancelled-${i}`,
+      created_at: new Date().toISOString(),
+    });
+  });
+  const { status, payload } = await post({
+    email: 'nikhil@example.com',
+    phone: '9886011111',
+    full_name: 'Nikhil Rao',
+  });
+  check('answers 200', status === 200, `got ${status}`);
+  check('and the booking reads cancelled', payload.bookings?.[0]?.status === 'cancelled',
+    payload.bookings?.[0]?.status);
 }
 
 pg.close?.();

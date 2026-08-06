@@ -34,6 +34,16 @@ import {
  * on the registration — could only ever describe one of them. Storing them
  * here is what lets the gate read the right child off the right pass.
  */
+/**
+ * The one refusal that is a 400 rather than a 422.
+ *
+ * 422 says "what you sent is the right shape but wrong"; this says the shape
+ * itself is out of date, which is a different conversation and worth being
+ * able to spot in a log.
+ */
+export const MISSING_ATTENDEES =
+  'At least one attendee is required. Send an `attendees` array with a name for each ticket.';
+
 export type Attendee = {
   attendee_name: string;
   attendee_category: VisitorType;
@@ -219,33 +229,16 @@ function validateAttendees(
 ): Attendee[] | string {
   const raw = body.attendees;
 
-  /* NO ATTENDEE LIST: a client from before the booking form asked for names.
-   *
-   * This is the compatibility path, and it exists because the two halves of
-   * this change deploy at different moments. A browser holding the previous
-   * bundle posts a purchaser and a count and nothing else; refusing it would
-   * turn a cached tab into a broken booking form for as long as the cache
-   * lives. So the booking is described the way the migration describes the
-   * bookings that predate this column: every pass takes the purchaser's name.
-   *
-   * It produces the right NUMBER of passes with the right owner and the
-   * wrong names, which is strictly better than the single shared QR code it
-   * replaces, and it self-corrects the moment the new form ships. Delete
-   * this branch once the form is out and no cached bundle can reach it.
-   */
+  /* THE ATTENDEE LIST IS REQUIRED. The compatibility branch that used to
+     stand here synthesised one attendee per ticket under the purchaser's
+     name, so that a browser holding the previous bundle mid-deploy still
+     booked. The new form has shipped; a request without names is now a
+     client that should be updated, not one to guess for. Guessing would
+     issue passes in the wrong person's name and nobody would find out until
+     a gate. */
   if (raw === undefined || raw === null) {
-    const purchaser = cleanText(body.full_name, 120) ?? 'Guest';
-    return Array.from({ length: tickets }, (_, i) => ({
-      attendee_name: purchaser,
-      attendee_category: type,
-      student_name: null,
-      usn: null,
-      class: null,
-      section: null,
-      sequence: i + 1,
-    }));
+    return MISSING_ATTENDEES;
   }
-
   if (!Array.isArray(raw) || raw.length !== tickets) {
     return `Please give a name for each of the ${tickets} ${tickets === 1 ? 'ticket' : 'tickets'}.`;
   }
@@ -399,7 +392,15 @@ export default async function handler(
 
   const payload = validate(body);
   if (typeof payload === 'string') {
-    return send(res, 422, { error: payload });
+    /* 400 for a request whose SHAPE is out of date, 422 for one that is the
+       right shape and wrong. A client still posting purchaser-only bookings
+       needs updating, and that is worth telling apart in a log from a
+       visitor who left a field blank. */
+    return send(
+      res,
+      payload === MISSING_ATTENDEES ? 400 : 422,
+      { error: payload }
+    );
   }
 
   const env = supabaseEnv('register');
@@ -411,30 +412,20 @@ export default async function handler(
   }
 
   try {
-    // Duplicate detection: the email or the mobile number identifying an
-    // attendee may hold only one registration, ever. Checked server-side;
-    // nothing about the existing record is revealed.
-    const dupeUrl =
-      `${env.url}/rest/v1/registrations?select=id` +
-      `&or=(email.eq.${encodeURIComponent(payload.email)},phone.eq.${encodeURIComponent(payload.phone)})` +
-      `&limit=1`;
-    const dupeResponse = await fetch(dupeUrl, { headers: env.headers });
-    if (!dupeResponse.ok) {
-      console.error(
-        `[register] stage=duplicate-check supabase_status=${dupeResponse.status}`
-      );
-      return send(res, 503, {
-        error: 'The registration service is unavailable right now.',
-      });
-    }
-    const existing = (await dupeResponse.json()) as unknown[];
-    if (existing.length > 0) {
-      return send(res, 409, {
-        error:
-          "A pass has already been issued for this attendee. Please use Retrieve your Pass if you cannot find it. If you'd like to reserve more passes, contact the Front Desk.",
-      });
-    }
+    /* NO DUPLICATE CHECK. There used to be one here: an email or a mobile
+       number could hold exactly one booking ever, and a second attempt was
+       turned away with "a pass has already been issued for this attendee".
+       That was written when a booking WAS a pass. It is not any more: a
+       booking is a group of passes, and a parent who booked for one child in
+       August has an ordinary reason to book again for another in October.
+       Turning them away and pointing at Retrieve was telling someone they
+       already had something they did not have.
 
+       What genuinely guards against an accident is narrower and lives
+       elsewhere: duplicate USNs WITHIN one booking are refused in
+       `validateAttendees`, and `passes_booking_sequence_idx` stops a retry
+       inserting the same attendee twice. Neither blocks a real second
+       booking. */
     // `attendees` is not a column: it is the list that becomes the passes.
     // PostgREST rejects the whole insert on an unknown key, so it is peeled
     // off here rather than left to fail the booking at the database.

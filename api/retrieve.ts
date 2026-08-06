@@ -44,6 +44,24 @@ function foldName(value: string): string {
     .toLowerCase();
 }
 
+/**
+ * One word for a whole booking, from the state of the passes in it.
+ *
+ * A booking is rarely all one thing on the day: a family of four arrives in
+ * two cars, so two passes are checked in and two are not. "Partly checked in"
+ * is the honest description of that, and it is the state the person looking
+ * at the list most needs to be able to see.
+ */
+function bookingStatus(
+  statuses: string[]
+): 'active' | 'partly_checked_in' | 'checked_in' | 'cancelled' {
+  if (statuses.every((s) => s === 'cancelled')) return 'cancelled';
+  const live = statuses.filter((s) => s !== 'cancelled');
+  if (live.every((s) => s === 'checked_in')) return 'checked_in';
+  if (live.some((s) => s === 'checked_in')) return 'partly_checked_in';
+  return 'active';
+}
+
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
@@ -91,7 +109,8 @@ export default async function handler(
        and number, and taking only the newest would refuse the person whose
        booking happens not to be the latest. */
     const regUrl =
-      `${env.url}/rest/v1/registrations?select=id,full_name` +
+      `${env.url}/rest/v1/registrations?select=id,full_name,booking_reference,` +
+      `created_at,number_of_passes,total_amount,payment_status` +
       `&email=eq.${encodeURIComponent(email)}` +
       `&phone=eq.${encodeURIComponent(phone)}` +
       `&order=created_at.desc&limit=20`;
@@ -100,75 +119,109 @@ export default async function handler(
     const regs = (await regResponse.json()) as Array<{
       id: string;
       full_name: string | null;
+      booking_reference: string | null;
+      created_at: string;
+      number_of_passes: number;
+      total_amount: number | null;
+      payment_status: string | null;
     }>;
+    if (!regs.length) return send(res, 404, { error: GENERIC });
+
+    /* ONE READ FOR EVERY CANDIDATE BOOKING'S PASSES.
+       They are needed twice over: to match on attendee names, and to build
+       the reply. Asking per booking would be one round trip each for a
+       household that books repeatedly, and they are all the same query with
+       a different id. */
+    const passUrl =
+      `${env.url}/rest/v1/passes` +
+      `?select=id,registration_id,status,attendee_name,sequence` +
+      `&registration_id=in.(${regs.map((r) => r.id).join(',')})` +
+      `&order=sequence.asc`;
+    const passResponse = await fetch(passUrl, { headers: env.headers });
+    if (!passResponse.ok) throw new Error('lookup failed');
+    const allPasses = (await passResponse.json()) as Array<{
+      id: string;
+      registration_id: string;
+      status: string;
+      attendee_name: string | null;
+      sequence: number;
+    }>;
+
     /* THE NAME MATCHES THE PURCHASER OR ANY ATTENDEE.
        A booking is made by one person for several, and the person who comes
        looking for it later is often not the one whose name is on it: a parent
        books, a grandparent turns up at the gate having been told "it's under
        Priya". Both are legitimate holders of the same booking, so both open
-       it. The purchaser is checked first because it costs nothing; the
-       attendee names need a second read and are only fetched if that misses. */
-    const byPurchaser = regs.find((r) => foldName(r.full_name ?? '') === wanted);
-
-    let booking = byPurchaser ?? null;
-    if (!booking && regs.length) {
-      const ids = regs.map((r) => r.id).join(',');
-      const namesUrl =
-        `${env.url}/rest/v1/passes?select=registration_id,attendee_name` +
-        `&registration_id=in.(${ids})`;
-      const namesResponse = await fetch(namesUrl, { headers: env.headers });
-      if (!namesResponse.ok) throw new Error('lookup failed');
-      const rows = (await namesResponse.json()) as Array<{
-        registration_id: string;
-        attendee_name: string | null;
-      }>;
-      const hit = rows.find((r) => foldName(r.attendee_name ?? '') === wanted);
-      booking = hit ? (regs.find((r) => r.id === hit.registration_id) ?? null) : null;
+       it. */
+    const named = new Set(
+      allPasses
+        .filter((p) => foldName(p.attendee_name ?? '') === wanted)
+        .map((p) => p.registration_id)
+    );
+    /* EVERY MATCHING BOOKING, not the first one found.
+       A family that books in September and again in October holds two, and
+       returning only one of them hides passes the visitor paid for and will
+       be asked for at the gate. `regs` is already newest first, so the
+       bookings come back in the order the list wants to show them. */
+    const matched = regs.filter(
+      (r) => foldName(r.full_name ?? '') === wanted || named.has(r.id)
+    );
+    const passesFor = new Map<string, typeof allPasses>();
+    for (const pass of allPasses) {
+      const bucket = passesFor.get(pass.registration_id);
+      if (bucket) bucket.push(pass);
+      else passesFor.set(pass.registration_id, [pass]);
     }
-    if (!booking) return send(res, 404, { error: GENERIC });
+    const bookings = matched.filter((r) => passesFor.get(r.id)?.length);
+    if (!bookings.length) return send(res, 404, { error: GENERIC });
 
-    const passUrl =
-      `${env.url}/rest/v1/passes?select=id,status,pass_reference` +
-      `&registration_id=eq.${booking.id}&order=sequence.asc`;
-    const passResponse = await fetch(passUrl, { headers: env.headers });
-    if (!passResponse.ok) throw new Error('lookup failed');
-    const passes = (await passResponse.json()) as Array<{
-      id: string;
-      status: string;
-      pass_reference: string;
-    }>;
-    if (!passes.length) return send(res, 404, { error: GENERIC });
-
-    /* EVERY PASS IN THE BOOKING IS ROTATED, not just the first.
+    /* EVERY PASS IN EVERY MATCHED BOOKING IS ROTATED, not just the first.
        Retrieval hands back the whole deck, so every token in it is newly
        issued and every previously circulated link stops working. Rotating
        one and returning several would have left the other links alive
        indefinitely, which is the opposite of what rotation is for. */
-    const issued = await Promise.all(
-      passes.map(async (pass) => {
-        const token = randomToken();
-        const rotate = await fetch(
-          `${env.url}/rest/v1/passes?id=eq.${pass.id}`,
-          {
-            method: 'PATCH',
-            headers: env.headers,
-            body: JSON.stringify({
-              verification_token_hash: await sha256Hex(token),
-              updated_at: new Date().toISOString(),
-            }),
-          }
+    const rotated = await Promise.all(
+      bookings.map(async (booking) => {
+        const rows = passesFor.get(booking.id) as typeof allPasses;
+        const tokens = await Promise.all(
+          rows.map(async (pass) => {
+            const token = randomToken();
+            const rotate = await fetch(
+              `${env.url}/rest/v1/passes?id=eq.${pass.id}`,
+              {
+                method: 'PATCH',
+                headers: env.headers,
+                body: JSON.stringify({
+                  verification_token_hash: await sha256Hex(token),
+                  updated_at: new Date().toISOString(),
+                }),
+              }
+            );
+            return rotate.ok ? token : null;
+          })
         );
-        return rotate.ok ? token : null;
+        if (tokens.some((t) => t === null)) throw new Error('rotation failed');
+        return {
+          reference: booking.booking_reference,
+          booked_at: booking.created_at,
+          passes: rows.length,
+          total_amount: booking.total_amount,
+          payment_status: booking.payment_status,
+          status: bookingStatus(rows.map((p) => p.status)),
+          tokens: tokens as string[],
+        };
       })
     );
-    if (issued.some((t) => t === null)) throw new Error('rotation failed');
-    const tokens = issued as string[];
 
+    const flat = rotated.flatMap((b) => b.tokens);
     return send(res, 200, {
-      // The whole deck, in booking order. `token` is the first of them, kept
-      // so a browser holding a cached bundle mid-deploy still opens a pass.
-      token: tokens[0],
-      tokens,
+      // Newest booking first, each with its own deck in booking order.
+      bookings: rotated,
+      // `token` and `tokens` are the pre-bookings shape, kept so a browser
+      // still holding a cached bundle mid-deploy opens a pass rather than an
+      // error. They are the flattened decks, newest booking first.
+      token: flat[0],
+      tokens: flat,
     });
   } catch (error) {
     console.error(

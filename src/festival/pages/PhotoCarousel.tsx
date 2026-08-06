@@ -67,6 +67,8 @@ export function PhotoCarousel({ photos }: { photos: Photo[] }) {
     () => !window.matchMedia('(prefers-reduced-motion: reduce)').matches
   );
   const [copies, setCopies] = useState(2);
+  /** A pointer resting on the strip holds the rotation. See the track below. */
+  const [hovering, setHovering] = useState(false);
   const sets = looping ? copies : 1;
 
   const advance = useCallback(
@@ -114,10 +116,13 @@ export function PhotoCarousel({ photos }: { photos: Photo[] }) {
   }, [photos.length]);
 
   /**
-   * Ambient rotation. Visibility is the ONLY governor: hovering, wheeling or
-   * touching does NOT hold it. Those hooks made Il Programma look broken,
-   * because scrolling the page past the section fires wheel and touch events
-   * on the track and parked it long after the reader had stopped.
+   * Ambient rotation, governed by three things and no others: the section is
+   * on screen, the tab is in front, and no pointer is resting on the strip.
+   *
+   * WHEEL AND TOUCH ARE DELIBERATELY NOT AMONG THEM. Scrolling the PAGE past
+   * the section fires both on the track, so hooking them parked Il Programma
+   * long after the reader had moved on, and it looked broken. Hover is the
+   * only one of the three that means what it appears to mean.
    */
   useEffect(() => {
     const el = track.current;
@@ -132,7 +137,7 @@ export function PhotoCarousel({ photos }: { photos: Photo[] }) {
       }
     };
     const sync = () => {
-      const run = visible && !document.hidden;
+      const run = visible && !document.hidden && !hovering;
       if (run && !timer) timer = window.setInterval(() => advance(1, false), ROTATION_MS);
       else if (!run) stop();
     };
@@ -155,7 +160,11 @@ export function PhotoCarousel({ photos }: { photos: Photo[] }) {
       observer.disconnect();
       document.removeEventListener('visibilitychange', sync);
     };
-  }, [advance, looping]);
+    // `hovering` is a dependency rather than a ref so the interval is torn
+    // down and rebuilt around a pause, which also means the first automatic
+    // move after the pointer leaves is a full interval away instead of
+    // whatever was left of the one it interrupted.
+  }, [advance, looping, hovering]);
 
   const arrow =
     'grid h-11 w-11 place-items-center rounded-full border border-border bg-background/70 text-foreground backdrop-blur transition-colors duration-300 hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
@@ -175,8 +184,35 @@ export function PhotoCarousel({ photos }: { photos: Photo[] }) {
         aria-roledescription="carousel"
         aria-label="Rangeelo Rajasthan photographs"
         tabIndex={0}
-        className="flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-smooth pb-2 [-ms-overflow-style:none] [scrollbar-width:none] focus-visible:outline-none [&::-webkit-scrollbar]:hidden"
+        className={cn(
+          'flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain pb-2 [-ms-overflow-style:none] [scrollbar-width:none] focus-visible:outline-none [&::-webkit-scrollbar]:hidden',
+          /* HALF A PLATE OF PADDING AT EACH END, matching the plate width at
+             every breakpoint. Without it the first plate cannot be CENTRED —
+             there is nothing to its left to scroll past — so mandatory
+             snapping put the first snap position half a viewport short of a
+             full stride, and the opening move travelled 304px where every
+             later one travelled 568. That short first step is the jolt on the
+             first transition. With the padding, every plate including the
+             first can sit in the middle, so every step is one stride.
+
+             NO scroll-smooth HERE. reenterLoop rewinds the track by a whole
+             copy with a direct write to scrollLeft, and the whole point of
+             that write is that it is INSTANT and therefore invisible.
+             `scroll-behavior: smooth` turns it into an animation, and the
+             carousel visibly glides backwards through a copy every time it
+             wraps. The deliberate moves pass `behavior: smooth` to scrollBy
+             themselves, so nothing is lost. Il Programma never set it. */
+          'px-[max(0px,calc(50%-39vw))] sm:px-[max(0px,calc(50%-26vw))] lg:px-[max(0px,calc(50%-19vw))] xl:px-[max(0px,calc(50%-17rem))]'
+        )}
         style={{ gap: GAP }}
+        /* POINTER ONLY. Hovering holds the rotation so a reader looking at a
+           photograph does not have it taken away, and it is bound to
+           mouseenter rather than wheel or touch on purpose: those fire while
+           the PAGE is scrolled past the section, which is what parked Il
+           Programma long after the reader had moved on. A pointer resting on
+           the strip is unambiguous. */
+        onMouseEnter={() => setHovering(true)}
+        onMouseLeave={() => setHovering(false)}
       >
         {Array.from({ length: sets }).flatMap((_, copy) =>
           photos.map((photo, i) => {

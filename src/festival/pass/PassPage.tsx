@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
 import { TextEffect } from '@/components/motion/text-effect';
@@ -9,6 +9,7 @@ import { CarnivalMark } from '../CarnivalMark';
 import { type PassData } from '../getpasses/PassCard';
 import { FloatingInput } from '../getpasses/fields';
 import { PassDeck } from './PassDeck';
+import { BookingList, type Booking } from './BookingList';
 
 type LoadState =
   | { phase: 'loading' }
@@ -86,7 +87,43 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function RetrieveForm({ onFound }: { onFound: (tokens: string[]) => void }) {
+/**
+ * The retrieval reply, as bookings, whatever shape it arrives in.
+ *
+ * `/api/retrieve` returns `bookings` now. It also still returns the flat
+ * `tokens` it used to, and this reads that as a fallback: a visitor whose
+ * browser has the new bundle cached against an older deployment of the
+ * function would otherwise see "pass not found" for passes that exist. One
+ * synthetic booking with no reference is a worse screen than the real thing
+ * and a much better one than that.
+ */
+function normaliseBookings(data: unknown): Booking[] {
+  const body = data as {
+    bookings?: Booking[];
+    tokens?: string[];
+    token?: string;
+  } | null;
+  if (body?.bookings?.length) return body.bookings;
+  const tokens = body?.tokens?.length
+    ? body.tokens
+    : body?.token
+      ? [body.token]
+      : [];
+  if (!tokens.length) return [];
+  return [
+    {
+      reference: null,
+      booked_at: null,
+      passes: tokens.length,
+      total_amount: null,
+      payment_status: null,
+      status: 'active',
+      tokens,
+    },
+  ];
+}
+
+function RetrieveForm({ onFound }: { onFound: (bookings: Booking[]) => void }) {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [fullName, setFullName] = useState('');
@@ -129,14 +166,15 @@ function RetrieveForm({ onFound }: { onFound: (tokens: string[]) => void }) {
         }),
       });
       const data = await response.json().catch(() => null);
-      if (response.ok && (data?.tokens?.length || data?.token)) {
-        /* THE DECK STAYS OFF THE URL. Retrieval returns every token in the
-           booking, and a token IS the credential: putting several in the
-           address bar would write a family's passes into browser history,
-           the back button and anything that syncs it. Handing them up as
-           state keeps them out of all three. `/pass/<token>` still works
-           for one scanned link, which is the case that needs an address. */
-        onFound(data.tokens?.length ? data.tokens : [data.token]);
+      const bookings = normaliseBookings(data);
+      if (response.ok && bookings.length) {
+        /* THE DECKS STAY OFF THE URL. Retrieval returns every token in every
+           booking, and a token IS the credential: putting them in the address
+           bar would write a family's passes into browser history, the back
+           button and anything that syncs it. Handing them up as state keeps
+           them out of all three. `/pass/<token>` still works for one scanned
+           link, which is the case that needs an address. */
+        onFound(bookings);
         return;
       }
       setError(
@@ -230,11 +268,44 @@ function RetrieveForm({ onFound }: { onFound: (tokens: string[]) => void }) {
 
 export default function PassPage() {
   const { token } = useParams<{ token: string }>();
+  const location = useLocation();
   const [state, setState] = useState<LoadState>({ phase: 'loading' });
-  /* Tokens found by retrieval, held in state rather than the URL. A scanned
-     `/pass/<token>` link is a deck of one, so both routes end up here. */
-  const [found, setFound] = useState<string[] | null>(null);
-  const tokens = token ? [token] : found;
+  /* Bookings found by retrieval, held in state rather than the URL. */
+  const [found, setFound] = useState<Booking[] | null>(null);
+  /* Which booking's deck is open, by POSITION in the list. Not by reference:
+     the compatibility shape above has no reference, and `null === null` would
+     have opened a booking nobody chose. */
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+
+  /* THE CONFIRMATION PAGE HANDS THE WHOLE BOOKING OVER.
+     "View QR Pass" used to link to `/pass/<first token>`, which opened a deck
+     of one: everybody after the first person in the booking was simply not on
+     the screen they had just been sent to. It now navigates here with every
+     token in router state, which keeps them out of the address bar for the
+     same reason retrieval does. */
+  const handed = useMemo(() => {
+    const state = location.state as { tokens?: unknown } | null;
+    const tokens = state?.tokens;
+    return Array.isArray(tokens) && tokens.every((t) => typeof t === 'string')
+      ? (tokens as string[])
+      : null;
+  }, [location.state]);
+
+  /* One booking opens straight into its deck: a list of one is a step that
+     exists only to be clicked through. Several show the list first. */
+  const open = found
+    ? found.length === 1
+      ? found[0]
+      : openIndex !== null
+        ? found[openIndex]
+        : undefined
+    : undefined;
+  const tokens = token
+    ? [token]
+    : handed?.length
+      ? handed
+      : (open?.tokens ?? null);
+  const choosing = Boolean(found && found.length > 1 && !open);
 
   useEffect(() => {
     if (!tokens || tokens.length === 0) return;
@@ -311,9 +382,11 @@ export default function PassPage() {
           delay={0.2}
           className="font-display text-5xl font-medium tracking-tight text-foreground sm:text-6xl"
         >
-          {tokens && tokens.length > 1 ? 'Your Passes' : 'Your Pass'}
+          {/* A scanned `/pass/<token>` link is one person's pass and says so.
+              Everything reached by retrieval is a booking. */}
+          {token ? 'Your Pass' : 'Your Bookings'}
         </TextEffect>
-        {!tokens && (
+        {!tokens && !choosing && (
           <motion.p
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -324,9 +397,43 @@ export default function PassPage() {
             we will bring your pass back.
           </motion.p>
         )}
+        {choosing && (
+          <motion.p
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.5, ease: EASE.out }}
+            className="mt-5 max-w-md font-body text-base leading-relaxed text-muted-foreground"
+          >
+            {`You hold ${found?.length} bookings on these details, newest first. Open one to see every pass in it.`}
+          </motion.p>
+        )}
+        {/* Back to the list, and only when there is a list to go back to. */}
+        {open && found && found.length > 1 && (
+          <motion.button
+            type="button"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.4, ease: EASE.out }}
+            onClick={() => setOpenIndex(null)}
+            className="group mt-5 inline-flex items-center gap-2 font-body text-sm text-muted-foreground transition-colors duration-300 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <ArrowLeft
+              aria-hidden="true"
+              className="h-4 w-4 transition-transform duration-300 group-hover:-translate-x-0.5"
+            />
+            {open.reference
+              ? `All bookings · ${open.reference}`
+              : 'All bookings'}
+          </motion.button>
+        )}
       </header>
 
-      {!tokens ? (
+      {choosing && found ? (
+        <BookingList
+          bookings={found}
+          onOpen={(booking) => setOpenIndex(found.indexOf(booking))}
+        />
+      ) : !tokens ? (
         <RetrieveForm onFound={setFound} />
       ) : state.phase === 'loading' ? (
         <div

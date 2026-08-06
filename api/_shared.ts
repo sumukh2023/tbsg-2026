@@ -253,6 +253,7 @@ export type PassRow = {
     visitor_type: string;
     number_of_passes: number;
     booking_reference: string | null;
+    email: string;
   };
 };
 
@@ -268,7 +269,7 @@ const PASS_SELECT =
   `select=id,registration_id,pass_reference,status,issued_at,checked_in_at,` +
   `checked_in_by,checked_in_by_name,` +
   `attendee_name,attendee_category,sequence,student_name,usn,class,section,` +
-  `registrations(full_name,visitor_type,number_of_passes,booking_reference)`;
+  `registrations(full_name,visitor_type,number_of_passes,booking_reference,email)`;
 
 async function findPass(
   env: { url: string; headers: Record<string, string> },

@@ -8,11 +8,30 @@ import { PortalShell, VolunteerMenu } from './PortalShell';
 import { QrScanner } from './QrScanner';
 import { useVolunteerSession } from './session-context';
 
+/** One label-and-value row in the booking panel. */
+function BookingLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 sm:block">
+      <dt className="font-body text-2xs uppercase tracking-[0.14em] text-muted-foreground">
+        {label}
+      </dt>
+      <dd className="font-body text-sm text-foreground sm:mt-1">{value}</dd>
+    </div>
+  );
+}
+
 type Guest = {
   name: string;
   visitor_type: string;
   number_of_passes: number;
+  /** Which pass of the booking this is, from 1. */
+  sequence?: number;
+  /** The booking this pass belongs to. Informational at the gate. */
+  booking_reference?: string | null;
+  purchaser?: string | null;
+  purchaser_email?: string | null;
   /** School roll, returned for student passes only. */
+  student_name?: string | null;
   usn?: string | null;
   class?: string | null;
   section?: string | null;
@@ -350,10 +369,14 @@ export default function VerifyPage() {
                 </div>
                 <div>
                   <dt className="font-body text-2xs uppercase tracking-[0.14em] text-muted-foreground">
-                    Passes
+                    Pass
                   </dt>
                   <dd className="mt-1 font-display text-2xl font-medium leading-none text-foreground">
-                    {state.guest.number_of_passes}
+                    {state.guest.sequence ?? 1}
+                    <span className="font-body text-sm text-muted-foreground">
+                      {' '}
+                      of {state.guest.number_of_passes}
+                    </span>
                   </dd>
                 </div>
                 <div>
@@ -399,6 +422,46 @@ export default function VerifyPage() {
                     </div>
                   )}
               </dl>
+
+              {/* THE BOOKING, and it is INFORMATION ONLY.
+                  Set apart from the attendee panel above on purpose: a
+                  volunteer's decision is about the person in front of them,
+                  and the booking is context for a question they might be
+                  asked ("my husband has the other one"). Nothing here
+                  changes what the button does. */}
+              {state.guest.booking_reference && (
+                <div className="mt-5 rounded-xl border border-border/60 bg-background/30 p-4">
+                  <p className="font-body text-2xs uppercase tracking-[0.14em] text-muted-foreground">
+                    Booking
+                  </p>
+                  <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <BookingLine
+                      label="Reference"
+                      value={state.guest.booking_reference}
+                    />
+                    <BookingLine
+                      label="Passes in booking"
+                      value={String(state.guest.number_of_passes)}
+                    />
+                    {state.guest.purchaser && (
+                      <BookingLine
+                        label="Booked by"
+                        value={state.guest.purchaser}
+                      />
+                    )}
+                    {state.guest.purchaser_email && (
+                      <BookingLine
+                        label="Email"
+                        value={state.guest.purchaser_email}
+                      />
+                    )}
+                  </dl>
+                  <p className="mt-3 font-body text-2xs leading-relaxed text-muted-foreground">
+                    Checking this guest in does not check in the rest of the
+                    booking. Each pass is scanned separately.
+                  </p>
+                </div>
+              )}
             </>
           ) : (
             <p className="mt-4 font-body text-sm leading-relaxed text-muted-foreground">
@@ -424,10 +487,12 @@ export default function VerifyPage() {
                 onClick={() => void call('checkin')}
                 className="inline-flex w-full items-center justify-center rounded-full bg-primary px-8 py-4 font-body text-base font-medium text-primary-foreground transition-all duration-300 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98]"
               >
-                Check in {state.guest?.number_of_passes ?? ''}{' '}
-                {state.guest && state.guest.number_of_passes === 1
-                  ? 'guest'
-                  : 'guests'}
+                {/* ALWAYS ONE. This used to read "Check in 4 guests" off
+                    the booking size, which was true when a booking was a
+                    single shared QR code and became a lie the moment every
+                    attendee got their own. A volunteer pressing it admits
+                    the person in front of them and nobody else. */}
+                Check in Guest
               </button>
             )}
             {/* Undoing reverses a decision already taken at the gate, so it
