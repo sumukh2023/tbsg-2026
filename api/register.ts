@@ -14,8 +14,9 @@ import {
   jsonBody,
   PASS_LIMITS,
   passReference,
+  bookingReference,
+  priceBooking,
   randomToken,
-  ROLL_REQUIRED,
   SECTIONS,
   send,
   sha256Hex,
@@ -25,12 +26,36 @@ import {
   type VisitorType,
 } from './_shared.js';
 
+/**
+ * One attendee, and therefore one pass.
+ *
+ * The ROLL DETAILS ARE PER ATTENDEE, not per booking. A parent booking two
+ * passes is booking for two different children, and the old shape — one USN
+ * on the registration — could only ever describe one of them. Storing them
+ * here is what lets the gate read the right child off the right pass.
+ */
+export type Attendee = {
+  attendee_name: string;
+  attendee_category: VisitorType;
+  student_name: string | null;
+  usn: string | null;
+  class: string | null;
+  section: string | null;
+  sequence: number;
+};
+
 type Payload = {
   full_name: string;
   email: string;
   phone: string;
   visitor_type: VisitorType;
   number_of_passes: number;
+  booking_reference: string;
+  subtotal: number;
+  convenience_fee: number;
+  total_amount: number;
+  /** Stripped before the row is written: these become `passes`, not columns. */
+  attendees: Attendee[];
   student_name: string | null;
   usn: string | null;
   class: string | null;
@@ -88,12 +113,16 @@ function validate(body: Record<string, unknown>): Payload | string {
   let visitor_detail: string | null = null;
   let organisation: string | null = null;
 
-  if (ROLL_REQUIRED.includes(visitor_type)) {
-    if (visitor_type === 'parent') {
-      student_name = cleanText(body.student_name, 120);
-      if (!student_name || student_name.length < 2) {
-        return "The student's name is required.";
-      }
+  /* THE ROLL SITS IN DIFFERENT PLACES FOR THE TWO SCHOOL CATEGORIES, and
+     that is not an inconsistency. A student booking is a list of students, so
+     each attendee carries their own USN and is validated per attendee below.
+     A PARENT booking is one child's parents: the brief's parent form asks
+     only for names, and the repository ties the booking to a pupil, so the
+     child is named once here and copied onto each parent's pass. */
+  if (visitor_type === 'parent') {
+    student_name = cleanText(body.student_name, 120);
+    if (!student_name || student_name.length < 2) {
+      return "The student's name is required.";
     }
     // A-Z and 0-9 only. The form corrects as you type, but the form is not
     // the authority: normalise here too so a crafted request cannot store a
@@ -111,7 +140,7 @@ function validate(body: Record<string, unknown>): Payload | string {
     if (!section || !SECTIONS.includes(section as (typeof SECTIONS)[number])) {
       return "Choose the student's section.";
     }
-  } else {
+  } else if (visitor_type === 'other') {
     visitor_detail = cleanText(body.visitor_detail, 20);
     if (
       !visitor_detail ||
@@ -132,12 +161,33 @@ function validate(body: Record<string, unknown>): Payload | string {
     return 'The Terms of Service and Privacy Policy must be accepted.';
   }
 
+  // The attendees, one per ticket. Validated here so a booking is either
+  // fully described or refused; a half-named booking is passes nobody owns.
+  const attendees = validateAttendees(body, visitor_type, passes);
+  if (typeof attendees === 'string') return attendees;
+
+  /* A parent's pass carries the child the booking is for; a student's pass
+     already carries their own, set per attendee above. The `?? ` is what
+     covers the compatibility path: an old client sends no attendee list, so
+     the synthesised attendees have no roll and inherit the booking's. */
+  for (const attendee of attendees) {
+    attendee.student_name = attendee.student_name ?? student_name;
+    attendee.usn = attendee.usn ?? usn;
+    attendee.class = attendee.class ?? className;
+    attendee.section = attendee.section ?? section;
+  }
+
   return {
     full_name,
     email,
     phone,
     visitor_type,
     number_of_passes: passes,
+    booking_reference: bookingReference(),
+    // PRICED HERE, never read from the body. A client that posts its own
+    // total is describing what it would like to pay.
+    ...priceBooking(visitor_type, passes),
+    attendees,
     student_name,
     usn,
     class: className,
@@ -155,33 +205,178 @@ function validate(body: Record<string, unknown>): Payload | string {
   };
 }
 
-/** Mint the digital pass for a registration. Returns the raw token once. */
-async function mintPass(
+/**
+ * The people this booking is for, one per ticket.
+ *
+ * Every attendee is named. The purchaser gives an address and a number once;
+ * the names are what turn a count into a list of passes, and a pass with
+ * nobody's name on it cannot be checked in against anybody.
+ */
+function validateAttendees(
+  body: Record<string, unknown>,
+  type: VisitorType,
+  tickets: number
+): Attendee[] | string {
+  const raw = body.attendees;
+
+  /* NO ATTENDEE LIST: a client from before the booking form asked for names.
+   *
+   * This is the compatibility path, and it exists because the two halves of
+   * this change deploy at different moments. A browser holding the previous
+   * bundle posts a purchaser and a count and nothing else; refusing it would
+   * turn a cached tab into a broken booking form for as long as the cache
+   * lives. So the booking is described the way the migration describes the
+   * bookings that predate this column: every pass takes the purchaser's name.
+   *
+   * It produces the right NUMBER of passes with the right owner and the
+   * wrong names, which is strictly better than the single shared QR code it
+   * replaces, and it self-corrects the moment the new form ships. Delete
+   * this branch once the form is out and no cached bundle can reach it.
+   */
+  if (raw === undefined || raw === null) {
+    const purchaser = cleanText(body.full_name, 120) ?? 'Guest';
+    return Array.from({ length: tickets }, (_, i) => ({
+      attendee_name: purchaser,
+      attendee_category: type,
+      student_name: null,
+      usn: null,
+      class: null,
+      section: null,
+      sequence: i + 1,
+    }));
+  }
+
+  if (!Array.isArray(raw) || raw.length !== tickets) {
+    return `Please give a name for each of the ${tickets} ${tickets === 1 ? 'ticket' : 'tickets'}.`;
+  }
+
+  const out: Attendee[] = [];
+  for (let i = 0; i < raw.length; i += 1) {
+    const entry = (raw[i] ?? {}) as Record<string, unknown>;
+    const position = i + 1;
+
+    const attendee_name = cleanText(entry.attendee_name, 120);
+    if (!attendee_name || attendee_name.length < 2) {
+      return `Please enter a name for attendee ${position}.`;
+    }
+
+    let student_name: string | null = null;
+    let usn: string | null = null;
+    let className: string | null = null;
+    let section: string | null = null;
+
+    /* PER ATTENDEE, FOR STUDENTS. Three student tickets are three different
+       pupils, and a single USN on the booking could only ever have described
+       one of them. A parent's pass takes the child's roll from the booking
+       instead: see the note in `validate`. */
+    if (type === 'student') {
+      student_name = attendee_name;
+      usn =
+        cleanText(entry.usn, 20)?.toUpperCase().replace(/[^A-Z0-9]/g, '') ??
+        null;
+      if (!usn) return `A USN is required for student ${position}.`;
+      className = cleanText(entry.class, 20);
+      if (!className || !CLASSES.includes(className as (typeof CLASSES)[number])) {
+        return `Choose the class for student ${position}.`;
+      }
+      section = cleanText(entry.section, 2);
+      if (!section || !SECTIONS.includes(section as (typeof SECTIONS)[number])) {
+        return `Choose the section for student ${position}.`;
+      }
+    }
+
+    out.push({
+      attendee_name,
+      attendee_category: type,
+      student_name,
+      usn,
+      class: className,
+      section,
+      sequence: position,
+    });
+  }
+
+  // Two passes for the same USN in one booking is a duplicated row, not two
+  // children. The gate would have two ways to admit one student.
+  const rolls = out.map((a) => a.usn).filter(Boolean);
+  if (new Set(rolls).size !== rolls.length) {
+    return 'Each attendee needs their own USN. One is repeated.';
+  }
+  return out;
+}
+
+/**
+ * Mint one pass PER ATTENDEE, in a single insert.
+ *
+ * One request, not one per attendee: ten attendees used to mean ten round
+ * trips to PostgREST from a serverless function, and a failure half way
+ * through left a booking holding four passes out of ten. Inserting the array
+ * makes it one statement, so it either all lands or none of it does.
+ *
+ * The raw tokens are returned here and never again. Only their SHA-256 is
+ * stored, so this is the single moment they exist in a form anyone can use.
+ */
+async function mintPasses(
   env: NonNullable<ReturnType<typeof supabaseEnv>>,
-  registrationId: string
-): Promise<{ token: string; reference: string; issued_at: string } | null> {
-  // Two attempts in the astronomically unlikely event of a collision.
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const token = randomToken();
-    const reference = passReference();
+  registrationId: string,
+  attendees: Attendee[]
+): Promise<MintedPass[] | null> {
+  // Two attempts, in the astronomically unlikely event of a reference
+  // collision. A retry re-rolls every reference in the batch.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const minted = await Promise.all(
+      attendees.map(async (attendee) => {
+        const token = randomToken();
+        const reference = passReference();
+        return {
+          token,
+          reference,
+          attendee,
+          row: {
+            registration_id: registrationId,
+            pass_reference: reference,
+            verification_token_hash: await sha256Hex(token),
+            ...attendee,
+          },
+        };
+      })
+    );
+
     const response = await fetch(`${env.url}/rest/v1/passes`, {
       method: 'POST',
       headers: { ...env.headers, Prefer: 'return=representation' },
-      body: JSON.stringify({
-        registration_id: registrationId,
-        pass_reference: reference,
-        verification_token_hash: await sha256Hex(token),
-      }),
+      body: JSON.stringify(minted.map((m) => m.row)),
     });
+
     if (response.ok) {
-      const rows = (await response.json()) as Array<{ issued_at: string }>;
-      return { token, reference, issued_at: rows[0]?.issued_at ?? '' };
+      const rows = (await response.json()) as Array<{
+        pass_reference: string;
+        issued_at: string;
+      }>;
+      const issuedAt = new Map(rows.map((r) => [r.pass_reference, r.issued_at]));
+      return minted.map((m) => ({
+        token: m.token,
+        reference: m.reference,
+        issued_at: issuedAt.get(m.reference) ?? '',
+        attendee_name: m.attendee.attendee_name,
+        attendee_category: m.attendee.attendee_category,
+        sequence: m.attendee.sequence,
+      }));
     }
     console.error(`[register] stage=mint supabase_status=${response.status}`);
     if (response.status !== 409) break;
   }
   return null;
 }
+
+export type MintedPass = {
+  token: string;
+  reference: string;
+  issued_at: string;
+  attendee_name: string;
+  attendee_category: VisitorType;
+  sequence: number;
+};
 
 export default async function handler(
   req: VercelRequest,
@@ -240,10 +435,14 @@ export default async function handler(
       });
     }
 
+    // `attendees` is not a column: it is the list that becomes the passes.
+    // PostgREST rejects the whole insert on an unknown key, so it is peeled
+    // off here rather than left to fail the booking at the database.
+    const { attendees: _attendees, ...bookingRow } = payload;
     const insertResponse = await fetch(`${env.url}/rest/v1/registrations`, {
       method: 'POST',
       headers: { ...env.headers, Prefer: 'return=representation' },
-      body: JSON.stringify({ ...payload, status: 'received' }),
+      body: JSON.stringify({ ...bookingRow, status: 'received' }),
     });
 
     if (!insertResponse.ok) {
@@ -264,11 +463,12 @@ export default async function handler(
       });
     }
 
-    // Mint the digital pass. A booking without a pass is a dead record for
-    // the visitor, so if minting fails the registration is rolled back and
-    // the visitor is asked to retry cleanly.
-    const pass = await mintPass(env, registrationId);
-    if (!pass) {
+    // Mint one pass PER ATTENDEE. A booking without its passes is a dead
+    // record for the visitor, so if minting fails the booking is rolled back
+    // and the visitor is asked to retry cleanly. All or nothing: a booking
+    // holding four passes out of ten is worse than one holding none.
+    const passes = await mintPasses(env, registrationId, payload.attendees);
+    if (!passes) {
       await fetch(`${env.url}/rest/v1/registrations?id=eq.${registrationId}`, {
         method: 'DELETE',
         headers: env.headers,
@@ -281,7 +481,21 @@ export default async function handler(
       });
     }
 
-    return send(res, 201, { ok: true, id: registrationId, pass });
+    return send(res, 201, {
+      ok: true,
+      id: registrationId,
+      booking_reference: payload.booking_reference,
+      pricing: {
+        subtotal: payload.subtotal,
+        convenience_fee: payload.convenience_fee,
+        total_amount: payload.total_amount,
+      },
+      passes,
+      // The first pass, under the name the old client reads. Kept so a
+      // browser holding a cached bundle mid-deploy still shows a pass rather
+      // than an error; remove once nothing requests the old shape.
+      pass: passes[0],
+    });
   } catch (error) {
     console.error(
       `[register] stage=network error=${error instanceof Error ? error.name : 'unknown'}`

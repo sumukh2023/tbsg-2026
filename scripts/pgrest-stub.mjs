@@ -51,6 +51,15 @@ function condition(row, key, raw) {
       : actual === value;
   }
   if (op === 'gte') return new Date(actual) >= new Date(value);
+  // `in.(a,b,c)` — retrieval uses it to read every pass across a handful of
+  // candidate bookings in one request rather than one request per booking.
+  if (op === 'in') {
+    const inner = String(value).replace(/^\(/, '').replace(/\)$/, '');
+    return inner
+      .split(',')
+      .map((v) => v.trim().replace(/^"|"$/g, ''))
+      .includes(String(actual));
+  }
   if (op === 'ilike') {
     // PostgREST spells the wildcard `*`; Postgres uses `%`. Either arrives.
     if (actual === null || actual === undefined) return false;
@@ -289,6 +298,28 @@ export function start(port = 5599) {
       }
 
       if (req.method === 'POST') {
+        /* AN ARRAY BODY IS A BATCH INSERT, which real PostgREST supports and
+           the pass minting now relies on: ten attendees are one statement,
+           not ten round trips. Spreading an array into a row object made one
+           row with numeric keys, which silently stored nothing usable. */
+        if (Array.isArray(payload)) {
+          const made = payload.map((entry) => {
+            const row = {
+              id: randomUUID(),
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              ...entry,
+            };
+            rows.push(row);
+            return row;
+          });
+          const wantsBack = (req.headers.prefer ?? '').includes('representation');
+          if (!wantsBack) {
+            res.writeHead(201, { 'Content-Type': 'application/json' });
+            return res.end('');
+          }
+          return send(201, made.map((r) => embed(r, table, select)));
+        }
         // Unique email, as the real unique index on lower(email) enforces.
         if (table === 'volunteers') {
           const clash = db.volunteers.some(

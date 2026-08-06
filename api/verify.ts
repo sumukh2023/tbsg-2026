@@ -51,13 +51,23 @@ async function presentationOf(env: Env, pass: PassRow) {
   return {
     reference: pass.pass_reference,
     guest: {
-      name: pass.registrations?.full_name ?? '',
-      visitor_type: pass.registrations?.visitor_type ?? '',
+      /* THE PERSON THIS PASS ADMITS, read off the pass. It used to be the
+         booking's `full_name`, so a family of four showed the volunteer the
+         purchaser's name four times and never the person at the gate. */
+      name: pass.attendee_name,
+      visitor_type: pass.attendee_category,
       number_of_passes: pass.registrations?.number_of_passes ?? 1,
-      // Present only on student passes; the gate reads them off the pass.
-      usn: pass.registrations?.usn ?? null,
-      class: pass.registrations?.class ?? null,
-      section: pass.registrations?.section ?? null,
+      // Which of the booking's passes this is, so a volunteer can see that
+      // three of four have already come through.
+      sequence: pass.sequence,
+      booking_reference: pass.registrations?.booking_reference ?? null,
+      purchaser: pass.registrations?.full_name ?? '',
+      // The school roll: the student's own, or on a parent's pass the child
+      // the booking is for.
+      student_name: pass.student_name,
+      usn: pass.usn,
+      class: pass.class,
+      section: pass.section,
     },
     checked_in_at: pass.checked_in_at,
     // Joined name, falling back to the free text written by the retired

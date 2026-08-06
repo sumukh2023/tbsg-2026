@@ -177,21 +177,68 @@ export const VISITOR_DETAILS = [
  */
 export const ROLL_REQUIRED: readonly VisitorType[] = ['student', 'parent'];
 
-/** Human-friendly pass reference, e.g. FB26-K7M3Q (no confusable glyphs). */
-export function passReference(): string {
+/**
+ * WHAT A TICKET COSTS, on the server.
+ *
+ * Mirrors `src/festival/getpasses/pricing.ts`, which is what the visitor is
+ * shown. The two must agree, and where they disagree THIS one is right: the
+ * amounts stored on a booking are computed here from the category and the
+ * count, never taken from the request body. A client that posts its own
+ * total is describing what it would like to pay.
+ */
+export const TICKET_PRICES: Record<VisitorType, number> = {
+  student: 200,
+  parent: 250,
+  other: 250,
+};
+
+/** Per ticket, not per booking. Ten passes carry ₹250. */
+export const CONVENIENCE_FEE_PER_TICKET = 25;
+
+/** Whole rupees. Paise are a payment gateway's problem, at its own boundary. */
+export function priceBooking(
+  type: VisitorType,
+  tickets: number
+): { subtotal: number; convenience_fee: number; total_amount: number } {
+  const subtotal = TICKET_PRICES[type] * tickets;
+  const convenience_fee = CONVENIENCE_FEE_PER_TICKET * tickets;
+  return { subtotal, convenience_fee, total_amount: subtotal + convenience_fee };
+}
+
+/** Human-friendly booking reference, e.g. FB2026-K7M3Q. Quoted at the desk. */
+export function bookingReference(): string {
+  return `FB2026-${referenceSuffix()}`;
+}
+
+/** Five characters from an alphabet with no confusable glyphs. */
+function referenceSuffix(): string {
   const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
   const raw = crypto.getRandomValues(new Uint8Array(5));
   let out = '';
   raw.forEach((b) => {
     out += alphabet[b % alphabet.length];
   });
-  return `FB26-${out}`;
+  return out;
+}
+
+/** Human-friendly pass reference, e.g. FB26-K7M3Q (no confusable glyphs). */
+export function passReference(): string {
+  return `FB26-${referenceSuffix()}`;
 }
 
 export type PassRow = {
   id: string;
   registration_id: string;
   pass_reference: string;
+  /* WHO THIS PASS ADMITS. Not the purchaser: one booking has many of these,
+     and the gate needs the person in front of it, not whoever paid. */
+  attendee_name: string;
+  attendee_category: string;
+  sequence: number;
+  student_name: string | null;
+  usn: string | null;
+  class: string | null;
+  section: string | null;
   status: 'valid' | 'checked_in' | 'cancelled';
   issued_at: string;
   checked_in_at: string | null;
@@ -199,14 +246,13 @@ export type PassRow = {
   checked_in_by: string | null;
   /** Free text left by the retired access-code system. Read-only now. */
   checked_in_by_name: string | null;
+  /* The BOOKING this pass belongs to. It carries the purchaser and the
+     totals; the attendee lives on the pass above. */
   registrations?: {
     full_name: string;
     visitor_type: string;
     number_of_passes: number;
-    student_name: string | null;
-    usn: string | null;
-    class: string | null;
-    section: string | null;
+    booking_reference: string | null;
   };
 };
 
@@ -221,7 +267,8 @@ export type PassRow = {
 const PASS_SELECT =
   `select=id,registration_id,pass_reference,status,issued_at,checked_in_at,` +
   `checked_in_by,checked_in_by_name,` +
-  `registrations(full_name,visitor_type,number_of_passes,student_name,usn,class,section)`;
+  `attendee_name,attendee_category,sequence,student_name,usn,class,section,` +
+  `registrations(full_name,visitor_type,number_of_passes,booking_reference)`;
 
 async function findPass(
   env: { url: string; headers: Record<string, string> },

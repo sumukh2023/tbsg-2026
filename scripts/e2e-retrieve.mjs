@@ -53,12 +53,20 @@ db.registrations.push({
   phone: '9886012345',
   created_at: new Date().toISOString(),
 });
-db.passes.push({
-  id: randomUUID(),
-  registration_id: registrationId,
-  status: 'valid',
-  verification_token_hash: 'old-hash',
-  created_at: new Date().toISOString(),
+// Priya's booking holds THREE passes: herself and two guests. This is the
+// shape the whole overhaul exists for, and retrieval must return all three.
+const PRIYA_PARTY = ['Priya Menon', 'Ananya Rao', 'Kabir Shah'];
+PRIYA_PARTY.forEach((attendee_name, i) => {
+  db.passes.push({
+    id: randomUUID(),
+    registration_id: registrationId,
+    status: 'valid',
+    attendee_name,
+    attendee_category: 'other',
+    sequence: i + 1,
+    verification_token_hash: `old-hash-${i}`,
+    created_at: new Date().toISOString(),
+  });
 });
 
 // A second household on the SAME address and number, registered later. Its
@@ -75,7 +83,10 @@ db.passes.push({
   id: randomUUID(),
   registration_id: siblingId,
   status: 'valid',
-  verification_token_hash: 'old-hash-2',
+  attendee_name: 'Arjun Menon',
+  attendee_category: 'other',
+  sequence: 1,
+  verification_token_hash: 'sibling-hash',
   created_at: new Date().toISOString(),
 });
 
@@ -167,7 +178,7 @@ console.log('\nThe right household member gets the right pass');
   const rotated = db.passes.find((p) => p.registration_id === siblingId);
   check(
     "and it is the SIBLING's pass that was rotated",
-    Boolean(payload.token) && rotated.verification_token_hash !== 'old-hash-2'
+    Boolean(payload.token) && rotated.verification_token_hash !== 'sibling-hash'
   );
 }
 
@@ -180,6 +191,40 @@ console.log('\nThe token is rotated on every retrieval');
   const after = db.passes.find((p) => p.registration_id === registrationId).verification_token_hash;
   check('the stored hash changes', before !== mid && mid !== after);
   check('and a fresh token comes back each time', a.payload.token !== bnd.payload.token);
+}
+
+console.log('\nRetrieval returns the WHOLE booking, not one pass');
+{
+  const { status, payload } = await post({ ...base, full_name: 'Priya Menon' });
+  check('answers 200', status === 200, `got ${status}`);
+  check('three tokens for three attendees', payload.tokens?.length === 3,
+    String(payload.tokens?.length));
+  check('every token is distinct', new Set(payload.tokens).size === 3);
+  check('the legacy single `token` is the first of them',
+    payload.token === payload.tokens[0]);
+  const hashes = db.passes
+    .filter((p) => p.registration_id === registrationId)
+    .map((p) => p.verification_token_hash);
+  check('EVERY pass was rotated, not just the first',
+    hashes.every((h) => !String(h).startsWith('old-hash')));
+  check('and no two passes share a token',
+    new Set(hashes).size === hashes.length);
+}
+
+console.log('\nAny attendee name opens the booking');
+for (const [label, full_name] of [
+  ['a guest, not the purchaser', 'Ananya Rao'],
+  ['the other guest', 'Kabir Shah'],
+  ['loosely typed', '  kABIR   shah '],
+]) {
+  const { status, payload } = await post({ ...base, full_name });
+  check(label, status === 200 && payload.tokens?.length === 3,
+    `${status} ${payload?.error ?? ''}`);
+}
+{
+  const { status, payload } = await post({ ...base, full_name: 'Someone Else' });
+  check('a name on NO pass is still refused', status === 404, `got ${status}`);
+  check('  with the same sentence as always', payload?.error === GENERIC);
 }
 
 pg.close?.();

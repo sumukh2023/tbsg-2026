@@ -36,14 +36,22 @@ export default async function handler(
         status: pass.status,
         issued_at: pass.issued_at,
         checked_in_at: pass.checked_in_at,
+        sequence: pass.sequence,
+        booking_reference: pass.registrations?.booking_reference ?? null,
+        of: pass.registrations?.number_of_passes ?? 1,
         guest: {
-          name: pass.registrations?.full_name ?? '',
-          visitor_type: pass.registrations?.visitor_type ?? '',
+          /* THE ATTENDEE, off the pass itself. It used to be the booking's
+             `full_name`, which meant every pass in a family showed the
+             purchaser and none of them named the person holding it. */
+          name: pass.attendee_name,
+          visitor_type: pass.attendee_category,
           number_of_passes: pass.registrations?.number_of_passes ?? 1,
-          // Present only on student passes; the gate reads them off the pass.
-          usn: pass.registrations?.usn ?? null,
-          class: pass.registrations?.class ?? null,
-          section: pass.registrations?.section ?? null,
+          // The school roll this pass carries: the attendee's own for a
+          // student, the child the booking is for on a parent's pass.
+          student_name: pass.student_name,
+          usn: pass.usn,
+          class: pass.class,
+          section: pass.section,
         },
       },
     });

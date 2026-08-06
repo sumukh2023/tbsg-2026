@@ -101,37 +101,75 @@ export default async function handler(
       id: string;
       full_name: string | null;
     }>;
-    const match = regs.find((r) => foldName(r.full_name ?? '') === wanted);
-    if (!match) return send(res, 404, { error: GENERIC });
+    /* THE NAME MATCHES THE PURCHASER OR ANY ATTENDEE.
+       A booking is made by one person for several, and the person who comes
+       looking for it later is often not the one whose name is on it: a parent
+       books, a grandparent turns up at the gate having been told "it's under
+       Priya". Both are legitimate holders of the same booking, so both open
+       it. The purchaser is checked first because it costs nothing; the
+       attendee names need a second read and are only fetched if that misses. */
+    const byPurchaser = regs.find((r) => foldName(r.full_name ?? '') === wanted);
+
+    let booking = byPurchaser ?? null;
+    if (!booking && regs.length) {
+      const ids = regs.map((r) => r.id).join(',');
+      const namesUrl =
+        `${env.url}/rest/v1/passes?select=registration_id,attendee_name` +
+        `&registration_id=in.(${ids})`;
+      const namesResponse = await fetch(namesUrl, { headers: env.headers });
+      if (!namesResponse.ok) throw new Error('lookup failed');
+      const rows = (await namesResponse.json()) as Array<{
+        registration_id: string;
+        attendee_name: string | null;
+      }>;
+      const hit = rows.find((r) => foldName(r.attendee_name ?? '') === wanted);
+      booking = hit ? (regs.find((r) => r.id === hit.registration_id) ?? null) : null;
+    }
+    if (!booking) return send(res, 404, { error: GENERIC });
 
     const passUrl =
-      `${env.url}/rest/v1/passes?select=id,status` +
-      `&registration_id=eq.${match.id}&order=created_at.desc&limit=1`;
+      `${env.url}/rest/v1/passes?select=id,status,pass_reference` +
+      `&registration_id=eq.${booking.id}&order=sequence.asc`;
     const passResponse = await fetch(passUrl, { headers: env.headers });
     if (!passResponse.ok) throw new Error('lookup failed');
     const passes = (await passResponse.json()) as Array<{
       id: string;
       status: string;
+      pass_reference: string;
     }>;
     if (!passes.length) return send(res, 404, { error: GENERIC });
 
-    // Rotate the token on retrieval: the old link stops working and the
-    // visitor gets a fresh, unguessable one.
-    const token = randomToken();
-    const rotate = await fetch(
-      `${env.url}/rest/v1/passes?id=eq.${passes[0].id}`,
-      {
-        method: 'PATCH',
-        headers: env.headers,
-        body: JSON.stringify({
-          verification_token_hash: await sha256Hex(token),
-          updated_at: new Date().toISOString(),
-        }),
-      }
+    /* EVERY PASS IN THE BOOKING IS ROTATED, not just the first.
+       Retrieval hands back the whole deck, so every token in it is newly
+       issued and every previously circulated link stops working. Rotating
+       one and returning several would have left the other links alive
+       indefinitely, which is the opposite of what rotation is for. */
+    const issued = await Promise.all(
+      passes.map(async (pass) => {
+        const token = randomToken();
+        const rotate = await fetch(
+          `${env.url}/rest/v1/passes?id=eq.${pass.id}`,
+          {
+            method: 'PATCH',
+            headers: env.headers,
+            body: JSON.stringify({
+              verification_token_hash: await sha256Hex(token),
+              updated_at: new Date().toISOString(),
+            }),
+          }
+        );
+        return rotate.ok ? token : null;
+      })
     );
-    if (!rotate.ok) throw new Error('rotation failed');
+    if (issued.some((t) => t === null)) throw new Error('rotation failed');
+    const tokens = issued as string[];
 
-    return send(res, 200, { token });
+    return send(res, 200, {
+      // The whole deck, in booking order. `token` is the first of them, kept
+      // so a browser holding a cached bundle mid-deploy still opens a pass.
+      token: tokens[0],
+      tokens,
+    });
   } catch (error) {
     console.error(
       `[retrieve] stage=lookup error=${error instanceof Error ? error.name : 'unknown'}`
