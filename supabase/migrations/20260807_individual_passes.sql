@@ -169,7 +169,15 @@ revoke all on public.passes from anon, authenticated;
 -- question is often "who booked this", and the contact columns beside it are
 -- the purchaser's anyway.
 -- ---------------------------------------------------------------------
-create or replace view public.verification_activity as
+-- DROPPED AND RECREATED, not replaced. `create or replace view` can only
+-- APPEND columns: it refuses to change what any existing position is called,
+-- and this adds `attendee_category` where `attendee_email` used to sit.
+-- Dropping first is safe here because nothing in the database depends on the
+-- view. It is read over PostgREST by api/admin.ts, which reconnects to the
+-- new definition on its next query.
+drop view if exists public.verification_activity;
+
+create view public.verification_activity as
   select
     e.id,
     e.created_at,
@@ -191,7 +199,21 @@ create or replace view public.verification_activity as
   left join public.passes p on p.id = e.pass_id
   left join public.registrations r on r.id = p.registration_id;
 
+-- RE-REVOKED, AND THIS LINE IS THE POINT OF DROPPING CAREFULLY.
+-- `create or replace` preserves grants; DROP throws them away, and Supabase
+-- grants `anon` select on new objects in `public` by default. Without this
+-- the rebuilt view would be readable through the anon API, and it carries
+-- every attendee's name, email and mobile number. See the same warning at
+-- the top of 20260805_activity_search.sql.
+revoke all on public.verification_activity from anon, authenticated;
+
 -- Search reaches the attendee name with ILIKE and no leading anchor, which
 -- only a trigram index can serve.
 create index if not exists passes_attendee_name_trgm_idx
   on public.passes using gin (attendee_name gin_trgm_ops);
+
+-- Verify the view came back closed (should return no rows):
+--
+--   select grantee, privilege_type from information_schema.role_table_grants
+--   where table_schema = 'public' and table_name = 'verification_activity'
+--     and grantee in ('anon', 'authenticated');
