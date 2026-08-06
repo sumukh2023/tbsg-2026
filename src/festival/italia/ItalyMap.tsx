@@ -22,10 +22,14 @@ import { ITALY_PATHS, VIEW_HEIGHT, VIEW_WIDTH } from './geometry';
  * Everything that looked like a filter is now GEOMETRY, drawn from the same
  * four paths the country is made of:
  *
- *   the lift      a soft radial ellipse behind the land
  *   the emboss    the same paths again, offset up-left in a pale ink
  *   the sheen     the same paths again, filled with a radial gradient
  *   the grain     the same paths again, filled with a small tiled pattern
+ *
+ * There is deliberately NO shadow under the land. The first pass had a soft
+ * dark ellipse behind it, and on the section's warm ground it read as a
+ * bruise rather than as lift — the emboss already does the separating, and it
+ * does it in the direction the light is coming from.
  *
  * Reusing the paths as their own mask is what removes the clipPath: a fill
  * cannot escape the shape it is painted into. The cost is four extra draws
@@ -78,14 +82,6 @@ export const ItalyMap = memo(function ItalyMap({
           <stop offset="100%" stopColor="#6B5B3E" stopOpacity="0.16" />
         </radialGradient>
 
-        {/* The shadow the country sits in. One ellipse, no blur primitive:
-            the gradient IS the softness. */}
-        <radialGradient id={id('lift')} cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0%" stopColor="#2A2118" stopOpacity="0.3" />
-          <stop offset="60%" stopColor="#2A2118" stopOpacity="0.12" />
-          <stop offset="100%" stopColor="#2A2118" stopOpacity="0" />
-        </radialGradient>
-
         {/* Parchment. A 6-unit tile of three specks, repeated by the renderer
             rather than generated per pixel by feTurbulence. */}
         <pattern
@@ -99,15 +95,6 @@ export const ItalyMap = memo(function ItalyMap({
           <circle cx="3" cy="6" r="0.45" fill="#4E4230" opacity="0.1" />
         </pattern>
       </defs>
-
-      {/* The lift. Behind everything, and it never moves. */}
-      <ellipse
-        cx={VIEW_WIDTH / 2}
-        cy={VIEW_HEIGHT * 0.56}
-        rx={VIEW_WIDTH * 0.52}
-        ry={VIEW_HEIGHT * 0.5}
-        fill={`url(#${id('lift')})`}
-      />
 
       {/* The emboss: the country again, up and to the left, in pale ink.
           What shows is the sliver that the land on top does not cover, which

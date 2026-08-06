@@ -79,8 +79,19 @@ export function Italia() {
     return () => observer.disconnect();
   }, [mounted]);
 
+  /**
+   * The button does what the sentence beside it describes: it opens one.
+   *
+   * Rome, because the exhibit needs to demonstrate itself. Waking the map and
+   * scrolling to it leaves a reader looking at a country with sixteen dots on
+   * it and no indication that a dot is a thing you press — the same dead end
+   * the hover-only version had on a phone. Opening the first card IS the
+   * instruction: it shows what a marker does before asking anyone to guess.
+   * Closing it is the card's own close button, Escape, or Rome again.
+   */
   const explore = useCallback(() => {
     setAwake(true);
+    setOpenSlug('roma');
     mapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, []);
 
@@ -121,8 +132,8 @@ export function Italia() {
           </p>
           <p className="mt-5 max-w-md font-body text-sm leading-relaxed text-muted-foreground">
             A carnival needed somewhere to be, and Italy is the country that
-            invented the idea that a square is where a town happens. Sixteen
-            places, each with something worth knowing.
+            invented the idea that a square is where a town happens. Click a
+            blip on the map to learn more.
           </p>
 
           <button

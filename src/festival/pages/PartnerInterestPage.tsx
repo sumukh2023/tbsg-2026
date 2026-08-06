@@ -489,22 +489,6 @@ export default function PartnerInterestPage() {
                   organisation brochure, a sponsorship deck, a capability
                   statement, a corporate presentation, or anything similar.
                 </p>
-                <ul className="mt-4 flex flex-wrap gap-1.5">
-                  {[
-                    'Company profile',
-                    'Organisation brochure',
-                    'Sponsorship deck',
-                    'Capability statement',
-                    'Corporate presentation',
-                  ].map((kind) => (
-                    <li
-                      key={kind}
-                      className="rounded-full bg-foreground/[0.06] px-3 py-1 font-body text-[0.7rem] text-foreground/75"
-                    >
-                      {kind}
-                    </li>
-                  ))}
-                </ul>
                 <div className="mt-5">
                   <DocumentField
                     file={document_}
