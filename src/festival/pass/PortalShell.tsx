@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { usePortalBase } from './routes';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown, LogOut, ScanLine, UserRound, Users } from 'lucide-react';
 import { EASE } from '@/utils/motion';
@@ -85,6 +86,9 @@ export function PortalShell({
  * you, so it stays visible rather than living behind the menu.
  */
 export function VolunteerMenu() {
+  /** Keeps every link under the address this visit arrived at. */
+  const portalBase = usePortalBase();
+
   const { state, signOut } = useVolunteerSession();
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
@@ -146,7 +150,7 @@ export function VolunteerMenu() {
           >
             {volunteer.role === 'admin' && (
               <Link
-                to="/verify-pass/admin"
+                to={`${portalBase}/admin`}
                 role="menuitem"
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 font-body text-sm text-foreground transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -156,7 +160,7 @@ export function VolunteerMenu() {
               </Link>
             )}
             <Link
-              to="/verify-pass"
+              to={portalBase}
               role="menuitem"
               onClick={() => setOpen(false)}
               className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 font-body text-sm text-foreground transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -165,7 +169,7 @@ export function VolunteerMenu() {
               Verify passes
             </Link>
             <Link
-              to="/verify-pass/profile"
+              to={`${portalBase}/profile`}
               role="menuitem"
               onClick={() => setOpen(false)}
               className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 font-body text-sm text-foreground transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

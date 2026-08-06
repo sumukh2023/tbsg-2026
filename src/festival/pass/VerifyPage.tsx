@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { usePortalBase } from './routes';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/utils/cn';
 import { EASE } from '@/utils/motion';
@@ -71,6 +72,9 @@ function formatTime(iso: string | null | undefined): string {
  * session; a 401 mid-shift means it ended, and refresh() bounces to login.
  */
 export default function VerifyPage() {
+  /** Keeps every link under the address this visit arrived at. */
+  const portalBase = usePortalBase();
+
   const { token = '' } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const { state: session, refresh } = useVolunteerSession();
@@ -472,7 +476,7 @@ export default function VerifyPage() {
                 // the duplicate state immediately.
                 void call('verify', { token: next });
               } else {
-                navigate(`/verify-pass/${next}`);
+                navigate(`${portalBase}/${next}`);
               }
             }}
           />

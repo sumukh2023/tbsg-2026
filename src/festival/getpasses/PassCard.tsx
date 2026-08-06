@@ -3,6 +3,7 @@ import QRCode from 'qrcode';
 import { Tilt } from '@/components/motion/tilt';
 import { cn } from '@/utils/cn';
 import { CarnivalMark } from '../CarnivalMark';
+import { PORTAL_CANONICAL } from '../pass/routes';
 
 export type PassData = {
   token: string;
@@ -32,7 +33,7 @@ export function PassCard({ pass }: { pass: PassData }) {
   const [qr, setQr] = useState<string>('');
 
   useEffect(() => {
-    const url = `${window.location.origin}/verify-pass/${pass.token}`;
+    const url = `${window.location.origin}${PORTAL_CANONICAL}/${pass.token}`;
     QRCode.toDataURL(url, {
       errorCorrectionLevel: 'M',
       margin: 2,

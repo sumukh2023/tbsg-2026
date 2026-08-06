@@ -126,15 +126,17 @@ export type VisitorType = (typeof VISITOR_TYPES)[number];
 
 /**
  * Passes a visitor type may reserve. "Other" covers stallholders, vendors and
- * visiting troupes, so it is not held to a small fixed party size, but it is
- * capped: an unbounded integer on a public form is an invitation. Mirrored in
+ * visiting troupes, so it is not held to the party size a family is, but it
+ * is capped: an unbounded integer on a public form is an invitation. Ten,
+ * because a group larger than that is a booking the desk wants to know about
+ * rather than one that should go through a public form unseen. Mirrored in
  * the Get Passes UI (src/festival/getpasses/GetPassesPage.tsx); the server
  * re-validates and never trusts the client's copy.
  */
 export const PASS_LIMITS: Record<VisitorType, number> = {
   student: 1,
   parent: 2,
-  other: 50,
+  other: 10,
 };
 
 /** Classes a student can be in, oldest form of the school roll first. */

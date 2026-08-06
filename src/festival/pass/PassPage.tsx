@@ -85,25 +85,33 @@ function RetrieveForm() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [fullName, setFullName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   // Same rules, messages and timing as the Reserve Your Passes form.
   const [fieldErrors, setFieldErrors] = useState<{
     email?: string;
     phone?: string;
+    fullName?: string;
   }>({});
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const next: { email?: string; phone?: string } = {};
+    const next: { email?: string; phone?: string; fullName?: string } = {};
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) {
       next.email = 'That email address does not look right yet.';
     }
     if (!/^(\+?91[\s-]?)?[6-9]\d{9}$/.test(phone.replace(/\s/g, ''))) {
       next.phone = 'Please enter a 10-digit Indian mobile number.';
     }
+    // Only that SOMETHING was typed. Whether it is the right name is the
+    // server's question, and answering it here would tell an enumerator
+    // which of the three fields they got wrong.
+    if (fullName.trim().length < 2) {
+      next.fullName = 'Please enter the name you registered with.';
+    }
     setFieldErrors(next);
-    if (next.email || next.phone) return;
+    if (next.email || next.phone || next.fullName) return;
     setBusy(true);
     setError('');
     try {
@@ -113,6 +121,7 @@ function RetrieveForm() {
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
           phone: phone.replace(/\s/g, ''),
+          full_name: fullName.trim(),
         }),
       });
       const data = await response.json().catch(() => null);
@@ -168,7 +177,19 @@ function RetrieveForm() {
           error={fieldErrors.phone}
           autoComplete="tel"
           maxLength={16}
-          hint="The details you registered with."
+        />
+        <FloatingInput
+          id="retrieve-name"
+          label="Name"
+          value={fullName}
+          onChange={(v) => {
+            setFullName(v);
+            setFieldErrors((e) => ({ ...e, fullName: undefined }));
+          }}
+          error={fieldErrors.fullName}
+          autoComplete="name"
+          maxLength={120}
+          hint="The details you registered with. Capitals and spacing do not have to match."
         />
       </div>
       {error && (

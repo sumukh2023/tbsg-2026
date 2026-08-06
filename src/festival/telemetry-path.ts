@@ -13,7 +13,14 @@
  * of one row per page.
  */
 
-/** Static children of /verify-pass. Everything else there is a token. */
+/**
+ * The portal answers on three prefixes (see festival/pass/routes.ts), and a
+ * token can appear under any of them, so all three are masked. Written
+ * without the leading slash because this compares path SEGMENTS.
+ */
+const PORTAL_HEADS = new Set(['verify-pass', 'volunteer', 'admin']);
+
+/** Static children of a portal prefix. Everything else there is a token. */
 const NAMED_VERIFY_PAGES = new Set(['login', 'admin', 'profile']);
 
 /**
@@ -29,8 +36,8 @@ export function anonymisePath(pathname: string): string {
   if (segments.length === 2) {
     const [head, tail] = segments;
     if (head === 'pass') return '/pass/[token]';
-    if (head === 'verify-pass' && !NAMED_VERIFY_PAGES.has(tail)) {
-      return '/verify-pass/[token]';
+    if (PORTAL_HEADS.has(head) && !NAMED_VERIFY_PAGES.has(tail)) {
+      return `/${head}/[token]`;
     }
   }
   return pathname;

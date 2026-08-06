@@ -132,8 +132,27 @@ export function Italia() {
           </p>
           <p className="mt-5 max-w-md font-body text-sm leading-relaxed text-muted-foreground">
             A carnival needed somewhere to be, and Italy is the country that
-            invented the idea that a square is where a town happens. Click a
-            blip on the map to learn more.
+            invented the idea that a square is where a town happens.
+          </p>
+
+          {/* THE INSTRUCTION, PULLED OUT OF THE PARAGRAPH.
+              It used to be the last sentence of the copy above, set in the
+              same muted grey as everything around it, which is the one place
+              a reader's eye skips. It is not a fact about Italy; it is the
+              only thing on this side of the section that asks for an action,
+              so it gets its own line, the foreground colour and the map's own
+              gold. The dot is the same ripple the markers use when they light
+              up, which is what connects the sentence to the thing it is
+              talking about. */}
+          <p className="mt-6 flex items-center gap-3 font-body text-sm font-medium text-foreground">
+            <span
+              aria-hidden="true"
+              className="relative grid h-2.5 w-2.5 shrink-0 place-items-center"
+            >
+              <span className="absolute inset-0 rounded-full bg-accent" />
+              <span className="italia-ping absolute inset-0 rounded-full border border-accent" />
+            </span>
+            Click a blip on the map to learn more.
           </p>
 
           <button

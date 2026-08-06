@@ -34,7 +34,8 @@ system with QR + gate verification, and realtime Live Updates.
   Lenis smooth scroll (wheel only — native touch scrolling untouched), GSAP available
 - react-router-dom: `/` home · **the five districts** `/mission` `/stalls`
   `/partners` `/gallery` `/enquiry` · `/get-passes` · `/pass/:token?` ·
-  `/terms` · `/privacy` · `/verify-pass` (portal, with `login` / `admin` /
+  `/terms` · `/privacy` · `/volunteer` and `/admin` (the same portal on two
+  addresses; `/verify-pass` redirects, with `login` / `admin` /
   `profile` / `:token` beneath it behind `RequireVolunteer`) — every
   secondary route lazy-loaded
 - Supabase (Postgres + RLS + Realtime) behind Vercel **Node.js** serverless
@@ -134,7 +135,7 @@ system with QR + gate verification, and realtime Live Updates.
 - `src/festival/telemetry.tsx` + `telemetry-path.ts` — Vercel Web Analytics
   and Speed Insights, mounted ONCE inside the router. **A pass token is a
   credential and it travels in the URL**, so both are given a `beforeSend`
-  that rewrites `/pass/<token>` and `/verify-pass/<token>` to `/[token]` and
+  that rewrites `/pass/<token>` and `/volunteer/<token>` to `/[token]` and
   drops query and hash; the same anonymised path is Speed Insights' `route`,
   which is also what stops the dashboard filling with one row per token.
   Neither product does any of this by default. Both need enabling in the
@@ -563,7 +564,7 @@ looked well-evidenced, passed every gate, and still broke Safari everywhere.
 - NEVER expose `SUPABASE_SERVICE_ROLE_KEY` to the browser. Server-side only.
 - `VERIFIER_ACCESS_CODE` is **GONE** (2 Aug 2026). The shared event-day code was
   replaced by per-person volunteer accounts: `api/_auth.ts`, the `volunteers` /
-  `volunteer_sessions` tables, and `/verify-pass/login`. Delete the variable from
+  `volunteer_sessions` tables, and `/volunteer/login`. Delete the variable from
   Vercel if it is still set — nothing reads it. See `docs/VOLUNTEER_AUTH.md`.
 - Volunteer sessions are server-side rows keyed by an `HttpOnly`, `Secure`,
   `SameSite=Lax` cookie (`fb_volunteer`); only the SHA-256 of the token is

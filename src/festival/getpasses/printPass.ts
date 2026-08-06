@@ -1,5 +1,6 @@
 import QRCode from 'qrcode';
 import type { PassData } from './PassCard';
+import { PORTAL_CANONICAL } from '../pass/routes';
 
 /**
  * Printing a pass, by building a DOCUMENT and printing that.
@@ -266,7 +267,7 @@ function documentFor(pass: PassData, qr: string): string {
  * button that silently does nothing.
  */
 export async function printPass(pass: PassData): Promise<void> {
-  const url = `${window.location.origin}/verify-pass/${pass.token}`;
+  const url = `${window.location.origin}${PORTAL_CANONICAL}/${pass.token}`;
   // 1024px so a 55mm print at 300dpi has more pixels than it needs.
   const qr = await QRCode.toDataURL(url, {
     errorCorrectionLevel: 'M',

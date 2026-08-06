@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useLayoutEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import type { PlacedPlace } from './places';
 
@@ -80,6 +80,39 @@ export const PlaceMarker = memo(function PlaceMarker({
   const [hovered, setHovered] = useState(false);
   const active = hovered || open;
   const dir = place.side === 'left' ? -1 : 1;
+
+  /**
+   * THE NAME IS PART OF THE MARKER, so it has to be part of the target.
+   *
+   * The label was `pointer-events-none` over a hit circle that only reached
+   * around the plate, which made the two halves of one object behave like
+   * different things: the dot lit up, the word beside it did nothing. The
+   * word is also the larger and more obvious of the two, so it was the half
+   * people aimed at.
+   *
+   * The box is MEASURED rather than estimated. Names here run from "Pisa" to
+   * "Costiera Amalfitana" in a proportional serif, so a width guessed from
+   * the character count is wrong by a word either way, and wrong in a target
+   * means either dead space or a marker that steals its neighbour's hover.
+   * Re-measured once fonts settle, because the first measurement happens
+   * against the fallback face and the real one is wider.
+   */
+  const labelRef = useRef<SVGTextElement>(null);
+  const [labelBox, setLabelBox] = useState<DOMRect | null>(null);
+  useLayoutEffect(() => {
+    const node = labelRef.current;
+    if (!node) return;
+    const measure = () => {
+      try {
+        setLabelBox(node.getBBox());
+      } catch {
+        // Not laid out yet (a display:none ancestor). The font callback below
+        // runs again, and until then the plate is still hoverable.
+      }
+    };
+    measure();
+    document.fonts?.ready.then(measure).catch(() => undefined);
+  }, [place.name]);
   // More air between the plate and its name than before (14 -> 20).
   const labelX = place.x + dir * (PLATE + 20);
   const anchor = place.side === 'left' ? 'end' : 'start';
@@ -218,6 +251,7 @@ export const PlaceMarker = memo(function PlaceMarker({
       {/* The name. Charcoal at rest, Venetian gold when live — the same
           transition the brief asks for, done on fill so it costs nothing. */}
       <motion.text
+        ref={labelRef}
         x={labelX}
         y={place.y + 1}
         textAnchor={anchor}
@@ -230,8 +264,9 @@ export const PlaceMarker = memo(function PlaceMarker({
         {place.name}
       </motion.text>
 
-      {/* A generous, invisible target. The plate is elegant and small; a
-          thumb is neither. */}
+      {/* The target: the plate and the name, as one shape.
+          Both are transparent and both are last, so they sit over everything
+          they cover and neither can be occluded by the artwork. */}
       <circle
         cx={place.x}
         cy={place.y}
@@ -239,6 +274,16 @@ export const PlaceMarker = memo(function PlaceMarker({
         fill="transparent"
         className="cursor-pointer"
       />
+      {labelBox && (
+        <rect
+          x={labelBox.x - 6}
+          y={labelBox.y - 5}
+          width={labelBox.width + 12}
+          height={labelBox.height + 10}
+          fill="transparent"
+          className="cursor-pointer"
+        />
+      )}
     </motion.g>
   );
 });

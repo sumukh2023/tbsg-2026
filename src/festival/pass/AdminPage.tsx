@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { usePortalBase } from './routes';
 import { motion } from 'framer-motion';
 import { ScanLine } from 'lucide-react';
 import { EASE } from '@/utils/motion';
@@ -73,6 +74,9 @@ function lockedNow(account: Account): boolean {
  * is where you can actually see why someone cannot get in.
  */
 export default function AdminPage() {
+  /** Keeps every link under the address this visit arrived at. */
+  const portalBase = usePortalBase();
+
   const { state } = useVolunteerSession();
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [activity, setActivity] = useState<ActivityRow[] | null>(null);
@@ -255,7 +259,7 @@ export default function AdminPage() {
             </p>
           </div>
           <Link
-            to="/verify-pass"
+            to={portalBase}
             className="inline-flex min-h-11 items-center gap-2 rounded-full bg-accent px-6 py-3 font-body text-sm font-medium text-accent-foreground transition-all duration-300 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98]"
           >
             <ScanLine aria-hidden="true" className="h-4 w-4" />

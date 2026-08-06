@@ -2,9 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
 
-/** Extract a verification token from QR content (URL or bare token). */
+/**
+ * Extract a verification token from QR content (URL or bare token).
+ *
+ * ALL THREE PORTAL PREFIXES, and the old one is not optional: passes printed
+ * before the portal was renamed carry `/verify-pass/<token>` in their QR
+ * code, and those are the passes a volunteer will be scanning at the gate.
+ * A scanner that only understood the new address would reject them.
+ */
 function parseScannedToken(text: string): string | null {
-  const fromUrl = text.match(/verify-pass\/([A-Za-z0-9_-]{20,64})/);
+  const fromUrl = text.match(
+    /(?:verify-pass|volunteer|admin)\/([A-Za-z0-9_-]{20,64})/
+  );
   if (fromUrl) return fromUrl[1];
   const bare = text.trim();
   return /^[A-Za-z0-9_-]{20,64}$/.test(bare) ? bare : null;

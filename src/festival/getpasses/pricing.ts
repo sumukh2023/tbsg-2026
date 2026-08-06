@@ -29,6 +29,17 @@ export const TICKET_LABELS: Record<VisitorType, string> = {
   other: 'Others',
 };
 
+/**
+ * One flat fee per booking, whatever is in it.
+ *
+ * PER BOOKING, NOT PER TICKET, and not per category: a family reserving four
+ * passes pays it once. It is charged on every category, so it is deliberately
+ * not part of the rate card above — putting it there would have made it
+ * something that could differ between a student and a parent, which is
+ * exactly what it must not be.
+ */
+export const CONVENIENCE_FEE = 25;
+
 const ORDER: readonly VisitorType[] = ['student', 'parent', 'other'];
 
 export type PriceLine = {
@@ -43,6 +54,11 @@ export type Quote = {
   /** One per category actually booked, in rate-card order. */
   lines: PriceLine[];
   tickets: number;
+  /** The passes alone. This is the "Tickets" row on a summary. */
+  ticketsTotal: number;
+  /** `CONVENIENCE_FEE`, or zero when there is nothing to book. */
+  convenienceFee: number;
+  /** WHAT IS PAYABLE: tickets plus the fee. Never one without the other. */
   total: number;
 };
 
@@ -75,10 +91,18 @@ export function quoteFor(counts: Partial<Record<VisitorType, number>>): Quote {
       subtotal: quantity * unitPrice,
     });
   }
+  const tickets = lines.reduce((n, l) => n + l.quantity, 0);
+  const ticketsTotal = lines.reduce((n, l) => n + l.subtotal, 0);
+  // No tickets, no booking, no fee. An empty quote exists because the form
+  // asks for one before anything is chosen, and charging ₹25 for nothing
+  // would put a fee on a screen where there is not yet an order.
+  const convenienceFee = tickets > 0 ? CONVENIENCE_FEE : 0;
   return {
     lines,
-    tickets: lines.reduce((n, l) => n + l.quantity, 0),
-    total: lines.reduce((n, l) => n + l.subtotal, 0),
+    tickets,
+    ticketsTotal,
+    convenienceFee,
+    total: ticketsTotal + convenienceFee,
   };
 }
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { portalBaseOf, usePortalBase } from './routes';
 import { motion } from 'framer-motion';
 import { EASE } from '@/utils/motion';
 import { PortalShell } from './PortalShell';
@@ -17,13 +18,17 @@ function safeNext(raw: string | null): string | null {
   if (!raw.startsWith('/') || raw.startsWith('//') || raw.includes('\\')) {
     return null;
   }
-  if (!raw.startsWith('/verify-pass')) return null;
+  // Inside the portal, at any of the addresses it answers on. Checked with
+  // the shared matcher rather than a literal, so adding a base cannot
+  // silently leave this guard behind and start rejecting real destinations.
+  const path = raw.split('?')[0].replace(/\/$/, '');
+  const base = portalBaseOf(path);
+  if (!base) return null;
   // The portal root is where the guard sends everyone who simply opened the
-  // portal, so it is not a REQUEST for anywhere — treating it as one is what
+  // portal, so it is not a REQUEST for anywhere: treating it as one is what
   // stopped administrators ever landing on their dashboard. Only a deeper
   // link (a scanned pass, a profile) says where someone actually meant to go.
-  const path = raw.split('?')[0].replace(/\/$/, '');
-  return path === '/verify-pass' ? null : raw;
+  return path === base ? null : raw;
 }
 
 /**
@@ -36,6 +41,8 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const { state, refresh } = useVolunteerSession();
   const requested = safeNext(params.get('next'));
+  /** Signing in at /admin lands you under /admin, not somewhere else. */
+  const portalBase = usePortalBase();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -52,9 +59,9 @@ export default function LoginPage() {
   useEffect(() => {
     if (state.phase !== 'signed-in') return;
     const home =
-      state.volunteer.role === 'admin' ? '/verify-pass/admin' : '/verify-pass';
+      state.volunteer.role === 'admin' ? `${portalBase}/admin` : portalBase;
     navigate(requested ?? home, { replace: true });
-  }, [state, navigate, requested]);
+  }, [state, navigate, requested, portalBase]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();

@@ -47,11 +47,14 @@ are logged to Vercel Logs by NAME only, e.g.
    its SHA-256 hash + a human-readable reference (`FB26-XXXXX`) stored in
    `passes`.
 3. The success screen renders the digital pass. The QR encodes only
-   `https://<site>/verify-pass/<token>`; no personal data is inside it.
+   `https://<site>/volunteer/<token>`; no personal data is inside it. Passes
+   issued before the portal was renamed carry `/verify-pass/<token>`, which
+   still resolves.
 
 ### Verification and check-in (event day)
 
-- Volunteers scan the QR, which opens `/verify-pass/<token>`.
+- Volunteers scan the QR, which opens `/volunteer/<token>` (or the older
+  `/verify-pass/<token>`, which redirects to it carrying the token).
 - The page asks once per browser session for the shared
   `VERIFIER_ACCESS_CODE` (server-side env; every action re-checks it, so
   no secret ships in the bundle).
@@ -67,10 +70,20 @@ are logged to Vercel Logs by NAME only, e.g.
 
 ### Pass retrieval
 
-`/pass` asks for the registration email + mobile number and calls
-`POST /api/retrieve`. Responses are identical for wrong details and no
+`/pass` asks for the registration email, mobile number **and name**, and
+calls `POST /api/retrieve`. Responses are identical for wrong details and no
 match (no enumeration); on success the verification token is rotated, so
 old links die and the visitor gets a fresh `/pass/<token>` presentation.
+
+The name is matched **leniently** and the other two are not. An address and a
+number have one correct form; a name does not, so the comparison folds case,
+runs of whitespace (tabs and newlines included) and combining accents before
+comparing. It is a third thing the requester has to know, not a spelling test.
+Because that comparison cannot be written as a PostgREST filter, candidates
+are fetched by email and phone and folded in memory, and more than one is
+fetched: a household can hold several registrations on a shared address and
+number, so taking only the newest would refuse everyone but the last person
+to book. Covered by `npm run e2e:retrieve`.
 
 ### Live updates
 

@@ -36,10 +36,10 @@ const VISITOR_TYPES = [
 const PASS_LIMITS: Record<string, number> = {
   student: 1,
   parent: 2,
-  other: 50,
+  other: 10,
 };
 
-/** Above this a stepper is the wrong control: typing beats fifty taps. */
+/** Above this a stepper is the wrong control: typing beats ten taps. */
 const STEPPER_MAX = 4;
 
 const CLASSES = [
@@ -143,7 +143,17 @@ const PageHeader = memo(function PageHeader() {
       >
         A minute of your time helps the student committee plan gates, seating
         and the mercato for the right crowd, so the day feels effortless for
-        everyone.
+        everyone.{' '}
+        {/* IN THE PARAGRAPH, not under the form. Someone who already has a
+            pass is here by mistake, and the place to catch them is before
+            they start filling in a form they do not need. At the bottom it
+            was only found by the people who had already done the work. */}
+        <Link
+          to="/pass"
+          className="text-foreground underline decoration-accent/60 underline-offset-4 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Already registered? Retrieve your pass
+        </Link>
       </motion.p>
     </header>
   );
@@ -459,10 +469,28 @@ function PriceSummary({ quote }: { quote: Quote }) {
             </dd>
           </div>
         ))}
+
+        {/* Tickets, then the fee, then the rule, then what is payable: the
+            order every ticketing site uses, because it is the order the
+            arithmetic happens in. */}
+        <div className="flex items-baseline justify-between gap-4 border-t border-border/60 pt-3">
+          <dt className="font-body text-sm text-foreground">Tickets</dt>
+          <dd className="font-body text-sm tabular-nums text-muted-foreground">
+            {formatRupees(quote.ticketsTotal)}
+          </dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-4">
+          <dt className="font-body text-sm text-foreground">
+            Convenience fee
+          </dt>
+          <dd className="font-body text-sm tabular-nums text-muted-foreground">
+            {formatRupees(quote.convenienceFee)}
+          </dd>
+        </div>
       </dl>
       <div className="mt-4 flex items-baseline justify-between gap-4 border-t border-border/60 pt-4">
         <span className="font-body text-sm font-medium text-foreground">
-          Grand total
+          Total
         </span>
         <span className="font-display text-2xl font-medium tabular-nums text-foreground">
           {formatRupees(quote.total)}
@@ -1110,17 +1138,6 @@ export default function GetPassesPage() {
           )}
         </motion.section>
 
-        {submit.phase !== 'success' && (
-          <p className="-mt-10 mb-16 text-center font-body text-xs text-muted-foreground">
-            Already registered?{' '}
-            <Link
-              to="/pass"
-              className="text-foreground underline decoration-accent/60 underline-offset-4 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Retrieve your pass
-            </Link>
-          </p>
-        )}
       </div>
     </div>
   );

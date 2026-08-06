@@ -647,3 +647,19 @@
 @media (prefers-reduced-motion: reduce) {
   [style*='italia-dust'] { animation: none !important; opacity: 0 !important; }
 }
+
+/* The ring on the "click a blip" cue: the same ripple a marker throws when it
+   lights up, so the sentence and the thing it describes are visibly the same
+   gesture. Transform and opacity only, like the dust. */
+@keyframes italia-ping {
+  0% { opacity: 0.7; transform: scale(1); }
+  70%, 100% { opacity: 0; transform: scale(2.6); }
+}
+
+.italia-ping {
+  animation: italia-ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .italia-ping { animation: none; opacity: 0; }
+}

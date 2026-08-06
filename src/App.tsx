@@ -12,6 +12,11 @@ import {
   RequireVolunteer,
   VolunteerSessionProvider,
 } from './festival/pass/session';
+import {
+  PORTAL_BASES,
+  PORTAL_CANONICAL,
+  PORTAL_LEGACY,
+} from './festival/pass/routes';
 import { chapterFor } from './festival/pages/chapters';
 import { Telemetry } from './festival/telemetry';
 import { RootLayout } from '@/layouts/RootLayout';
@@ -56,7 +61,8 @@ const PrivacyPage = lazy(() => import('./festival/legal/PrivacyPage'));
  * that reads as a white strip. Match the canvas to the route's chapter so
  * overscroll always reveals the page's own colour.
  */
-const DARK_ROUTES = /^\/(get-passes|pass|verify-pass|terms|privacy|donate)(\/|$)/;
+const DARK_ROUTES =
+  /^\/(get-passes|pass|verify-pass|volunteer|admin|terms|privacy|donate)(\/|$)/;
 
 /** Route -> page for the five districts. Order follows the navigation. */
 const DISTRICTS = [
@@ -99,6 +105,22 @@ function VolunteerPortal() {
       </Suspense>
     </VolunteerSessionProvider>
   );
+}
+
+/**
+ * Anything still asking for `/verify-pass`, sent to the canonical portal with
+ * the rest of the path intact.
+ *
+ * The rest of the path is the whole point. Every pass already issued carries
+ * a QR code containing `/verify-pass/<token>`, and a volunteer scanning one
+ * at the gate cannot know the address changed. Dropping the token here would
+ * turn every printed pass into a link to a sign-in page with nothing behind
+ * it, which is the failure this route exists to prevent.
+ */
+function LegacyPortalPath() {
+  const { pathname, search } = useLocation();
+  const rest = pathname.slice(PORTAL_LEGACY.length);
+  return <Navigate to={`${PORTAL_CANONICAL}${rest}${search}`} replace />;
 }
 
 function ScrollToTop() {
@@ -202,43 +224,56 @@ export default function App() {
                 QR link survives the detour. That guard is a convenience —
                 /api/verify checks the session itself on every call, so the
                 server is the real boundary. */}
-            <Route path="/verify-pass" element={<VolunteerPortal />}>
-              <Route
-                index
-                element={
-                  <RequireVolunteer>
-                    <VerifyPage />
-                  </RequireVolunteer>
-                }
-              />
-              <Route path="login" element={<LoginPage />} />
-              <Route
-                path="admin"
-                element={
-                  <RequireVolunteer role="admin">
-                    <AdminPage />
-                  </RequireVolunteer>
-                }
-              />
-              <Route
-                path="profile"
-                element={
-                  <RequireVolunteer>
-                    <ProfilePage />
-                  </RequireVolunteer>
-                }
-              />
-              {/* Static siblings above outrank this, so `login` and
-                  `profile` are never read as pass tokens. */}
-              <Route
-                path=":token"
-                element={
-                  <RequireVolunteer>
-                    <VerifyPage />
-                  </RequireVolunteer>
-                }
-              />
-            </Route>
+            {/* MOUNTED TWICE, at /volunteer and at /admin. Not a redirect
+                from one to the other: whichever address you arrive at is the
+                one you stay under, because the two names exist so that the
+                two kinds of user can each type the URL they would guess.
+                See festival/pass/routes.ts. */}
+            {PORTAL_BASES.map((base) => (
+              <Route key={base} path={base} element={<VolunteerPortal />}>
+                <Route
+                  index
+                  element={
+                    <RequireVolunteer>
+                      <VerifyPage />
+                    </RequireVolunteer>
+                  }
+                />
+                <Route path="login" element={<LoginPage />} />
+                <Route
+                  path="admin"
+                  element={
+                    <RequireVolunteer role="admin">
+                      <AdminPage />
+                    </RequireVolunteer>
+                  }
+                />
+                <Route
+                  path="profile"
+                  element={
+                    <RequireVolunteer>
+                      <ProfilePage />
+                    </RequireVolunteer>
+                  }
+                />
+                {/* Static siblings above outrank this, so `login` and
+                    `profile` are never read as pass tokens. */}
+                <Route
+                  path=":token"
+                  element={
+                    <RequireVolunteer>
+                      <VerifyPage />
+                    </RequireVolunteer>
+                  }
+                />
+              </Route>
+            ))}
+            {/* The portal's old address. THIS CANNOT BE DELETED: it is
+                printed, as a QR code, on every pass already issued, and a
+                volunteer scanning one at the gate has no way to know the URL
+                changed. The whole subtree redirects, token and all. */}
+            <Route path={`${PORTAL_LEGACY}/*`} element={<LegacyPortalPath />} />
+            <Route path={PORTAL_LEGACY} element={<LegacyPortalPath />} />
             {/* The districts. Each is its own route with its own colour
                 identity; see festival/pages/chapters.ts. Only Our Mission
                 carries full content so far — the rest are premium

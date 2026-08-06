@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
+import { usePortalBase } from './routes';
 import { PortalShell } from './PortalShell';
 import {
   SessionContext,
@@ -77,6 +78,8 @@ export function RequireVolunteer({
 }) {
   const { state } = useVolunteerSession();
   const location = useLocation();
+  /** Bounce to sign-in under the address they were already using. */
+  const portalBase = usePortalBase();
 
   if (state.phase === 'loading') {
     return (
@@ -120,7 +123,7 @@ export function RequireVolunteer({
     const next = `${location.pathname}${location.search}`;
     return (
       <Navigate
-        to={`/verify-pass/login?next=${encodeURIComponent(next)}`}
+        to={`${portalBase}/login?next=${encodeURIComponent(next)}`}
         replace
       />
     );
