@@ -148,11 +148,12 @@ const PageHeader = memo(function PageHeader() {
             pass is here by mistake, and the place to catch them is before
             they start filling in a form they do not need. At the bottom it
             was only found by the people who had already done the work. */}
+        Already registered?{' '}
         <Link
           to="/pass"
           className="text-foreground underline decoration-accent/60 underline-offset-4 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          Already registered? Retrieve your pass
+          Retrieve your pass
         </Link>
       </motion.p>
     </header>

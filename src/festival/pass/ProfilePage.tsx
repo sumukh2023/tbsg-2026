@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { usePortalBase } from './routes';
+import { PORTAL_PAGES, usePortalBase } from './routes';
 import { motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
 import { EASE } from '@/utils/motion';
@@ -81,7 +81,7 @@ export default function ProfilePage() {
         transition={{ duration: 0.6, ease: EASE.out }}
       >
         <Link
-          to={portalBase}
+          to={`${portalBase}/${PORTAL_PAGES.verify}`}
           className="group inline-flex items-center gap-2 font-body text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <ArrowLeft className="h-4 w-4 transition-transform duration-300 group-hover:-translate-x-0.5" />

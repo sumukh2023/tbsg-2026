@@ -14,14 +14,20 @@
  */
 
 /**
- * The portal answers on three prefixes (see festival/pass/routes.ts), and a
- * token can appear under any of them, so all three are masked. Written
- * without the leading slash because this compares path SEGMENTS.
+ * The portal answers on four prefixes (see festival/pass/routes.ts) and a
+ * token can appear under any of them, so all four are masked. Written without
+ * the leading slash because this compares path SEGMENTS.
  */
-const PORTAL_HEADS = new Set(['verify-pass', 'volunteer', 'admin']);
+const PORTAL_HEADS = new Set(['verify-pass', 'volunteer', 'volunteers', 'admin']);
 
 /** Static children of a portal prefix. Everything else there is a token. */
-const NAMED_VERIFY_PAGES = new Set(['login', 'admin', 'profile']);
+const NAMED_VERIFY_PAGES = new Set([
+  'login',
+  'admin',
+  'dashboard',
+  'profile',
+  'verify-pass',
+]);
 
 /**
  * A pathname with any pass token replaced.
@@ -36,8 +42,16 @@ export function anonymisePath(pathname: string): string {
   if (segments.length === 2) {
     const [head, tail] = segments;
     if (head === 'pass') return '/pass/[token]';
+    // The shape the OLD portal used: a token directly under the prefix.
     if (PORTAL_HEADS.has(head) && !NAMED_VERIFY_PAGES.has(tail)) {
       return `/${head}/[token]`;
+    }
+  }
+  // The shape it uses now: `<base>/verify-pass/<token>`.
+  if (segments.length === 3) {
+    const [head, page] = segments;
+    if (PORTAL_HEADS.has(head) && page === 'verify-pass') {
+      return `/${head}/verify-pass/[token]`;
     }
   }
   return pathname;

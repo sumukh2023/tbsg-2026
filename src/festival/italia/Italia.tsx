@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { TextEffect } from '@/components/motion/text-effect';
 import { EASE } from '@/utils/motion';
@@ -269,25 +270,41 @@ export function Italia() {
         </div>
       </div>
 
-      {/* The same card as a sheet, on anything without room to float one. */}
-      <AnimatePresence>
-        {open && compact && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            onClick={() => setOpenSlug(null)}
-            className="fixed inset-0 z-50 flex items-end bg-foreground/25 backdrop-blur-[2px]"
-          >
-            <PlaceCard
-              place={open}
-              variant="sheet"
-              onClose={() => setOpenSlug(null)}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* The same card as a sheet, on anything without room to float one.
+       *
+       * PORTALLED TO THE BODY, and it has to be. This section carries
+       * `content-visibility: auto` so the browser can skip it while it is off
+       * screen, and that implies `contain: paint` — which makes the section a
+       * CONTAINING BLOCK for fixed-position descendants. Left inside, the
+       * sheet's `fixed inset-0` resolved against the section instead of the
+       * viewport: it measured 1046px tall starting 446px above its own top,
+       * so on a phone the sheet opened part-way up the section, under the
+       * navigation, with the map showing through its translucent surface.
+       * That is the bug that looked like "the card renders the gradient".
+       * A portal puts it back in the viewport's coordinate space without
+       * giving up the performance the containment buys.
+       */}
+      {createPortal(
+        <AnimatePresence>
+          {open && compact && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              onClick={() => setOpenSlug(null)}
+              className="fixed inset-0 z-50 flex items-end bg-foreground/25 backdrop-blur-[2px]"
+            >
+              <PlaceCard
+                place={open}
+                variant="sheet"
+                onClose={() => setOpenSlug(null)}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </section>
   );
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { portalBaseOf, usePortalBase } from './routes';
+import { homeFor, portalBaseOf } from './routes';
 import { motion } from 'framer-motion';
 import { EASE } from '@/utils/motion';
 import { PortalShell } from './PortalShell';
@@ -41,8 +41,6 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const { state, refresh } = useVolunteerSession();
   const requested = safeNext(params.get('next'));
-  /** Signing in at /admin lands you under /admin, not somewhere else. */
-  const portalBase = usePortalBase();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -53,15 +51,15 @@ export default function LoginPage() {
   // session — so leave rather than showing a form that has nothing to do.
   //
   // Where to: whatever was asked for (a scanned QR link survives the detour
-  // through this page), and otherwise the landing that fits the account.
-  // An administrator arriving with no destination in mind wants the desk,
-  // not the scanner; a volunteer only has the scanner.
+  // through this page), and otherwise the home that fits the ACCOUNT rather
+  // than the address they signed in at. An administrator's home is the desk
+  // and a volunteer's is the scanner; those are different jobs, so a
+  // volunteer handed the /admin link still lands somewhere that makes sense
+  // to them. See `homeFor` in routes.ts.
   useEffect(() => {
     if (state.phase !== 'signed-in') return;
-    const home =
-      state.volunteer.role === 'admin' ? `${portalBase}/admin` : portalBase;
-    navigate(requested ?? home, { replace: true });
-  }, [state, navigate, requested, portalBase]);
+    navigate(requested ?? homeFor(state.volunteer.role), { replace: true });
+  }, [state, navigate, requested]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();

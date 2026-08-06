@@ -75,19 +75,28 @@ and `SUPABASE_SERVICE_ROLE_KEY` that already exist.
 
 ### 4. Deploy, then sign in
 
-Visit **`/volunteer`** or **`/admin`**. You will be sent to `login` under
+Visit **`/volunteers`** or **`/admin`**. You will be sent to `login` under
 whichever of the two you opened.
 
-The portal answers on both addresses and NEITHER redirects to the other: the
-one you arrive at is the one you stay under, so an administrator who opened
-`/admin` gets the dashboard at `/admin/admin`. `/verify-pass` is the portal's
-original address and still works, redirecting with the rest of the path
-intact; it cannot be removed, because it is printed as a QR code on every
-pass issued before the rename. See `src/festival/pass/routes.ts`.
+The portal answers on both addresses, with the same NAMED pages under each:
+`login`, `dashboard` (administrators), `profile` and `verify-pass`. So an
+administrator who needs to scan a pass goes to **`/admin/verify-pass`**
+without leaving the address they know.
+
+Where signing in LANDS you is decided by your ROLE, not by the address you
+signed in at: an administrator goes to **`/admin/dashboard`** and a volunteer
+to **`/volunteers/verify-pass`**. A deep link asked for explicitly (a scanned
+pass) still wins over both.
+
+`/verify-pass` is the portal's original address and still works, redirecting
+with the rest of the path intact; it cannot be removed, because it is printed
+as a QR code on every pass issued before the rename. `/volunteer` (singular)
+redirects too, having briefly been the live address. See
+`src/festival/pass/routes.ts`.
 
 **Sign-in is role-blind** — it never looks at `role`, so an administrator and a
 volunteer sign in through the same form with the same rules. Where you land
-afterwards differs: an administrator goes to **`<base>/admin`**, the
+afterwards differs: an administrator goes to **`/admin/dashboard`**, the
 festival desk; a volunteer goes straight to the scanner. A specific link (a
 scanned pass) always wins over both, so a QR survives the detour through the
 login page.
@@ -134,7 +143,7 @@ Re-running the `insert` from `hash-password.mjs` also clears it, because its
 
 Two ways, both fine:
 
-- **The dashboard** at `<base>/admin` — an "Add a volunteer" form, plus
+- **The dashboard** at `/admin/dashboard` — an "Add a volunteer" form, plus
   disable / enable / unlock / reset password / promote / demote per person,
   and the recent gate activity. This is the normal route.
 - **`hash-password.mjs`**, which now takes a role, for when nobody can sign in
@@ -279,7 +288,7 @@ from verification_activity where action = 'undo' order by created_at desc;
 | Session theft | Opaque token in an `HttpOnly` `__Host-` cookie; only its SHA-256 hash is stored, so a database dump cannot be replayed |
 | CSRF | `SameSite=Strict` (the cookie is never sent cross-site) plus an `Origin` check on every state-changing route |
 | Privilege escalation | Role checked server-side on every admin route; role changes revoke that person's sessions |
-| Open redirect | `next=` is accepted only when it is a path inside the portal (`/volunteer`, `/admin` or `/verify-pass`) |
+| Open redirect | `next=` is accepted only when it is a path inside the portal (`/volunteers`, `/admin`, or the legacy `/verify-pass` and `/volunteer`) |
 | SQL injection | No SQL is built from input; everything goes through PostgREST with encoded parameters |
 | XSS | React escapes by default; no `dangerouslySetInnerHTML` anywhere in the portal |
 | Secret exposure | The service-role key is server-only. No hash, token or lockout field appears in any response |

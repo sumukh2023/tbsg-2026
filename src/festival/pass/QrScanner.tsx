@@ -12,7 +12,7 @@ import { X } from 'lucide-react';
  */
 function parseScannedToken(text: string): string | null {
   const fromUrl = text.match(
-    /(?:verify-pass|volunteer|admin)\/([A-Za-z0-9_-]{20,64})/
+    /(?:verify-pass|volunteers?|admin)\/([A-Za-z0-9_-]{20,64})/
   );
   if (fromUrl) return fromUrl[1];
   const bare = text.trim();

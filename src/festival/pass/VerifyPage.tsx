@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { usePortalBase } from './routes';
+import { PORTAL_PAGES, usePortalBase } from './routes';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/utils/cn';
 import { EASE } from '@/utils/motion';
@@ -476,7 +476,7 @@ export default function VerifyPage() {
                 // the duplicate state immediately.
                 void call('verify', { token: next });
               } else {
-                navigate(`${portalBase}/${next}`);
+                navigate(`${portalBase}/${PORTAL_PAGES.verify}/${next}`);
               }
             }}
           />

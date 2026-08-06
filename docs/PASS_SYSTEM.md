@@ -47,14 +47,15 @@ are logged to Vercel Logs by NAME only, e.g.
    its SHA-256 hash + a human-readable reference (`FB26-XXXXX`) stored in
    `passes`.
 3. The success screen renders the digital pass. The QR encodes only
-   `https://<site>/volunteer/<token>`; no personal data is inside it. Passes
-   issued before the portal was renamed carry `/verify-pass/<token>`, which
-   still resolves.
+   `https://<site>/volunteers/verify-pass/<token>`; no personal data is
+   inside it. Passes issued before the portal was renamed carry
+   `/verify-pass/<token>`, which still resolves.
 
 ### Verification and check-in (event day)
 
-- Volunteers scan the QR, which opens `/volunteer/<token>` (or the older
-  `/verify-pass/<token>`, which redirects to it carrying the token).
+- Volunteers scan the QR, which opens `/volunteers/verify-pass/<token>` (or
+  the older `/verify-pass/<token>`, which redirects to it carrying the
+  token).
 - The page asks once per browser session for the shared
   `VERIFIER_ACCESS_CODE` (server-side env; every action re-checks it, so
   no secret ships in the bundle).

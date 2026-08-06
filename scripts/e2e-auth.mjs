@@ -154,8 +154,8 @@ const browser = await chromium.launch(
 );
 
 for (const [who, email, role, home] of [
-  ['administrator', 'sumukh.nayak@outlook.com', 'admin', '/volunteer/admin'],
-  ['volunteer', 'ryansahatbsg@gmail.com', 'volunteer', '/volunteer'],
+  ['administrator', 'sumukh.nayak@outlook.com', 'admin', '/admin/dashboard'],
+  ['volunteer', 'ryansahatbsg@gmail.com', 'volunteer', '/volunteers/verify-pass'],
 ]) {
   console.log(`\n${who} — real browser, real cookies`);
   const ctx = await browser.newContext({ viewport: { width: 900, height: 1000 } });
@@ -166,10 +166,10 @@ for (const [who, email, role, home] of [
     if (r.url().includes('/api/')) responses.push(`${r.status()} ${new URL(r.url()).pathname}`);
   });
 
-  await page.goto(`http://localhost:${APP_PORT}/volunteer`, { waitUntil: 'networkidle' });
+  await page.goto(`http://localhost:${APP_PORT}/volunteers`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(700);
   check('redirected to the login page',
-    new URL(page.url()).pathname === '/volunteer/login', page.url());
+    new URL(page.url()).pathname === '/volunteers/login', page.url());
 
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password').fill('correct-horse-battery');
@@ -215,7 +215,7 @@ console.log('\ncookies blocked — the failure must be legible');
   blockCookies = true;
   const ctx = await browser.newContext({ viewport: { width: 900, height: 1000 } });
   const page = await ctx.newPage();
-  await page.goto(`http://localhost:${APP_PORT}/volunteer/login`, { waitUntil: 'networkidle' });
+  await page.goto(`http://localhost:${APP_PORT}/volunteers/login`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(600);
   await page.getByLabel('Email').fill('sumukh.nayak@outlook.com');
   await page.getByLabel('Password').fill('correct-horse-battery');

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { usePortalBase } from './routes';
+import { PORTAL_PAGES, usePortalBase } from './routes';
 import { motion } from 'framer-motion';
 import { ScanLine } from 'lucide-react';
 import { EASE } from '@/utils/motion';
@@ -259,7 +259,7 @@ export default function AdminPage() {
             </p>
           </div>
           <Link
-            to={portalBase}
+            to={`${portalBase}/${PORTAL_PAGES.verify}`}
             className="inline-flex min-h-11 items-center gap-2 rounded-full bg-accent px-6 py-3 font-body text-sm font-medium text-accent-foreground transition-all duration-300 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98]"
           >
             <ScanLine aria-hidden="true" className="h-4 w-4" />

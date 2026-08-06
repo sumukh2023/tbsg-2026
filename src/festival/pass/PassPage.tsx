@@ -189,7 +189,6 @@ function RetrieveForm() {
           error={fieldErrors.fullName}
           autoComplete="name"
           maxLength={120}
-          hint="The details you registered with. Capitals and spacing do not have to match."
         />
       </div>
       {error && (

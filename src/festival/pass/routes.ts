@@ -1,58 +1,106 @@
 import { useLocation } from 'react-router-dom';
 
 /**
- * Where the volunteer portal lives.
+ * Where the volunteer portal lives, and what the pages under it are called.
  *
- * It used to live at one path, `/verify-pass`. It now answers at TWO, because
- * the people who use it think of it as two different things: a volunteer opens
- * it to scan passes at a gate, an administrator opens it to run the desk.
- * Giving each the address they would guess costs one route tree mounted twice.
+ * TWO BASES, ONE PER AUDIENCE. `/volunteers` is the gate; `/admin` is the
+ * desk. The same route tree is mounted under both, so an administrator who
+ * needs to scan a pass goes to `/admin/verify-pass` without leaving the
+ * address they know, and a volunteer never sees `/admin` in their URL bar.
  *
- * NEITHER IS A REDIRECT TO THE OTHER. `/admin` and `/volunteer` are the same
- * portal with the same sequence, and whichever one you arrive at is the one
- * you stay under: sign in at `/admin` and the dashboard is `/admin/admin`,
- * sign in at `/volunteer` and it is `/volunteer/admin`. That is what
- * `portalBase` is for. Bouncing everyone to a single canonical prefix would
- * have been less code and would have meant one of the two addresses was a
- * polite fiction.
+ * The PAGE NAMES say what the pages are. They used to be positional — the
+ * portal root was the scanner and the dashboard was called `admin`, which
+ * gave an administrator the address `/admin/admin`. Naming them fixes that:
+ * `/admin/dashboard` and `/volunteers/verify-pass` are both readable out
+ * loud, which matters for something a volunteer is told over a phone.
  *
- * `/verify-pass` is kept alive as a redirect and cannot be dropped: it is
- * printed, as a QR code, on every pass already issued.
+ * `/verify-pass` is kept alive and cannot be dropped: it is printed, as a QR
+ * code, on every pass already issued. `/volunteer` (singular) is kept for the
+ * same reason on a smaller scale, having briefly been the live address.
  */
-export const PORTAL_BASES = ['/volunteer', '/admin'] as const;
+export const PORTAL_BASES = ['/volunteers', '/admin'] as const;
 
-/** The one baked into new QR codes, which have no router to ask. */
-export const PORTAL_CANONICAL = '/volunteer';
+/** The pages under a base. */
+export const PORTAL_PAGES = {
+  login: 'login',
+  /** Administrators only: accounts, and the gate activity log. */
+  dashboard: 'dashboard',
+  profile: 'profile',
+  /** The scanner, and the parent of a scanned token. */
+  verify: 'verify-pass',
+} as const;
 
-/** The original path. Still on printed passes, so still routed. */
-export const PORTAL_LEGACY = '/verify-pass';
+/** Where a QR code points. It has no router to ask, so it must be absolute. */
+export const PORTAL_CANONICAL = `/volunteers/${PORTAL_PAGES.verify}`;
 
-/** Every prefix the portal answers on, newest first. */
-export const PORTAL_PREFIXES = [...PORTAL_BASES, PORTAL_LEGACY];
+/** Prefixes that are no longer linked to but must keep resolving. */
+export const PORTAL_LEGACY = ['/verify-pass', '/volunteer'] as const;
 
-/** The static children of a portal base. Anything else there is a token. */
-export const PORTAL_PAGES = new Set(['login', 'admin', 'profile']);
+/** Every prefix the portal answers on. */
+const PREFIXES = [...PORTAL_BASES, ...PORTAL_LEGACY];
 
 /**
- * The base a path sits under, or null if it is not in the portal at all.
- * Matched on a segment boundary so `/administration` is not read as `/admin`.
+ * The base a path sits under, or null if it is not in the portal.
+ * Matched on a segment boundary, so `/administration` is not read as `/admin`
+ * and `/volunteers` is not read as `/volunteer`.
  */
 export function portalBaseOf(pathname: string): string | null {
   return (
-    PORTAL_PREFIXES.find(
+    PREFIXES.find(
       (base) => pathname === base || pathname.startsWith(`${base}/`)
     ) ?? null
   );
 }
 
 /**
- * The base the caller is currently under, for building links that keep
- * someone on the address they arrived at. Falls back to the canonical one so
- * a component rendered outside the portal still produces a working link.
+ * WHERE SIGNING IN LANDS YOU, decided by ROLE rather than by the address you
+ * signed in at. An administrator's home is the desk and a volunteer's is the
+ * scanner; those are different jobs, not different URLs for the same one, so
+ * a volunteer who was handed the `/admin` link still ends up somewhere that
+ * makes sense to them. A deep link asked for explicitly (a scanned pass) still
+ * wins over both.
+ */
+export function homeFor(role: string): string {
+  return role === 'admin'
+    ? `/admin/${PORTAL_PAGES.dashboard}`
+    : `/volunteers/${PORTAL_PAGES.verify}`;
+}
+
+/**
+ * The base the caller is currently under, for links that keep someone on the
+ * address they arrived at. Falls back to `/volunteers` so a component rendered
+ * outside the portal still produces a working link.
  */
 export function usePortalBase(): string {
   const { pathname } = useLocation();
   const base = portalBaseOf(pathname);
-  // The legacy prefix is routed, but nothing should LINK to it any more.
-  return base && base !== PORTAL_LEGACY ? base : PORTAL_CANONICAL;
+  return base && !PORTAL_LEGACY.includes(base as (typeof PORTAL_LEGACY)[number])
+    ? base
+    : '/volunteers';
+}
+
+/**
+ * An address from before the rename, mapped to where that page lives now.
+ *
+ * The token case is the one that matters: a pass printed months ago encodes
+ * `/verify-pass/<token>`, and a volunteer scanning it at the gate cannot know
+ * anything changed. Everything unrecognised is treated as a token, which is
+ * the safe default here because the named pages are all enumerated above it.
+ */
+export function legacyTarget(pathname: string): string {
+  const base = PORTAL_LEGACY.find(
+    (b) => pathname === b || pathname.startsWith(`${b}/`)
+  );
+  if (!base) return PORTAL_CANONICAL;
+  const rest = pathname.slice(base.length).replace(/^\//, '');
+  if (!rest) return PORTAL_CANONICAL;
+  if (rest === 'login') return `/volunteers/${PORTAL_PAGES.login}`;
+  if (rest === 'profile') return `/volunteers/${PORTAL_PAGES.profile}`;
+  // `admin` was the old name of the dashboard.
+  if (rest === 'admin') return `/admin/${PORTAL_PAGES.dashboard}`;
+  // `/volunteer/verify-pass` — the shape the singular base briefly used.
+  if (rest === PORTAL_PAGES.verify || rest.startsWith(`${PORTAL_PAGES.verify}/`)) {
+    return `/volunteers/${rest}`;
+  }
+  return `${PORTAL_CANONICAL}/${rest}`;
 }

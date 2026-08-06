@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { usePortalBase } from './routes';
+import { PORTAL_PAGES, usePortalBase } from './routes';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown, LogOut, ScanLine, UserRound, Users } from 'lucide-react';
 import { EASE } from '@/utils/motion';
@@ -150,7 +150,7 @@ export function VolunteerMenu() {
           >
             {volunteer.role === 'admin' && (
               <Link
-                to={`${portalBase}/admin`}
+                to={`${portalBase}/${PORTAL_PAGES.dashboard}`}
                 role="menuitem"
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 font-body text-sm text-foreground transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -160,7 +160,7 @@ export function VolunteerMenu() {
               </Link>
             )}
             <Link
-              to={portalBase}
+              to={`${portalBase}/${PORTAL_PAGES.verify}`}
               role="menuitem"
               onClick={() => setOpen(false)}
               className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 font-body text-sm text-foreground transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -169,7 +169,7 @@ export function VolunteerMenu() {
               Verify passes
             </Link>
             <Link
-              to={`${portalBase}/profile`}
+              to={`${portalBase}/${PORTAL_PAGES.profile}`}
               role="menuitem"
               onClick={() => setOpen(false)}
               className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 font-body text-sm text-foreground transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

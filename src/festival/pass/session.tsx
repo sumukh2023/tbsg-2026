@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { usePortalBase } from './routes';
+import { PORTAL_PAGES, usePortalBase } from './routes';
 import { PortalShell } from './PortalShell';
 import {
   SessionContext,
@@ -123,7 +123,7 @@ export function RequireVolunteer({
     const next = `${location.pathname}${location.search}`;
     return (
       <Navigate
-        to={`${portalBase}/login?next=${encodeURIComponent(next)}`}
+        to={`${portalBase}/${PORTAL_PAGES.login}?next=${encodeURIComponent(next)}`}
         replace
       />
     );
