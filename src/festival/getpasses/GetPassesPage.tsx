@@ -14,6 +14,13 @@ import {
   type VisitorType,
 } from './pricing';
 import { formatRupees } from '@/utils/money';
+import { AttendeeFields } from './AttendeeFields';
+import {
+  attendeeNoun,
+  emptyAttendee,
+  type AttendeeDraft,
+  type AttendeeErrors,
+} from './attendee';
 import {
   Consent,
   FloatingInput,
@@ -77,6 +84,8 @@ const ROLL_REQUIRED = ['student', 'parent'];
 const STEPS = ['Visitor', 'Booking', 'Details', 'Confirm'] as const;
 
 type FormState = {
+  /** One entry per ticket, and therefore one per pass. */
+  attendees: AttendeeDraft[];
   fullName: string;
   email: string;
   phone: string;
@@ -95,9 +104,13 @@ type FormState = {
   marketingEmails: boolean;
 };
 
-type Errors = Partial<Record<keyof FormState, string>>;
+type Errors = Partial<Record<keyof FormState, string>> & {
+  /** Positional, so an error lands on the attendee it belongs to. */
+  attendeeList?: AttendeeErrors[];
+};
 
 const initialForm: FormState = {
+  attendees: [emptyAttendee()],
   fullName: '',
   email: '',
   phone: '',
@@ -189,8 +202,11 @@ function validateStep(step: number, form: FormState): Errors {
           ? `A maximum of ${limit} tickets may be reserved in a single booking.`
           : `A ${form.visitorType} registration includes ${limit} ${limit === 1 ? 'pass' : 'passes'}.`;
     }
-    if (ROLL_REQUIRED.includes(form.visitorType)) {
-      if (form.visitorType === 'parent' && form.studentName.trim().length < 2) {
+    /* The child the booking is for, asked once. A student's own roll is
+       asked per attendee below instead, because three student tickets are
+       three different pupils. Mirrors api/register.ts. */
+    if (form.visitorType === 'parent') {
+      if (form.studentName.trim().length < 2) {
         errors.studentName = "Please enter the student's name.";
       }
       if (!form.usn.trim()) errors.usn = 'Please enter the student USN.';
@@ -206,6 +222,36 @@ function validateStep(step: number, form: FormState): Errors {
       )
     ) {
       errors.visitorDetail = 'Choose the option that describes you best.';
+    }
+
+    /* One name per ticket. Errors are POSITIONAL so each lands on the block
+       it belongs to: a single "please fill in the names" under a list of ten
+       tells nobody which one they missed. */
+    const noun = attendeeNoun(form.visitorType);
+    const list: AttendeeErrors[] = form.attendees.map((attendee) => {
+      const found: AttendeeErrors = {};
+      if (attendee.name.trim().length < 2) {
+        found.name = `Please enter this ${noun.toLowerCase()}'s name.`;
+      }
+      if (form.visitorType === 'student') {
+        if (!attendee.usn.trim()) found.usn = 'Please enter the USN.';
+        if (!CLASSES.includes(attendee.studentClass as (typeof CLASSES)[number])) {
+          found.studentClass = 'Choose the class.';
+        }
+        if (!SECTIONS.includes(attendee.section as (typeof SECTIONS)[number])) {
+          found.section = 'Choose the section.';
+        }
+      }
+      return found;
+    });
+    if (list.some((e) => Object.keys(e).length > 0)) errors.attendeeList = list;
+
+    // Two tickets on one USN is a duplicated row, not two children.
+    const rolls = form.attendees
+      .map((a) => a.usn.trim())
+      .filter(Boolean);
+    if (new Set(rolls).size !== rolls.length) {
+      errors.usn = 'Each student needs their own USN. One is repeated.';
     }
   }
   if (step === 3 && !form.termsAccepted) {
@@ -531,7 +577,55 @@ export default function GetPassesPage() {
   // integer once tapping "+" fifty times would be the alternative.
   const ticketLimit = PASS_LIMITS[form.visitorType] ?? 1;
   const ticketsAsField = ticketLimit > STEPPER_MAX;
-  const needsRoll = ROLL_REQUIRED.includes(form.visitorType);
+  /* The booking-level roll is the CHILD a parent is here for. A student's
+     own roll is per attendee now, so this no longer covers them. */
+  const needsRoll = form.visitorType === 'parent';
+  const ticketCount = Math.min(
+    Math.max(Number(form.passes) || 0, 0),
+    ticketLimit
+  );
+
+  /**
+   * The attendee list follows the ticket count.
+   *
+   * GROWING KEEPS WHAT IS ALREADY TYPED, and shrinking drops from the end.
+   * Rebuilding the array on every change would wipe four names because
+   * somebody corrected the count from 5 to 4, which is the sort of thing
+   * that makes a person start the form again.
+   */
+  useEffect(() => {
+    setForm((current) => {
+      if (current.attendees.length === ticketCount) return current;
+      const next = current.attendees.slice(0, ticketCount);
+      while (next.length < ticketCount) next.push(emptyAttendee());
+      return { ...current, attendees: next };
+    });
+  }, [ticketCount]);
+
+  const setAttendee = useCallback(
+    (index: number, patch: Partial<AttendeeDraft>) => {
+      setForm((current) => {
+        const attendees = current.attendees.map((a, i) =>
+          i === index ? { ...a, ...patch } : a
+        );
+        return { ...current, attendees };
+      });
+      // Clear only the fields just corrected, so the other blocks keep theirs.
+      setErrors((current) => {
+        if (!current.attendeeList) return current;
+        const list = current.attendeeList.map((e, i) => {
+          if (i !== index) return e;
+          const next = { ...e };
+          for (const key of Object.keys(patch) as (keyof AttendeeDraft)[]) {
+            delete next[key];
+          }
+          return next;
+        });
+        return { ...current, attendeeList: list };
+      });
+    },
+    []
+  );
 
   const goTo = (next: number) => {
     setDirection(next > step ? 1 : -1);
@@ -583,17 +677,27 @@ export default function GetPassesPage() {
           phone: form.phone.replace(/\s/g, ''),
           visitor_type: form.visitorType,
           number_of_passes: Number(form.passes) || 1,
-          // Only students carry a school roll; the server refuses these
-          // fields on any other visitor type.
+          /* ONE ENTRY PER TICKET. The server mints a pass from each, so the
+             list is what turns a count into named, separately checkable
+             passes. Roll fields go only on student attendees; the server
+             refuses them on anyone else. */
+          attendees: form.attendees.map((attendee) => ({
+            attendee_name: attendee.name.trim(),
+            ...(form.visitorType === 'student'
+              ? {
+                  usn: attendee.usn.trim(),
+                  class: attendee.studentClass,
+                  section: attendee.section,
+                }
+              : {}),
+          })),
+          // The child a PARENT booking is for, named once and copied onto
+          // each parent's pass by the server.
           student_name:
             form.visitorType === 'parent' ? form.studentName.trim() : null,
-          usn: ROLL_REQUIRED.includes(form.visitorType)
-            ? form.usn.trim()
-            : null,
-          class: ROLL_REQUIRED.includes(form.visitorType)
-            ? form.studentClass
-            : null,
-          section: ROLL_REQUIRED.includes(form.visitorType)
+          usn: form.visitorType === 'parent' ? form.usn.trim() : null,
+          class: form.visitorType === 'parent' ? form.studentClass : null,
+          section: form.visitorType === 'parent'
             ? form.section
             : null,
           visitor_detail:
@@ -809,6 +913,15 @@ export default function GetPassesPage() {
                             max={ticketLimit}
                           />
                         )}
+
+                        <AttendeeFields
+                          visitorType={form.visitorType}
+                          attendees={form.attendees}
+                          errors={errors.attendeeList ?? []}
+                          onChange={setAttendee}
+                          classes={CLASSES}
+                          sections={SECTIONS}
+                        />
 
                         {needsRoll && (
                           <div className="space-y-4">
