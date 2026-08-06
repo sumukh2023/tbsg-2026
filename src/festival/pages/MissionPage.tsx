@@ -12,6 +12,7 @@ import { FlashWordmark } from '../FlashWordmark';
 import { Band, PageShell } from './PageShell';
 import { HeroFilm } from './HeroFilm';
 import { PhotoCarousel, type Photo } from './PhotoCarousel';
+import { DonorAcknowledgement } from '../donors/DonorScroller';
 import { CHAPTERS, SUPPORT_PATH } from './chapters';
 
 const chapter = CHAPTERS[0];
@@ -1009,6 +1010,9 @@ export default function MissionPage() {
           </div>
         </motion.div>
       </Band>
+
+      {/* 08 · Donors ---------------------------------------------- */}
+      <DonorAcknowledgement />
     </PageShell>
   );
 }

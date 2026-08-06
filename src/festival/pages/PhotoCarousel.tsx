@@ -17,10 +17,17 @@ const GAP = 24;
 
 type Geometry = { stride: number; start: number; span: number };
 
-/** Measure from the live DOM rather than restating Tailwind in JS. */
+/**
+ * Measure from the live DOM rather than restating Tailwind in JS.
+ *
+ * Null when the plate has no width yet. The rotation now runs while the
+ * section is off screen, so it can fire before layout has given the track a
+ * size; without this a stride of just the gap would walk the track a few
+ * pixels at a time and leave it between snap points.
+ */
 function geometryOf(el: HTMLElement, count: number): Geometry | null {
   const plate = el.querySelector<HTMLElement>('figure');
-  if (!plate) return null;
+  if (!plate || plate.clientWidth === 0) return null;
   const stride = plate.clientWidth + GAP;
   return { stride, start: plate.offsetLeft - el.offsetLeft, span: count * stride };
 }
@@ -67,8 +74,6 @@ export function PhotoCarousel({ photos }: { photos: Photo[] }) {
     () => !window.matchMedia('(prefers-reduced-motion: reduce)').matches
   );
   const [copies, setCopies] = useState(2);
-  /** A pointer resting on the strip holds the rotation. See the track below. */
-  const [hovering, setHovering] = useState(false);
   const sets = looping ? copies : 1;
 
   const advance = useCallback(
@@ -116,20 +121,26 @@ export function PhotoCarousel({ photos }: { photos: Photo[] }) {
   }, [photos.length]);
 
   /**
-   * Ambient rotation, governed by three things and no others: the section is
-   * on screen, the tab is in front, and no pointer is resting on the strip.
+   * Ambient rotation: one plate every few seconds, for ever.
    *
-   * WHEEL AND TOUCH ARE DELIBERATELY NOT AMONG THEM. Scrolling the PAGE past
-   * the section fires both on the track, so hooking them parked Il Programma
-   * long after the reader had moved on, and it looked broken. Hover is the
-   * only one of the three that means what it appears to mean.
+   * NOTHING ON THE PAGE HOLDS IT BACK. Not the section leaving the viewport,
+   * not a scroll in progress, not a pointer resting on a photograph, not a
+   * finger on the track. An earlier version gated it on an
+   * IntersectionObserver and on hover; both made the strip look stalled,
+   * because a reader who pauses over a photograph or scrolls past and back is
+   * doing the very thing that stopped it. Il Programma runs the same way and
+   * reads as alive because of it.
+   *
+   * The one governor left is `document.hidden`, which is not the section
+   * being out of sight but the whole TAB being in the background. A
+   * background tab throttles timers to about once a minute and then fires
+   * the backlog on return, which would jump the track several plates at once
+   * the moment the reader came back.
    */
   useEffect(() => {
-    const el = track.current;
-    if (!el || !looping) return;
+    if (!looping) return;
 
     let timer = 0;
-    let visible = false;
     const stop = () => {
       if (timer) {
         window.clearInterval(timer);
@@ -137,34 +148,28 @@ export function PhotoCarousel({ photos }: { photos: Photo[] }) {
       }
     };
     const sync = () => {
-      const run = visible && !document.hidden && !hovering;
-      if (run && !timer) timer = window.setInterval(() => advance(1, false), ROTATION_MS);
-      else if (!run) stop();
+      if (!document.hidden && !timer) {
+        timer = window.setInterval(() => advance(1, false), ROTATION_MS);
+      } else if (document.hidden) {
+        stop();
+      }
     };
+    // Re-phase without pausing: drop the pending tick and start a fresh full
+    // interval from now, so an arrow press is not immediately followed by an
+    // automatic move landing on top of it.
     restart.current = () => {
       if (!timer) return;
       stop();
       sync();
     };
+    sync();
     document.addEventListener('visibilitychange', sync);
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        visible = entry.isIntersecting;
-        sync();
-      },
-      { threshold: 0.15 }
-    );
-    observer.observe(el);
     return () => {
       stop();
-      observer.disconnect();
+      restart.current = () => {};
       document.removeEventListener('visibilitychange', sync);
     };
-    // `hovering` is a dependency rather than a ref so the interval is torn
-    // down and rebuilt around a pause, which also means the first automatic
-    // move after the pointer leaves is a full interval away instead of
-    // whatever was left of the one it interrupted.
-  }, [advance, looping, hovering]);
+  }, [advance, looping]);
 
   const arrow =
     'grid h-11 w-11 place-items-center rounded-full border border-border bg-background/70 text-foreground backdrop-blur transition-colors duration-300 hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
@@ -205,14 +210,6 @@ export function PhotoCarousel({ photos }: { photos: Photo[] }) {
           'px-[max(0px,calc(50%-39vw))] sm:px-[max(0px,calc(50%-26vw))] lg:px-[max(0px,calc(50%-19vw))] xl:px-[max(0px,calc(50%-17rem))]'
         )}
         style={{ gap: GAP }}
-        /* POINTER ONLY. Hovering holds the rotation so a reader looking at a
-           photograph does not have it taken away, and it is bound to
-           mouseenter rather than wheel or touch on purpose: those fire while
-           the PAGE is scrolled past the section, which is what parked Il
-           Programma long after the reader had moved on. A pointer resting on
-           the strip is unambiguous. */
-        onMouseEnter={() => setHovering(true)}
-        onMouseLeave={() => setHovering(false)}
       >
         {Array.from({ length: sets }).flatMap((_, copy) =>
           photos.map((photo, i) => {

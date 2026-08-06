@@ -559,10 +559,43 @@ looked well-evidenced, passed every gate, and still broke Safari everywhere.
 9. Committer identity must be `Claude <noreply@anthropic.com>`; commits are
    SSH-signed (`commit.gpgsign=true` already configured in the cloud clone).
    Commit trailer: `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
+10. **THE E2E STUB HAS NO CONSTRAINTS, so a green suite is not a green
+    database.** `scripts/pgrest-stub.mjs` accepts any row. The individual-
+    passes overhaul moved the student roll onto the attendees and left
+    `registrations.usn/class/section` null for students; `registrations_student_details`
+    in Postgres requires them, so EVERY student booking 502'd in production
+    while every test passed. When a handler changes which columns it writes,
+    run the insert against a real Postgres (`initdb` as the `postgres` user,
+    then `supabase/schema.sql` + every file in `supabase/migrations/`), or add
+    an assertion for the shape the schema demands (there is now one in
+    `scripts/e2e-register.mjs`).
+11. **A print sheet must never be sized to the page.** `width: 210mm;
+    min-height: 297mm` is exactly one A4 page and therefore exactly at the
+    fragmentation limit; anything that shrinks the page box (the dialog's
+    margin dropdown, headers and footers, US Letter paper) spills a blank
+    page per ticket. Chromium's headless `page.pdf()` honours the document's
+    `@page` rule and IGNORES the API's `margin`, so this measures clean in a
+    PDF and prints wrong on paper: reproduce it with `width`/`height` on
+    `page.pdf()` and no `@page` rule instead. Sheets are content-sized
+    (~222mm) in `src/festival/getpasses/printPass.ts`.
+12. **`snap-center` needs half a plate of padding at each end.** Without it
+    the first plate cannot be centred, so the first snap position is short by
+    `(viewport - plate) / 2` and the opening advance travels less than one
+    stride: the carousel appears to jolt on exactly the first transition.
+    Also never put `scroll-behavior: smooth` on a looping snap track — it
+    turns the deliberately instant one-copy rewind into a visible backwards
+    glide. Both bit `PhotoCarousel`.
 
 ## Secrets / security rules
 
 - NEVER expose `SUPABASE_SERVICE_ROLE_KEY` to the browser. Server-side only.
+- **`GET /api/donate` is PUBLIC and UNAUTHENTICATED** (the donor wall on Our
+  Mission). It returns names and nothing else: no email, no mobile number, no
+  amount, no donor type, no row id, and only rows that are BOTH
+  `recognition_preference = 'public'` AND `payment_status = 'paid'`. It lives
+  on the donate function rather than its own file because the Vercel plan
+  allows twelve functions and the project uses twelve. `scripts/e2e-donate.mjs`
+  asserts each of those exclusions; keep it that way if the query changes.
 - `VERIFIER_ACCESS_CODE` is **GONE** (2 Aug 2026). The shared event-day code was
   replaced by per-person volunteer accounts: `api/_auth.ts`, the `volunteers` /
   `volunteer_sessions` tables, and `/volunteers/login`. Delete the variable from

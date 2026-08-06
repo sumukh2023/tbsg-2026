@@ -64,6 +64,21 @@ console.log('\nStudents carry their own roll, one per attendee');
   const row=db.passes.find(p=>p.registration_id===payload.id);
   check('the USN is normalised onto the pass', row.usn==='TBS123', row.usn);
   check('class and section too', row.class==='Grade 5' && row.section==='A');
+
+  /* AND ON THE BOOKING ROW TOO, which is not a duplicate of the check above.
+     `registrations_student_details` in Postgres requires a student BOOKING to
+     carry a usn, a class and a section. When the roll moved onto the
+     attendees the handler stopped filling them and posted nulls, so the
+     database refused every student booking and the visitor got "The
+     registration could not be saved" with nothing on the form to correct.
+     Nothing here caught it: this stub has no constraints, so the only way to
+     keep it caught is to assert the shape the real schema demands. */
+  const booking=db.registrations.find(r=>r.id===payload.id);
+  check('the BOOKING row carries the roll the schema requires',
+    booking.usn==='TBS123' && booking.class==='Grade 5' && booking.section==='A',
+    `usn=${booking.usn} class=${booking.class} section=${booking.section}`);
+  check('  and the student is named on it',
+    booking.student_name==='Aarav Menon', booking.student_name);
 }
 
 console.log('\nA half-named booking is refused');

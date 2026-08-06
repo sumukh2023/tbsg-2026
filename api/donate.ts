@@ -119,12 +119,86 @@ function validate(body: Record<string, unknown>): Payload | string {
   };
 }
 
+/**
+ * GET /api/donate — the public donor roll, for the acknowledgement scroller.
+ *
+ * ON THIS ROUTE RATHER THAN ITS OWN. The Vercel plan allows twelve
+ * serverless functions and the project uses twelve; a thirteenth file in
+ * `api/` fails the deploy outright. Reading and writing donations are the
+ * same subject, so the roll lives on the same function.
+ *
+ * WHAT IT WILL AND WILL NOT SAY. Only gifts whose donor asked to be named
+ * (`recognition_preference = 'public'`) and whose money has actually arrived
+ * (`payment_status = 'paid'`). An intent is not a gift, and thanking someone
+ * publicly for one that has not been captured is a claim about them that is
+ * not true yet. Corporate donors are named by their organisation where they
+ * gave one, which is the name they gave it under.
+ *
+ * NOTHING ELSE LEAVES THE FUNCTION. Not the email address, the phone number,
+ * the amount or the donor type. A wall of names is a wall of names; the
+ * amounts are the office's business and would turn an acknowledgement into a
+ * league table.
+ */
+async function roll(res: VercelResponse): Promise<void> {
+  const env = supabaseEnv('donate');
+  if (!env) {
+    // An unconfigured service is not an error to the visitor: the scroller
+    // simply shows its invitation instead of a wall of names.
+    return send(res, 200, { donors: [] });
+  }
+
+  const response = await fetch(
+    `${env.url}/rest/v1/donations` +
+      `?select=full_name,organisation,donor_type,created_at` +
+      `&recognition_preference=eq.public&payment_status=eq.paid` +
+      `&order=created_at.asc&limit=500`,
+    { headers: env.headers }
+  );
+  if (!response.ok) {
+    console.error(`[donate] stage=roll supabase_status=${response.status}`);
+    return send(res, 200, { donors: [] });
+  }
+
+  const rows = (await response.json()) as Array<{
+    full_name: string;
+    organisation: string | null;
+    donor_type: string;
+  }>;
+
+  /* DEDUPED, because one person may give more than once and being thanked
+     twice on the same wall reads as a mistake rather than as generosity.
+     Folded for the comparison only: what is displayed is the first spelling
+     the donor used. */
+  const seen = new Set<string>();
+  const donors: string[] = [];
+  for (const row of rows) {
+    const name =
+      row.donor_type === 'corporate' && row.organisation
+        ? row.organisation
+        : row.full_name;
+    const key = name.normalize('NFD').replace(/\s+/g, ' ').trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    donors.push(name);
+  }
+
+  // A minute of browser cache and five at the edge: the wall changes when a
+  // gift is marked paid, which is not something that happens between one
+  // page view and the next.
+  res.setHeader(
+    'Cache-Control',
+    'public, max-age=60, s-maxage=300, stale-while-revalidate=86400'
+  );
+  return send(res, 200, { donors });
+}
+
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ): Promise<void> {
+  if (req.method === 'GET') return roll(res);
   if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
+    res.setHeader('Allow', 'GET, POST');
     return send(res, 405, { error: 'Method not allowed.' });
   }
 

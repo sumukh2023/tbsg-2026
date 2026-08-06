@@ -187,6 +187,38 @@ function validate(body: Record<string, unknown>): Payload | string {
     attendee.section = attendee.section ?? section;
   }
 
+  /* AND BACK UP AGAIN, FOR STUDENTS. This is what was broken.
+     `registrations` carries a check constraint that a student booking has a
+     USN, a class and a section on the BOOKING row. When the roll moved onto
+     the attendees, this function stopped filling those columns for students
+     and started posting nulls, so Postgres refused every student booking and
+     the visitor got "The registration could not be saved" with nothing on
+     the form to correct. The stub the end-to-end suite runs against has no
+     constraints, so nothing caught it.
+
+     The roll is genuinely the attendee's now, so the booking's copy is
+     derived from them rather than asked for twice, and only when they agree
+     on it. Today they always do: PASS_LIMITS.student is 1, so a student
+     booking has exactly one attendee and the copy is exact rather than a
+     summary. If that limit ever rises and a booking holds two different
+     pupils, there is no single roll to put on the booking and the columns
+     stay null, which the accompanying migration makes legal. */
+  if (visitor_type === 'student') {
+    const [first] = attendees;
+    const agreed = attendees.every(
+      (a) =>
+        a.usn === first.usn &&
+        a.class === first.class &&
+        a.section === first.section
+    );
+    if (agreed) {
+      student_name = first.student_name;
+      usn = first.usn;
+      className = first.class;
+      section = first.section;
+    }
+  }
+
   return {
     full_name,
     email,
