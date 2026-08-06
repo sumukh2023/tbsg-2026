@@ -75,19 +75,70 @@ function faces(): { body: string; display: string } {
   }
 }
 
-function documentFor(pass: PassData, qr: string): string {
-  const face = faces();
+/** One A4 sheet, for one pass. Several of these make a booking's booklet. */
+function sheetFor(pass: PassData, qr: string, last: boolean): string {
   const roll =
     pass.usn && pass.studentClass
       ? detail('USN', pass.usn) +
         detail('Class', `${pass.studentClass} ${pass.section ?? ''}`.trim())
       : '';
+  return `  <main class="sheet${last ? '' : ' break'}">
+    <article class="card">
+      <div class="trim"></div>
+      <div class="body">
+        <div class="masthead">
+          <svg class="mark" viewBox="40 20 660 360" aria-hidden="true">
+            <path fill="#251F18" d="M 60 62 C 160 36 268 56 342 104 C 372 118 402 124 436 118 C 468 110 490 100 506 98 C 522 90 542 88 557 94 L 536 106 C 528 116 522 122 518 126 C 542 132 566 142 588 156 C 642 190 674 264 687 368 C 662 318 622 280 572 258 C 542 246 506 243 472 249 C 434 256 404 270 380 291 L 332 305 C 340 288 346 278 352 270 L 288 298 C 300 276 318 258 340 247 C 300 236 250 205 200 168 C 152 132 100 94 60 62 Z"/>
+          </svg>
+          <span class="brand">Flash @ Brigade</span>
+        </div>
 
+        <h1 class="title">Namma Mia Carpisa</h1>
+        <p class="when">14 November 2026 · The Brigade School @ Malleswaram</p>
+
+        <dl>
+          <div class="field wide">
+            <dt>Guest</dt>
+            <dd class="name">${esc(pass.guestName)}</dd>
+          </div>
+          ${detail('Visitor type', VISITOR_LABELS[pass.visitorType] ?? 'Visitor')}
+          ${detail('Pass', `${pass.sequence ?? 1} of ${pass.numberOfPasses}`)}
+          ${roll}
+        </dl>
+      </div>
+
+      <div class="perforation"></div>
+
+      <div class="qr-block">
+        <img class="qr" src="${qr}" alt="">
+        <p class="reference">${esc(pass.reference)}</p>
+        <p class="instruction">Present this code at the gate</p>
+      </div>
+    </article>
+
+    <p class="footnote">
+      One pass per person. Keep this with you on the day.<br>
+      flashatbrigade &middot; The Brigade School @ Malleswaram
+    </p>
+  </main>`;
+}
+
+/**
+ * The document that wraps the sheets.
+ *
+ * ONE DOCUMENT, MANY SHEETS. Printing a booking used to mean printing one
+ * pass; a family of four now needs four, and four separate print dialogs is
+ * four chances to lose one. Every sheet is exactly A4 with its own padding,
+ * and `break-after: page` on all but the last is what makes the browser
+ * start a new sheet rather than flow the next pass under the previous one.
+ */
+function documentFor(title: string, sheets: string): string {
+  const face = faces();
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Flash @ Brigade 2026 · ${esc(pass.reference)}</title>
+<title>Flash @ Brigade 2026 · ${esc(title)}</title>
 <style>
   /* A4 portrait with no margin of its own: the sheet's white space is the
      pass's own padding, so the layout is ours rather than the browser's
@@ -212,48 +263,14 @@ function documentFor(pass: PassData, qr: string): string {
     line-height: 1.6;
     color: #8A795F;
   }
+  /* Every sheet but the last starts a new page. break-after is the current
+     spelling; page-break-after sits beside it because Safari still wants
+     the old one. */
+  .sheet.break { break-after: page; page-break-after: always; }
 </style>
 </head>
 <body>
-  <main class="sheet">
-    <article class="card">
-      <div class="trim"></div>
-      <div class="body">
-        <div class="masthead">
-          <svg class="mark" viewBox="40 20 660 360" aria-hidden="true">
-            <path fill="#251F18" d="M 60 62 C 160 36 268 56 342 104 C 372 118 402 124 436 118 C 468 110 490 100 506 98 C 522 90 542 88 557 94 L 536 106 C 528 116 522 122 518 126 C 542 132 566 142 588 156 C 642 190 674 264 687 368 C 662 318 622 280 572 258 C 542 246 506 243 472 249 C 434 256 404 270 380 291 L 332 305 C 340 288 346 278 352 270 L 288 298 C 300 276 318 258 340 247 C 300 236 250 205 200 168 C 152 132 100 94 60 62 Z"/>
-          </svg>
-          <span class="brand">Flash @ Brigade</span>
-        </div>
-
-        <h1 class="title">Namma Mia Carpisa</h1>
-        <p class="when">14 November 2026 · The Brigade School @ Malleswaram</p>
-
-        <dl>
-          <div class="field wide">
-            <dt>Guest</dt>
-            <dd class="name">${esc(pass.guestName)}</dd>
-          </div>
-          ${detail('Visitor type', VISITOR_LABELS[pass.visitorType] ?? 'Visitor')}
-          ${detail('Passes', String(pass.numberOfPasses))}
-          ${roll}
-        </dl>
-      </div>
-
-      <div class="perforation"></div>
-
-      <div class="qr-block">
-        <img class="qr" src="${qr}" alt="">
-        <p class="reference">${esc(pass.reference)}</p>
-        <p class="instruction">Present this code at the gate</p>
-      </div>
-    </article>
-
-    <p class="footnote">
-      One pass per booking. Keep this with you on the day.<br>
-      flashatbrigade &middot; The Brigade School @ Malleswaram
-    </p>
-  </main>
+${sheets}
 </body>
 </html>`;
 }
@@ -267,14 +284,39 @@ function documentFor(pass: PassData, qr: string): string {
  * button that silently does nothing.
  */
 export async function printPass(pass: PassData): Promise<void> {
-  const url = `${window.location.origin}${PORTAL_CANONICAL}/${pass.token}`;
-  // 1024px so a 55mm print at 300dpi has more pixels than it needs.
-  const qr = await QRCode.toDataURL(url, {
-    errorCorrectionLevel: 'M',
-    margin: 2,
-    width: 1024,
-    color: { dark: '#000000', light: '#ffffff' },
-  });
+  return printPasses([pass]);
+}
+
+/**
+ * Prints EVERY pass in a booking, one A4 sheet each, in a single dialog.
+ *
+ * Four separate dialogs for a family of four is four chances to lose one,
+ * and four visits to the printer. The QR codes are generated in parallel
+ * because they are independent and a booking of ten should not take ten
+ * times as long to reach the dialog.
+ */
+export async function printPasses(passes: PassData[]): Promise<void> {
+  if (passes.length === 0) return;
+
+  const qrs = await Promise.all(
+    passes.map((pass) =>
+      // 1024px so a 55mm print at 300dpi has more pixels than it needs.
+      QRCode.toDataURL(
+        `${window.location.origin}${PORTAL_CANONICAL}/${pass.token}`,
+        {
+          errorCorrectionLevel: 'M',
+          margin: 2,
+          width: 1024,
+          color: { dark: '#000000', light: '#ffffff' },
+        }
+      )
+    )
+  );
+  const sheets = passes
+    .map((pass, i) => sheetFor(pass, qrs[i], i === passes.length - 1))
+    .join('\n');
+  const title =
+    passes.length === 1 ? passes[0].reference : `${passes.length} passes`;
 
   const frame = document.createElement('iframe');
   frame.setAttribute('aria-hidden', 'true');
@@ -291,7 +333,7 @@ export async function printPass(pass: PassData): Promise<void> {
     return;
   }
   doc.open();
-  doc.write(documentFor(pass, qr));
+  doc.write(documentFor(title, sheets));
   doc.close();
 
   const win = frame.contentWindow;
@@ -310,16 +352,25 @@ export async function printPass(pass: PassData): Promise<void> {
       resolve();
     };
     // A ceiling, so a slow font CDN can never hold the button hostage.
-    const timer = win.setTimeout(go, 1500);
+    // Sized for the work: one QR decoded in well under a second, but ten
+    // should not be cut off by a ceiling chosen for one.
+    const timer = win.setTimeout(go, 1500 + passes.length * 250);
     const ready = async () => {
       try {
-        const image = doc.querySelector('img');
-        if (image && !image.complete) {
-          await new Promise((r) => {
-            image.onload = r;
-            image.onerror = r;
-          });
-        }
+        /* EVERY QR, not just the first. With one sheet `querySelector`
+           was the whole document; with ten, printing after the first
+           raster decoded would have produced nine blank codes. */
+        const images = [...doc.querySelectorAll('img')];
+        await Promise.all(
+          images.map((image) =>
+            image.complete
+              ? Promise.resolve()
+              : new Promise((r) => {
+                  image.onload = r;
+                  image.onerror = r;
+                })
+          )
+        );
         await doc.fonts?.ready;
       } catch {
         /* print anyway */

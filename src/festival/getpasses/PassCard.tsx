@@ -11,7 +11,10 @@ export type PassData = {
   status?: 'valid' | 'checked_in' | 'cancelled';
   guestName: string;
   visitorType: string;
+  /** How many passes the booking holds. */
   numberOfPasses: number;
+  /** Which one of them this is, from 1. */
+  sequence?: number;
   /** School roll, present on student passes only. */
   usn?: string | null;
   studentClass?: string | null;
@@ -90,10 +93,15 @@ export function PassCard({ pass }: { pass: PassData }) {
             </div>
             <div>
               <dt className="font-body text-2xs uppercase tracking-[0.16em] text-muted-foreground">
-                Passes
+                Pass
               </dt>
               <dd className="mt-1 font-body text-sm tabular-nums text-foreground">
-                {pass.numberOfPasses}
+                {/* WHICH PASS THIS IS, not how many the booking holds.
+                    "Passes 4" on a card that admits one person read as
+                    though this single code let four people in. */}
+                {pass.sequence
+                  ? `${pass.sequence} of ${pass.numberOfPasses}`
+                  : `1 of ${pass.numberOfPasses}`}
               </dd>
             </div>
             {/* Students only. A PARENT's pass carries their child's roll in

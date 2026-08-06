@@ -6,7 +6,7 @@ import { TextEffect } from '@/components/motion/text-effect';
 import { EASE } from '@/utils/motion';
 import { Grain } from '../materials';
 import { CarnivalMark } from '../CarnivalMark';
-import { PrintablePass } from './PrintablePass';
+import { PassDeck } from '../pass/PassDeck';
 import {
   describeLine,
   quoteFor,
@@ -79,8 +79,6 @@ const VISITOR_DETAILS = [
 ] as const;
 
 /** Visitor types that supply school-roll details: their own, or their child's. */
-const ROLL_REQUIRED = ['student', 'parent'];
-
 const STEPS = ['Visitor', 'Booking', 'Details', 'Confirm'] as const;
 
 type FormState = {
@@ -273,14 +271,18 @@ type MintedPass = {
   token: string;
   reference: string;
   issued_at: string;
-} | null;
+  attendee_name?: string;
+  attendee_category?: string;
+  sequence?: number;
+};
 
 type SubmitState =
   | { phase: 'idle' }
   | { phase: 'submitting' }
   | { phase: 'error'; message: string }
   | { phase: 'duplicate'; message: string }
-  | { phase: 'success'; pass: MintedPass };
+  /** Every pass the booking minted, in booking order. */
+  | { phase: 'success'; passes: MintedPass[] };
 
 /** Slow lantern glow: the page breathing, nothing more. */
 function EveningBackdrop() {
@@ -345,7 +347,13 @@ function ProgressRail({ step }: { step: number }) {
   );
 }
 
-function SuccessView({ pass, form }: { pass: MintedPass; form: FormState }) {
+function SuccessView({
+  passes,
+  form,
+}: {
+  passes: MintedPass[];
+  form: FormState;
+}) {
   return (
     <div className="flex flex-col items-center py-8 text-center">
       <svg viewBox="0 0 96 96" className="h-24 w-24" aria-hidden="true">
@@ -386,47 +394,62 @@ function SuccessView({ pass, form }: { pass: MintedPass; form: FormState }) {
         transition={{ duration: 0.7, delay: 1.3, ease: EASE.out }}
         className="mt-4 max-w-md font-body text-base leading-relaxed text-muted-foreground"
       >
-        {pass
-          ? 'Your digital pass is below. Show its code at the gate on 14 November; the organising committee will write only if anything needs attention.'
-          : 'Your passes will be waiting at the main gate on 14 November. The organising committee will write to you only if anything about your booking needs attention.'}
+        {passes.length === 0
+          ? 'Your passes will be waiting at the main gate on 14 November. The organising committee will write to you only if anything about your booking needs attention.'
+          : passes.length === 1
+            ? 'Your digital pass is below. Show its code at the gate on 14 November; the organising committee will write only if anything needs attention.'
+            : `All ${passes.length} passes are below, one for each person. Each has its own code, so everyone can arrive separately.`}
       </motion.p>
 
-      {pass && (
+      {passes.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 32 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.9, delay: 1.6, ease: EASE.out }}
           className="mt-10 w-full"
         >
-          <PrintablePass
-            pass={{
-              token: pass.token,
-              reference: pass.reference,
-              status: 'valid',
-              guestName: form.fullName.trim(),
-              visitorType: form.visitorType,
-              numberOfPasses: Number(form.passes) || 1,
-              usn: ROLL_REQUIRED.includes(form.visitorType)
-                ? form.usn.trim()
-                : null,
-              studentClass: ROLL_REQUIRED.includes(form.visitorType)
-                ? form.studentClass
-                : null,
-              section: ROLL_REQUIRED.includes(form.visitorType)
-                ? form.section
-                : null,
-            }}
+          {/* EVERY PASS, not the first one. A family of four leaves this
+              screen with four codes, and showing one of them would have sent
+              three people to the gate with nothing. */}
+          <PassDeck
+            passes={passes.map((minted, i) => ({
+              token: minted.token,
+              reference: minted.reference,
+              status: 'valid' as const,
+              // The name on the PASS, which for every attendee after the
+              // first is not the purchaser's.
+              guestName:
+                minted.attendee_name ??
+                form.attendees[i]?.name.trim() ??
+                form.fullName.trim(),
+              visitorType: minted.attendee_category ?? form.visitorType,
+              numberOfPasses: passes.length,
+              sequence: minted.sequence ?? i + 1,
+              usn:
+                form.visitorType === 'student'
+                  ? (form.attendees[i]?.usn.trim() ?? null)
+                  : form.visitorType === 'parent'
+                    ? form.usn.trim()
+                    : null,
+              studentClass:
+                form.visitorType === 'student'
+                  ? (form.attendees[i]?.studentClass ?? null)
+                  : form.visitorType === 'parent'
+                    ? form.studentClass
+                    : null,
+              section:
+                form.visitorType === 'student'
+                  ? (form.attendees[i]?.section ?? null)
+                  : form.visitorType === 'parent'
+                    ? form.section
+                    : null,
+            }))}
+            checkedInAt={{}}
           />
           <p className="mx-auto mt-5 max-w-sm font-body text-xs leading-relaxed text-muted-foreground">
-            Keep your{' '}
-            <Link
-              to={`/pass/${pass.token}`}
-              className="text-foreground underline decoration-accent/60 underline-offset-4 transition-colors hover:text-primary"
-            >
-              pass link
-            </Link>{' '}
-            safe. If you lose it, you can retrieve the pass anytime with your
-            email and mobile number.
+            Print them now or keep this page. If you lose them, you can
+            retrieve every pass in the booking at any time with your email,
+            mobile number and name.
           </p>
         </motion.div>
       )}
@@ -434,12 +457,12 @@ function SuccessView({ pass, form }: { pass: MintedPass; form: FormState }) {
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, delay: pass ? 2.0 : 1.5, ease: EASE.out }}
+        transition={{ duration: 0.7, delay: passes.length ? 2.0 : 1.5, ease: EASE.out }}
         className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center"
       >
-        {pass && (
+        {passes.length > 0 && (
           <Link
-            to={`/pass/${pass.token}`}
+            to={`/pass/${passes[0].token}`}
             className="inline-flex items-center rounded-full border border-border px-8 py-3.5 font-body text-sm font-medium text-foreground transition-colors duration-300 hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             View QR Pass
@@ -747,7 +770,12 @@ export default function GetPassesPage() {
       });
       return;
     }
-    setSubmit({ phase: 'success', pass: data?.pass ?? null });
+    setSubmit({
+      phase: 'success',
+      // The array is the shape now; `pass` is the old single-pass field and
+      // is only read if a response predates the change.
+      passes: data?.passes ?? (data?.pass ? [data.pass] : []),
+    });
   };
 
   const panelVariants = {
@@ -796,7 +824,7 @@ export default function GetPassesPage() {
           className="liquid-glass mb-16 rounded-xl border border-white/10 p-6 md:p-10"
         >
           {submit.phase === 'success' ? (
-            <SuccessView pass={submit.pass} form={form} />
+            <SuccessView passes={submit.passes} form={form} />
           ) : (
             <>
               <ProgressRail step={step} />

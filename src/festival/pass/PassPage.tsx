@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
 import { TextEffect } from '@/components/motion/text-effect';
@@ -7,12 +7,17 @@ import { EASE } from '@/utils/motion';
 import { Grain } from '../materials';
 import { CarnivalMark } from '../CarnivalMark';
 import { type PassData } from '../getpasses/PassCard';
-import { PrintablePass } from '../getpasses/PrintablePass';
 import { FloatingInput } from '../getpasses/fields';
+import { PassDeck } from './PassDeck';
 
 type LoadState =
   | { phase: 'loading' }
-  | { phase: 'ready'; pass: PassData; checkedInAt: string | null }
+  /** Every pass in the booking, and when each was checked in. */
+  | {
+      phase: 'ready';
+      passes: PassData[];
+      checkedInAt: Record<string, string | null>;
+    }
   | { phase: 'missing' }
   | { phase: 'error'; message: string };
 
@@ -81,8 +86,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function RetrieveForm() {
-  const navigate = useNavigate();
+function RetrieveForm({ onFound }: { onFound: (tokens: string[]) => void }) {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [fullName, setFullName] = useState('');
@@ -125,8 +129,14 @@ function RetrieveForm() {
         }),
       });
       const data = await response.json().catch(() => null);
-      if (response.ok && data?.token) {
-        navigate(`/pass/${data.token}`);
+      if (response.ok && (data?.tokens?.length || data?.token)) {
+        /* THE DECK STAYS OFF THE URL. Retrieval returns every token in the
+           booking, and a token IS the credential: putting several in the
+           address bar would write a family's passes into browser history,
+           the back button and anything that syncs it. Handing them up as
+           state keeps them out of all three. `/pass/<token>` still works
+           for one scanned link, which is the case that needs an address. */
+        onFound(data.tokens?.length ? data.tokens : [data.token]);
         return;
       }
       setError(
@@ -221,38 +231,58 @@ function RetrieveForm() {
 export default function PassPage() {
   const { token } = useParams<{ token: string }>();
   const [state, setState] = useState<LoadState>({ phase: 'loading' });
+  /* Tokens found by retrieval, held in state rather than the URL. A scanned
+     `/pass/<token>` link is a deck of one, so both routes end up here. */
+  const [found, setFound] = useState<string[] | null>(null);
+  const tokens = token ? [token] : found;
 
   useEffect(() => {
-    if (!token) return;
+    if (!tokens || tokens.length === 0) return;
     let cancelled = false;
     const load = async () => {
       setState({ phase: 'loading' });
       try {
-        const response = await fetch(
-          `/api/pass?token=${encodeURIComponent(token)}`
+        /* IN PARALLEL. A booking of ten fetched one after another is ten
+           round trips end to end before anything appears; asked for at
+           once it is one. They are independent reads of independent
+           passes, so there is nothing to serialise them for. */
+        const results = await Promise.all(
+          tokens.map(async (each) => {
+            const response = await fetch(
+              `/api/pass?token=${encodeURIComponent(each)}`
+            );
+            if (!response.ok) return null;
+            const data = await response.json();
+            return { each, data };
+          })
         );
-        if (response.status === 404 || response.status === 422) {
-          if (!cancelled) setState({ phase: 'missing' });
+        if (cancelled) return;
+
+        const found = results.filter(
+          (r): r is NonNullable<typeof r> => r !== null
+        );
+        if (found.length === 0) {
+          setState({ phase: 'missing' });
           return;
         }
-        if (!response.ok) throw new Error();
-        const data = await response.json();
-        if (cancelled) return;
-        setState({
-          phase: 'ready',
-          checkedInAt: data.pass.checked_in_at ?? null,
-          pass: {
-            token,
+
+        const checkedInAt: Record<string, string | null> = {};
+        const passes = found.map(({ each, data }) => {
+          checkedInAt[each] = data.pass.checked_in_at ?? null;
+          return {
+            token: each,
             reference: data.pass.reference,
             status: data.pass.status,
             guestName: data.pass.guest.name,
             visitorType: data.pass.guest.visitor_type,
-            numberOfPasses: data.pass.guest.number_of_passes,
+            numberOfPasses: data.pass.of ?? data.pass.guest.number_of_passes,
+            sequence: data.pass.sequence,
             usn: data.pass.guest.usn,
             studentClass: data.pass.guest.class,
             section: data.pass.guest.section,
-          },
+          } satisfies PassData;
         });
+        setState({ phase: 'ready', passes, checkedInAt });
       } catch {
         if (!cancelled) {
           setState({
@@ -266,7 +296,10 @@ export default function PassPage() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+    // The array identity changes on every render when it comes from a param,
+    // so the join is what keeps this from refetching for ever.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tokens?.join(',')]);
 
   return (
     <Shell>
@@ -278,9 +311,9 @@ export default function PassPage() {
           delay={0.2}
           className="font-display text-5xl font-medium tracking-tight text-foreground sm:text-6xl"
         >
-          Your Pass
+          {tokens && tokens.length > 1 ? 'Your Passes' : 'Your Pass'}
         </TextEffect>
-        {!token && (
+        {!tokens && (
           <motion.p
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -293,33 +326,15 @@ export default function PassPage() {
         )}
       </header>
 
-      {!token ? (
-        <RetrieveForm />
+      {!tokens ? (
+        <RetrieveForm onFound={setFound} />
       ) : state.phase === 'loading' ? (
         <div
           className="mx-auto mb-16 h-[480px] w-full max-w-sm animate-pulse rounded-xl border border-border bg-card"
           aria-label="Loading pass"
         />
       ) : state.phase === 'ready' ? (
-        <motion.div
-          initial={{ opacity: 0, y: 28 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.9, ease: EASE.out }}
-          className="mb-16"
-        >
-          <PrintablePass pass={state.pass} />
-          {state.pass.status === 'checked_in' && state.checkedInAt && (
-            <p className="mt-4 text-center font-body text-xs text-muted-foreground">
-              Checked in at{' '}
-              {new Date(state.checkedInAt).toLocaleString('en-IN', {
-                hour: '2-digit',
-                minute: '2-digit',
-                day: 'numeric',
-                month: 'short',
-              })}
-            </p>
-          )}
-        </motion.div>
+        <PassDeck passes={state.passes} checkedInAt={state.checkedInAt} />
       ) : (
         <div className="liquid-glass mb-16 rounded-xl border border-white/10 p-8 text-center md:p-10">
           <p className="font-display text-2xl italic text-foreground">
