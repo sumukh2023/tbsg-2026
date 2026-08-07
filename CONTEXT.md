@@ -241,8 +241,31 @@ separate CTA, the seagull is a `<Link to="/">`.
   transition into the footer: one was tried on 2 Aug 2026 and removed the same
   day, because a band of interpolated colour above a footer reads as a defect
   rather than as dusk. The page meets its footer at a clean edge.
-- **Our Mission and Enquiry have full content.** Stalls, Partners and Gallery
-  still render `ComingSoonPage`; replace them one at a time.
+- **Our Mission, Partners, Gallery and Enquiry have full content.** Stalls is
+  the last district still rendering `ComingSoonPage`.
+- **`/gallery` is built on `src/festival/gallery/`**, which is a small library
+  rather than one page: `photos.ts` is the catalogue (the ONLY place a
+  photograph is described), `Plate.tsx` is one framed picture, `Lightbox.tsx`
+  is the fullscreen viewer and `MasonryWall.tsx` is the filtered wall. Adding
+  a photograph is one record in `photos.ts` with its intrinsic `width` and
+  `height`; every section, chip count and lightbox picks it up. Those two
+  numbers are REQUIRED, not decoration: each frame reserves the exact aspect
+  ratio before the file is requested, which is what holds the page at CLS 0
+  while forty lazy images arrive.
+  - **Only eight Flash 1.0 photographs exist** (`public/rangeelo/1-8.jpg`; 7
+    and 8 were converted from `carnival ground.png` and `carnivalg3.jpg`).
+    There is no ffmpeg in the cloud container, so more cannot be pulled from
+    the films.
+  - **A section that has no photograph does NOT get an empty frame.** Section
+    02 was first built that way and read as a broken page; it now sets a
+    figure (9 months, 42 stalls, 10 lakh) at the size the picture would have
+    been. `Plate` still has its material fallback for the wall's benefit, but
+    nothing on the page relies on it.
+  - The films are **preview cards, never iframes**, and the YouTube still is
+    hotlinked from `img.youtube.com` with an `onError` fallback to the page's
+    own material. That host is unreachable from the container, so the cards
+    always show the fallback in local screenshots and the real still in
+    production.
 - `/enquiry` has a cover photograph in its header (`PageShell`'s `cover` prop:
   full-bleed `object-cover` under the same `FilmVeil` the film heroes use, with
   a settable focal point). It carries a contact form INLINE, on the district's own daylight
