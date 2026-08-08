@@ -139,6 +139,11 @@ function validate(body: Record<string, unknown>): Payload | string {
  * amounts are the office's business and would turn an acknowledgement into a
  * league table.
  */
+/** Two spellings of one donor, compared. Display keeps the first spelling. */
+function foldDonor(name: string): string {
+  return name.normalize('NFD').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
 async function roll(res: VercelResponse): Promise<void> {
   const env = supabaseEnv('donate');
   if (!env) {
@@ -147,11 +152,18 @@ async function roll(res: VercelResponse): Promise<void> {
     return send(res, 200, { donors: [] });
   }
 
+  /* ORDERED BY AMOUNT, DESCENDING, and the amount never leaves the function.
+     The brief asks for a leaderboard, and a leaderboard has an order that
+     means something; giving is the only thing there is to rank by here. The
+     figure is used to SORT and is then dropped, so the wall says who gave
+     without saying how much, which is the distinction between thanking
+     someone and publishing their bank statement. `created_at` breaks ties, so
+     two equal gifts are ranked by who gave first rather than arbitrarily. */
   const response = await fetch(
     `${env.url}/rest/v1/donations` +
-      `?select=full_name,organisation,donor_type,created_at` +
+      `?select=full_name,organisation,donor_type,amount,created_at` +
       `&recognition_preference=eq.public&payment_status=eq.paid` +
-      `&order=created_at.asc&limit=500`,
+      `&order=amount.desc,created_at.asc&limit=500`,
     { headers: env.headers }
   );
   if (!response.ok) {
@@ -163,7 +175,32 @@ async function roll(res: VercelResponse): Promise<void> {
     full_name: string;
     organisation: string | null;
     donor_type: string;
+    amount: number | null;
   }>;
+
+  /* A DONOR WHO GAVE TWICE IS RANKED ON THEIR TOTAL, not on their largest
+     single gift. Two gifts of forty thousand should outrank one of fifty, and
+     the dedupe below keeps only the first row it meets, so the totals have to
+     be gathered before the order is fixed. */
+  const totals = new Map<string, number>();
+  for (const row of rows) {
+    const key = foldDonor(
+      row.donor_type === 'corporate' && row.organisation
+        ? row.organisation
+        : row.full_name
+    );
+    if (!key) continue;
+    totals.set(key, (totals.get(key) ?? 0) + (Number(row.amount) || 0));
+  }
+  rows.sort((a, b) => {
+    const av = totals.get(foldDonor(
+      a.donor_type === 'corporate' && a.organisation ? a.organisation : a.full_name
+    )) ?? 0;
+    const bv = totals.get(foldDonor(
+      b.donor_type === 'corporate' && b.organisation ? b.organisation : b.full_name
+    )) ?? 0;
+    return bv - av;
+  });
 
   /* DEDUPED, because one person may give more than once and being thanked
      twice on the same wall reads as a mistake rather than as generosity.
@@ -176,7 +213,7 @@ async function roll(res: VercelResponse): Promise<void> {
       row.donor_type === 'corporate' && row.organisation
         ? row.organisation
         : row.full_name;
-    const key = name.normalize('NFD').replace(/\s+/g, ' ').trim().toLowerCase();
+    const key = foldDonor(name);
     if (!key || seen.has(key)) continue;
     seen.add(key);
     donors.push(name);

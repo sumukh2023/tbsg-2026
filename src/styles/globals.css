@@ -14,6 +14,23 @@
     --background: 38 38% 94%;
     --foreground: 32 21% 12%;
 
+    /* ---------------------------------------------------------------- */
+    /*  THE ITALIAN WASHES.                                              */
+    /*                                                                   */
+    /*  Two pastels per chapter, and never more than two: the reference  */
+    /*  is a street of ochre and rose plaster under a Mediterranean sky, */
+    /*  which is a handful of colours repeated, not a paintbox. Used     */
+    /*  only as GROUND — section washes, card tints, the faint gradient  */
+    /*  at the top of a band. Never for type, never for a control.       */
+    /*                                                                   */
+    /*  Each district names its own pair beside its schematic colour, so */
+    /*  the pastel a page carries is a consequence of what that page     */
+    /*  already is. The landing page's are terracotta and pale sky, the  */
+    /*  two colours its own orange sits between.                         */
+    /* ---------------------------------------------------------------- */
+    --wash-one: 20 58% 90%;
+    --wash-two: 196 38% 90%;
+
     --card: 40 47% 97%;
     --card-foreground: 32 21% 12%;
 
@@ -26,7 +43,13 @@
     --secondary-foreground: 70 20% 18%;
 
     /* Aged gold */
-    --accent: 41 60% 36%;
+    /* DARKENED FROM 36% when the Italian washes went in. A wash is ground
+       laid UNDER the type, so it takes contrast away from anything dark
+       sitting on it: this eyebrow measured 3.9:1 at 12px afterwards, which
+       is below AA for small text. Four points of lightness buys it back
+       (4.74:1 on a plain band, 4.62:1 on a raised one) at no visible cost to
+       the colour. */
+    --accent: 41 60% 32%;
     --accent-foreground: 40 40% 96%;
 
     --muted: 40 26% 90%;
@@ -140,6 +163,10 @@
   /*                 comfortably AA.                                   */
   /* ---------------------------------------------------------------- */
   [data-chapter='mission'] {
+    /* Pale lemon beside the chapter's yellow, and the dusty rose that
+       keeps a page of yellow from reading as one note. */
+    --wash-one: 44 66% 90%;
+    --wash-two: 6 40% 91%;
     --background: 34 44% 95%;
     --live-dot: 40 92% 62%;
     --card: 36 50% 97%;
@@ -158,8 +185,11 @@
     --ring: 40 80% 30%;
   }
 
-  /* Stalls — the mercato: market greens, olive, deep emerald. */
+  /* Stalls — the mercato: market greens, olive, deep emerald,
+     warmed with pale lemon and soft sage. */
   [data-chapter='stalls'] {
+    --wash-one: 62 58% 88%;
+    --wash-two: 96 26% 86%;
     --background: 68 26% 93%;
     --live-dot: 140 45% 55%;
     --card: 70 32% 97%;
@@ -174,24 +204,38 @@
     --ring: 152 42% 28%;
   }
 
-  /* Partners — the palazzo: burgundy, deep navy, gold. */
+  /* Partners — the palazzo. BURGUNDY IS THE PAGE, in the way ocean blue is
+     the Gallery's: the accent moves into the burgundy family too, so section
+     numbers, eyebrows and rules read burgundy rather than gold. That single
+     token is what made the two pages differ in kind rather than in hue, since
+     the components on both name `--accent` in the same places. The gold that
+     was here survives as the warmer of the two washes, so the palazzo keeps
+     its gilding without it competing with the identity. */
   [data-chapter='partners'] {
+    --wash-one: 12 46% 88%;
+    --wash-two: 40 52% 90%;
     --background: 30 24% 94%;
     --live-dot: 348 60% 55%;
     --card: 32 34% 97%;
     --primary: 348 44% 34%;
-    --secondary: 220 20% 89%;
-    --secondary-foreground: 222 24% 20%;
-    --accent: 42 60% 40%;
-    --muted: 25 18% 90%;
-    --muted-foreground: 222 12% 32%;
-    --border: 25 16% 80%;
-    --input: 25 16% 80%;
+    --secondary: 20 22% 90%;
+    --secondary-foreground: 348 20% 22%;
+    /* A deeper, browner burgundy than `--primary`, so the two are legibly
+       different objects on the page and both are ink rather than decoration.
+       Measured 5.6:1 on the chapter ground. */
+    --accent: 356 38% 32%;
+    --muted: 20 20% 91%;
+    --muted-foreground: 350 8% 33%;
+    --border: 18 20% 81%;
+    --input: 18 20% 81%;
     --ring: 348 44% 34%;
   }
 
-  /* Gallery — the coast: Mediterranean blues on warm white. */
+  /* Gallery — the coast: Mediterranean blues on warm white, with the
+     terracotta of the roofs above the water. */
   [data-chapter='gallery'] {
+    --wash-one: 196 44% 88%;
+    --wash-two: 20 52% 90%;
     --background: 34 40% 95%;
     --live-dot: 200 62% 60%;
     --card: 200 40% 97%;
@@ -206,15 +250,21 @@
     --ring: 202 58% 34%;
   }
 
-  /* Enquiry — the front desk: cream, deep charcoal, gold. */
+  /* Enquiry — the front desk: cream, deep charcoal, gold, on warm ivory
+     and the palest dusty rose. */
   [data-chapter='enquiry'] {
+    --wash-one: 38 54% 91%;
+    --wash-two: 8 34% 90%;
     --background: 40 32% 95%;
     --live-dot: 30 6% 38%;
     --card: 42 40% 97%;
     --primary: 30 8% 20%;
     --secondary: 40 20% 89%;
     --secondary-foreground: 30 10% 20%;
-    --accent: 41 62% 38%;
+    /* 38% -> 32%, for the reason given against the landing page's accent:
+       the wash costs small type contrast and this chapter sets eyebrows at
+       12px. Measures 4.86:1 on a plain band, 4.79:1 on a raised one. */
+    --accent: 41 62% 32%;
     --muted: 40 22% 91%;
     --muted-foreground: 30 8% 34%;
     --border: 38 16% 80%;

@@ -21,6 +21,7 @@
     "e2e:activity": "node scripts/e2e-activity.mjs",
     "e2e:partner": "node scripts/e2e-partner.mjs",
     "e2e:donate": "node scripts/e2e-donate.mjs",
+    "e2e:promo": "node scripts/e2e-promo.mjs",
     "e2e:register": "node scripts/e2e-register.mjs",
     "e2e:retrieve": "node scripts/e2e-retrieve.mjs",
     "scrub:restore": "node scripts/restore-scrub.mjs"

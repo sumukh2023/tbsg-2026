@@ -182,14 +182,34 @@ function HomePage() {
       </a>
       <SiteNav />
       <Hero />
-      <Overture />
-      <PiazzaBento />
-      <Regions />
-      <Programme />
-      <Italia />
-      <Voci />
-      <Giorno />
-      <Domande />
+      {/* THE ITALIAN WASH, for the daylight half of the landing page.
+          The districts get theirs from `Band`, which this page does not use:
+          its sections are individual components in a row. One layer behind
+          all of them does the same job with one element.
+
+          It stops at the dusk block below, which is a different chapter and
+          has its own dark ground. `-z-10` puts it behind the content and
+          `pointer-events-none` keeps it out of the way of everything; it is
+          `absolute` within a `relative` wrapper rather than `fixed`, so it
+          scrolls with the page and cannot bleed into the evening. */}
+      <div className="relative">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-10"
+          style={{
+            backgroundImage:
+              'radial-gradient(48% 32% at 6% 12%, hsl(var(--wash-one) / 0.5), transparent 68%), radial-gradient(42% 26% at 96% 46%, hsl(var(--wash-two) / 0.42), transparent 66%), radial-gradient(52% 30% at 30% 86%, hsl(var(--wash-one) / 0.36), transparent 70%)',
+          }}
+        />
+        <Overture />
+        <PiazzaBento />
+        <Regions />
+        <Programme />
+        <Italia />
+        <Voci />
+        <Giorno />
+        <Domande />
+      </div>
       {/* "Il campo diventa la piazza" stood here: a second scroll-scrubbed
           film. Retired 4 Aug 2026 along with the hero scrub; both are
           preserved in retired/scrub/ and `npm run scrub:restore` puts them

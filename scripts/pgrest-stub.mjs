@@ -245,10 +245,112 @@ async function handleStorage(req, res, url) {
   return true;
 }
 
+
+/**
+ * Stand-ins for the promo functions in
+ * supabase/migrations/20260809_promo_codes.sql.
+ *
+ * Deliberately literal translations, so a change to the SQL that the handler
+ * depends on shows up here as a disagreement rather than passing quietly.
+ */
+const RPC = {
+  promo_discount_for: ({ p_type, p_value, p_subtotal }) =>
+    Math.max(
+      0,
+      Math.min(
+        p_subtotal ?? 0,
+        p_type === 'percent'
+          ? Math.floor(((p_subtotal ?? 0) * p_value) / 100)
+          : p_type === 'amount'
+            ? p_value
+            : 0
+      )
+    ),
+
+  preview_promo_code: (args) => [evaluatePromo(args, false)],
+  reserve_promo_use: (args) => [evaluatePromo(args, true)],
+
+  release_promo_use: ({ p_code }) => {
+    const row = (db.promo_codes ?? []).find(
+      (r) => r.code === String(p_code ?? '').trim().toUpperCase()
+    );
+    if (row) row.current_uses = Math.max(0, row.current_uses - 1);
+    return null;
+  },
+};
+
+function evaluatePromo({ p_code, p_visitor_type, p_subtotal }, consume) {
+  const none = (reason, extra = {}) => ({
+    ok: false,
+    reason,
+    code: null,
+    discount_type: null,
+    discount_value: null,
+    discount_amount: 0,
+    remaining: null,
+    ...extra,
+  });
+  const wanted = String(p_code ?? '').trim().toUpperCase();
+  if (!wanted) return none('missing');
+  const row = (db.promo_codes ?? []).find((r) => r.code === wanted);
+  if (!row) return none('unknown');
+  const now = Date.now();
+  if (!row.active) return none('inactive', { code: row.code });
+  if (row.starts_at && new Date(row.starts_at).getTime() > now) {
+    return none('not_started', { code: row.code });
+  }
+  if (row.expires_at && new Date(row.expires_at).getTime() <= now) {
+    return none('expired', { code: row.code });
+  }
+  if (row.max_uses != null && row.current_uses >= row.max_uses) {
+    return none('exhausted', { code: row.code, remaining: 0 });
+  }
+  if (
+    row.applicable_categories &&
+    !row.applicable_categories.includes(p_visitor_type)
+  ) {
+    return none('not_applicable', { code: row.code });
+  }
+  if (consume) row.current_uses += 1;
+  return {
+    ok: true,
+    reason: 'ok',
+    code: row.code,
+    discount_type: row.discount_type,
+    discount_value: row.discount_value,
+    discount_amount: RPC.promo_discount_for({
+      p_type: row.discount_type,
+      p_value: row.discount_value,
+      p_subtotal,
+    }),
+    remaining: row.max_uses == null ? null : row.max_uses - row.current_uses,
+  };
+}
+
 export function start(port = 5599) {
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, `http://localhost:${port}`);
     if (await handleStorage(req, res, url)) return;
+    /* RPC, so a handler that calls a Postgres function can be tested at all.
+       WHAT THIS IS NOT: proof that the SQL is right. These are stand-ins
+       written in JavaScript, and the property that matters most about
+       `reserve_promo_use` (that two concurrent callers cannot both take the
+       last use) is a property of a single Postgres UPDATE and cannot be
+       demonstrated here. That is verified directly against a real Postgres;
+       see the note in scripts/e2e-promo.mjs. What these DO test is the
+       handler: which function it calls, what it does with each answer, and
+       whether it gives a reserved use back when a booking fails. */
+    if (url.pathname.startsWith('/rest/v1/rpc/')) {
+      const fn = url.pathname.replace('/rest/v1/rpc/', '');
+      let raw = '';
+      for await (const chunk of req) raw += chunk;
+      const args = raw ? JSON.parse(raw) : {};
+      stats.queries.push(`RPC ${fn}`);
+      const impl = RPC[fn];
+      res.writeHead(impl ? 200 : 404, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify(impl ? impl(args) : { message: 'no such function' }));
+    }
+
     const table = url.pathname.replace('/rest/v1/', '');
     const params = [...url.searchParams.entries()];
     const select = url.searchParams.get('select');

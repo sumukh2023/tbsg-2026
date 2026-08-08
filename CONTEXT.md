@@ -215,6 +215,25 @@ separate CTA, the seagull is a `<Link to="/">`.
   geometry on `/` and `/mission` at 1280 (1102,824, 146x44) and identical
   mobile shape at 390, where the ticker stays hidden and only the control
   remains.
+- **Italian pastel washes (9 Aug 2026).** Every chapter names a `--wash-one`
+  and `--wash-two` beside its schematic colour: two Mediterranean pastels
+  chosen to sit next to that district's own hue, never to replace it. `Band`
+  paints them as two radial gradients on one absolutely positioned layer
+  (raised bands take both, plain bands the warmer alone); the landing page
+  does not use `Band`, so `HomePage` carries one equivalent layer behind its
+  daylight sections, stopping short of the `#sera` dusk block. **The washes
+  are GROUND ONLY.** No type, no control and no rule uses them, so a chapter's
+  measured contrast still means something. It does cost a little, though: the
+  landing and Enquiry accents were darkened from 36%/38% to 32% because their
+  12px eyebrows dropped to 3.9:1 and 3.7:1 on the washed ground. **If you add
+  a wash to a new surface, re-measure the small type on it** with
+  `scratchpad/palette.mjs`, which samples painted pixels rather than tokens.
+- **Partners is burgundy the way Gallery is blue (9 Aug 2026).** Both pages
+  name `--accent` in the same places, and Partners' was GOLD while its
+  `--primary` was burgundy, so only about seven elements read burgundy and the
+  page identity did not land. Moving `--accent` into the burgundy family
+  (`356 38% 32%`, 7.8:1 on the chapter ground) was the whole fix: no component
+  changed. The gold survives as the warmer of the two washes.
 - **Colour identity is TOKENS ONLY.** `data-chapter="mission"` on the page
   wrapper swaps `--primary`/`--accent`/`--background`/… via a block in
   `globals.css`. Components are untouched and nothing hard-codes a colour.
@@ -609,9 +628,40 @@ looked well-evidenced, passed every gate, and still broke Safari everywhere.
     turns the deliberately instant one-copy rewind into a visible backwards
     glide. Both bit `PhotoCarousel`.
 
+## Promo codes (9 Aug 2026)
+
+- `supabase/migrations/20260809_promo_codes.sql` is the whole system.
+  A promotion is a ROW: code, discount type and value, max uses, window,
+  active flag, applicable categories. **Nothing in `api/` names FLASH26.**
+- **The usage limit is enforced by a single Postgres UPDATE**
+  (`reserve_promo_use`) whose WHERE clause carries the limit, so the check and
+  the write are the same statement and there is no window between them. A
+  read-then-write in the API would let two bookings both take the last use.
+  Verified with 40 concurrent psql clients against a 5-use code on a real
+  Postgres 16: exactly 5 succeeded, `current_uses` landed on 5. **`scripts/
+  e2e-promo.mjs` cannot prove this** and says so in its header; a JavaScript
+  stub always looks atomic. Re-run the concurrency check by hand if the SQL
+  changes.
+- `preview_promo_code` is the same checks WITHOUT consuming, for the Apply
+  button. Applying must never reserve, or a hundred-use promotion is exhausted
+  by a hundred people who typed it and closed the tab.
+- **The discount comes off the TICKET SUBTOTAL and never the convenience fee.**
+  `register` reserves before it inserts and releases (`release_promo_use`) on
+  every failure path after that, so a booking that fails does not cost the
+  promotion a use.
+- **The browser sends a CODE and nothing else.** No amount, no subtotal, no
+  total; whatever the page believed is never consulted. The Apply endpoint
+  lives at `POST /api/register?action=promo` rather than in its own file
+  because the Vercel plan allows twelve functions and the project uses twelve.
+
 ## Secrets / security rules
 
 - NEVER expose `SUPABASE_SERVICE_ROLE_KEY` to the browser. Server-side only.
+- **The donor wall is a LEADERBOARD, ranked by total given, and the totals
+  never leave the server.** Ordering by what people gave is what makes it a
+  leaderboard; publishing the figures would be a different thing nobody
+  consented to. Top ten get numbered places, everyone beyond that runs in the
+  existing scroller, so the wall grows all season without getting longer.
 - **`GET /api/donate` is PUBLIC and UNAUTHENTICATED** (the donor wall on Our
   Mission). It returns names and nothing else: no email, no mobile number, no
   amount, no donor type, no row id, and only rows that are BOTH

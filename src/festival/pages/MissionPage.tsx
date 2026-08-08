@@ -95,8 +95,6 @@ const FACTS = [
  */
 const primaryButton =
   'inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-highlight px-8 py-3.5 font-body text-sm font-semibold text-highlight-foreground transition-all duration-300 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]';
-const ghostButton =
-  'inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-border px-8 py-3.5 font-body text-sm font-medium text-foreground transition-all duration-300 hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98]';
 
 /* -------------------------------------------------------------------- */
 /*  Hero                                                                 */
@@ -999,10 +997,13 @@ export default function MissionPage() {
               The Brigade School @ Malleswaram
             </p>
           </div>
-          <div className="mt-12 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link to={SUPPORT_PATH} className={ghostButton}>
-              Support Us
-            </Link>
+          {/* ONE CTA AT THE FOOT OF THIS PAGE, not two.
+              The giving button that used to sit beside this one is gone by
+              request. `/donate` is untouched and still reachable from the two
+              Support Us buttons higher up this page, from the navigation and
+              from the donor wall below; what was removed is the bottom-of-page
+              ask, not the ability to give. */}
+          <div className="mt-12 flex justify-center">
             <Link to="/get-passes" className={primaryButton}>
               Get passes
               <ArrowRight aria-hidden="true" className="h-4 w-4" />

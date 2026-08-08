@@ -14,6 +14,8 @@ import {
   type VisitorType,
 } from './pricing';
 import { formatRupees } from '@/utils/money';
+import { PromoField } from './PromoField';
+import { describePromo, previewPromo, type PromoState } from './promo';
 import { AttendeeFields } from './AttendeeFields';
 import {
   attendeeNoun,
@@ -290,8 +292,24 @@ type SubmitState =
   | { phase: 'idle' }
   | { phase: 'submitting' }
   | { phase: 'error'; message: string }
-  /** Every pass the booking minted, in booking order. */
-  | { phase: 'success'; passes: MintedPass[] };
+  /** Every pass the booking minted, in booking order, and what it cost. */
+  | { phase: 'success'; passes: MintedPass[]; pricing: BookingPricing | null };
+
+/**
+ * What the SERVER charged, as the server reported it.
+ *
+ * Displayed rather than recomputed: this is the receipt, and the whole point
+ * of a receipt is that it says what actually happened. Recomputing it here
+ * would be the browser marking its own homework, and would quietly disagree
+ * the moment a promotion ran out between applying a code and booking with it.
+ */
+type BookingPricing = {
+  subtotal: number;
+  discount_amount: number;
+  promo_code: string | null;
+  convenience_fee: number;
+  total_amount: number;
+};
 
 /** Slow lantern glow: the page breathing, nothing more. */
 function EveningBackdrop() {
@@ -359,9 +377,11 @@ function ProgressRail({ step }: { step: number }) {
 function SuccessView({
   passes,
   form,
+  pricing,
 }: {
   passes: MintedPass[];
   form: FormState;
+  pricing: BookingPricing | null;
 }) {
   return (
     <div className="flex flex-col items-center py-8 text-center">
@@ -463,6 +483,71 @@ function SuccessView({
         </motion.div>
       )}
 
+      {/* THE RECEIPT, from the server. A visitor who applied a code needs to
+          see that it was honoured, and the only trustworthy place that can
+          come from is the reply that created the booking. */}
+      {pricing && (
+        <motion.dl
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            duration: 0.7,
+            delay: passes.length ? 1.85 : 1.4,
+            ease: EASE.out,
+          }}
+          className="mx-auto mt-10 w-full max-w-sm space-y-2.5 rounded-2xl border border-border/60 bg-card/60 p-5 text-left"
+        >
+          <div className="flex items-baseline justify-between gap-4">
+            <dt className="font-body text-sm text-muted-foreground">Tickets</dt>
+            <dd className="font-body text-sm tabular-nums text-foreground">
+              {pricing.discount_amount > 0 ? (
+                <span className="text-muted-foreground/70 line-through">
+                  {formatRupees(pricing.subtotal)}
+                </span>
+              ) : (
+                formatRupees(pricing.subtotal)
+              )}
+            </dd>
+          </div>
+          {pricing.discount_amount > 0 && (
+            <>
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="min-w-0 truncate font-body text-sm text-accent">
+                  {pricing.promo_code} applied
+                </dt>
+                <dd className="font-body text-sm tabular-nums text-accent">
+                  &minus;{formatRupees(pricing.discount_amount)}
+                </dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="font-body text-sm text-muted-foreground">
+                  Discounted tickets
+                </dt>
+                <dd className="font-body text-sm tabular-nums text-foreground">
+                  {formatRupees(pricing.subtotal - pricing.discount_amount)}
+                </dd>
+              </div>
+            </>
+          )}
+          <div className="flex items-baseline justify-between gap-4">
+            <dt className="font-body text-sm text-muted-foreground">
+              Convenience fee
+            </dt>
+            <dd className="font-body text-sm tabular-nums text-foreground">
+              {formatRupees(pricing.convenience_fee)}
+            </dd>
+          </div>
+          <div className="flex items-baseline justify-between gap-4 border-t border-border/60 pt-3">
+            <dt className="font-body text-sm font-medium text-foreground">
+              Payable at the gate
+            </dt>
+            <dd className="font-display text-xl font-medium tabular-nums text-foreground">
+              {formatRupees(pricing.total_amount)}
+            </dd>
+          </div>
+        </motion.dl>
+      )}
+
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -532,8 +617,30 @@ function SummaryRow({
  * multiplies anything, so a change to the rate card in `pricing.ts` moves the
  * lines and the total together and cannot leave them disagreeing.
  */
-function PriceSummary({ quote }: { quote: Quote }) {
+function PriceSummary({
+  quote,
+  promo,
+  promoInput,
+  onPromoInput,
+  onApplyPromo,
+  onRemovePromo,
+}: {
+  quote: Quote;
+  promo: PromoState;
+  promoInput: string;
+  onPromoInput: (value: string) => void;
+  onApplyPromo: () => void;
+  onRemovePromo: () => void;
+}) {
   if (quote.lines.length === 0) return null;
+  /* THE DISCOUNT SHOWN IS THE ONE THE SERVER QUOTED, and it is only shown
+     while it still describes THIS order. Going back and adding a ticket
+     changes the subtotal, so a discount quoted against the old one would be
+     arithmetic nobody can check; the page re-applies the code instead. */
+  const applied = promo.phase === 'applied' ? promo.promo : null;
+  const discount =
+    applied && applied.subtotal === quote.ticketsTotal ? applied.discountAmount : 0;
+  const payable = quote.ticketsTotal - discount + quote.convenienceFee;
   return (
     <div className="mt-6 rounded-2xl border border-border/60 bg-card/60 p-5">
       <h3 className="font-body text-xs uppercase tracking-[0.14em] text-muted-foreground">
@@ -562,24 +669,73 @@ function PriceSummary({ quote }: { quote: Quote }) {
         <div className="flex items-baseline justify-between gap-4 border-t border-border/60 pt-3">
           <dt className="font-body text-sm text-foreground">Tickets</dt>
           <dd className="font-body text-sm tabular-nums text-muted-foreground">
-            {formatRupees(quote.ticketsTotal)}
+            {/* Struck through once a discount lands, so the reader can see
+                what changed rather than only what it became. */}
+            {discount > 0 ? (
+              <span className="text-muted-foreground/70 line-through">
+                {formatRupees(quote.ticketsTotal)}
+              </span>
+            ) : (
+              formatRupees(quote.ticketsTotal)
+            )}
           </dd>
         </div>
+
+        <AnimatePresence initial={false}>
+          {discount > 0 && applied && (
+            <motion.div
+              key="discount"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.35, ease: EASE.out }}
+              className="overflow-hidden"
+            >
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="min-w-0 truncate font-body text-sm text-accent">
+                  {describePromo(applied)}
+                </dt>
+                <dd className="font-body text-sm tabular-nums text-accent">
+                  &minus;{formatRupees(discount)}
+                </dd>
+              </div>
+              <div className="mt-3 flex items-baseline justify-between gap-4">
+                <dt className="font-body text-sm text-foreground">
+                  Discounted tickets
+                </dt>
+                <dd className="font-body text-sm font-medium tabular-nums text-foreground">
+                  {formatRupees(quote.ticketsTotal - discount)}
+                </dd>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="flex items-baseline justify-between gap-4">
           <dt className="font-body text-sm text-foreground">
             Convenience fee
           </dt>
           <dd className="font-body text-sm tabular-nums text-muted-foreground">
+            {/* NEVER DISCOUNTED. The promotion is off the tickets, so this
+                line reads the same before and after a code is applied. */}
             {formatRupees(quote.convenienceFee)}
           </dd>
         </div>
       </dl>
+
+      <PromoField
+        state={promo}
+        value={promoInput}
+        onChange={onPromoInput}
+        onApply={onApplyPromo}
+        onRemove={onRemovePromo}
+      />
       <div className="mt-4 flex items-baseline justify-between gap-4 border-t border-border/60 pt-4">
         <span className="font-body text-sm font-medium text-foreground">
           Total
         </span>
         <span className="font-display text-2xl font-medium tabular-nums text-foreground">
-          {formatRupees(quote.total)}
+          {formatRupees(payable)}
         </span>
       </div>
       <p className="mt-3 font-body text-xs leading-relaxed text-muted-foreground">
@@ -596,6 +752,8 @@ export default function GetPassesPage() {
   const [form, setForm] = useState<FormState>(initialForm);
   const [errors, setErrors] = useState<Errors>({});
   const [submit, setSubmit] = useState<SubmitState>({ phase: 'idle' });
+  const [promo, setPromo] = useState<PromoState>({ phase: 'idle' });
+  const [promoInput, setPromoInput] = useState('');
 
   // Bring the pass fully into view once it is minted.
   useEffect(() => {
@@ -695,6 +853,57 @@ export default function GetPassesPage() {
     return quoteFor(counts);
   }, [form.visitorType, form.passes]);
 
+  const applyPromo = useCallback(async () => {
+    const code = promoInput.trim().toUpperCase();
+    if (!code) return;
+    setPromo({ phase: 'checking' });
+    const result = await previewPromo({
+      code,
+      visitorType: form.visitorType,
+      tickets: Number(form.passes),
+    });
+    setPromo(
+      result.ok
+        ? { phase: 'applied', promo: result.promo }
+        : { phase: 'error', message: result.message }
+    );
+  }, [promoInput, form.visitorType, form.passes]);
+
+  const removePromo = useCallback(() => {
+    setPromo({ phase: 'idle' });
+    setPromoInput('');
+  }, []);
+
+  /* AN APPLIED CODE IS RE-QUOTED WHEN THE ORDER CHANGES.
+     The discount is a proportion of the ticket subtotal, so going back and
+     adding a ticket makes the quoted amount wrong. Showing a stale one is
+     arithmetic the reader cannot check, and silently dropping the code is
+     worse: they applied it, and would arrive at the total wondering where it
+     went. One request per order change, and order changes require navigating
+     back a step, so this is not a per-keystroke cost. */
+  const appliedCode = promo.phase === 'applied' ? promo.promo.code : null;
+  const appliedFor = promo.phase === 'applied' ? promo.promo.subtotal : null;
+  useEffect(() => {
+    if (!appliedCode || appliedFor === null) return;
+    if (appliedFor === quote.ticketsTotal) return;
+    let cancelled = false;
+    void previewPromo({
+      code: appliedCode,
+      visitorType: form.visitorType,
+      tickets: Number(form.passes),
+    }).then((result) => {
+      if (cancelled) return;
+      setPromo(
+        result.ok
+          ? { phase: 'applied', promo: result.promo }
+          : { phase: 'error', message: result.message }
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [appliedCode, appliedFor, quote.ticketsTotal, form.visitorType, form.passes]);
+
   const visitorLabel = useMemo(
     () => VISITOR_TYPES.find((t) => t.value === form.visitorType)?.label ?? '',
     [form.visitorType]
@@ -716,6 +925,12 @@ export default function GetPassesPage() {
           phone: form.phone.replace(/\s/g, ''),
           visitor_type: form.visitorType,
           number_of_passes: Number(form.passes) || 1,
+          /* THE CODE, AND NOTHING ELSE ABOUT IT. No discount, no subtotal,
+             no total: the server reserves the code at this moment and prices
+             the booking itself, so what this page believes it is worth is
+             never consulted. Sending the amount would be sending a number
+             anybody could edit. */
+          promo_code: promo.phase === 'applied' ? promo.promo.code : null,
           /* ONE ENTRY PER TICKET. The server mints a pass from each, so the
              list is what turns a count into named, separately checkable
              passes. Roll fields go only on student attendees; the server
@@ -787,6 +1002,7 @@ export default function GetPassesPage() {
       // The array is the shape now; `pass` is the old single-pass field and
       // is only read if a response predates the change.
       passes: data?.passes ?? (data?.pass ? [data.pass] : []),
+      pricing: data?.pricing ?? null,
     });
   };
 
@@ -836,7 +1052,11 @@ export default function GetPassesPage() {
           className="liquid-glass mb-16 rounded-xl border border-white/10 p-6 md:p-10"
         >
           {submit.phase === 'success' ? (
-            <SuccessView passes={submit.passes} form={form} />
+            <SuccessView
+              passes={submit.passes}
+              form={form}
+              pricing={submit.pricing}
+            />
           ) : (
             <>
               <ProgressRail step={step} />
@@ -1144,7 +1364,14 @@ export default function GetPassesPage() {
                           )}
                         </dl>
 
-                        <PriceSummary quote={quote} />
+                        <PriceSummary
+                          quote={quote}
+                          promo={promo}
+                          promoInput={promoInput}
+                          onPromoInput={setPromoInput}
+                          onApplyPromo={applyPromo}
+                          onRemovePromo={removePromo}
+                        />
 
                         {/* Consent sits immediately above Confirm booking, so
                             it is the last thing read before the commitment. */}

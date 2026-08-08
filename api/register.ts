@@ -9,6 +9,13 @@
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import {
+  normalisePromo,
+  previewPromo,
+  PROMO_MESSAGES,
+  releasePromo,
+  reservePromo,
+} from './_promo.js';
+import {
   CLASSES,
   cleanText,
   jsonBody,
@@ -64,6 +71,10 @@ type Payload = {
   subtotal: number;
   convenience_fee: number;
   total_amount: number;
+  /* Filled in by the handler AFTER the database has reserved a use, never by
+     `validate`: the discount is not a property of the request. */
+  promo_code: string | null;
+  discount_amount: number;
   /** Stripped before the row is written: these become `passes`, not columns. */
   attendees: Attendee[];
   student_name: string | null;
@@ -229,6 +240,12 @@ function validate(body: Record<string, unknown>): Payload | string {
     // PRICED HERE, never read from the body. A client that posts its own
     // total is describing what it would like to pay.
     ...priceBooking(visitor_type, passes),
+    /* UNDISCOUNTED AT THIS POINT, on purpose. A promo code is not validated
+       here because validating it means CONSUMING one of its uses, and this
+       function runs before anything is certain to be written. The handler
+       reserves the code and re-prices below. */
+    promo_code: null,
+    discount_amount: 0,
     attendees,
     student_name,
     usn,
@@ -403,6 +420,72 @@ export type MintedPass = {
   sequence: number;
 };
 
+/**
+ * POST /api/register?action=promo — what a code would be worth.
+ *
+ * Answers with the DISCOUNT ONLY, never with a total. The browser shows the
+ * arithmetic it is given, but the arithmetic that ends up on the booking is
+ * done again from scratch when the booking is submitted, against a code
+ * reserved at that moment. This endpoint is a courtesy, not a contract: a
+ * visitor who applies a code and takes ten minutes over the last step can
+ * still find it claimed, and being told so at the moment they book is
+ * correct.
+ *
+ * The subtotal is computed HERE from the category and the count, not read
+ * from the body, so a request claiming a subtotal of a million cannot be
+ * quoted a discount of a hundred thousand.
+ */
+async function promoPreview(
+  res: VercelResponse,
+  body: Record<string, unknown>
+): Promise<void> {
+  const code = normalisePromo(body.promo_code);
+  if (!code) {
+    return send(res, 422, { error: PROMO_MESSAGES.missing, reason: 'missing' });
+  }
+
+  const visitor_type = (
+    typeof body.visitor_type === 'string' ? body.visitor_type : ''
+  ) as VisitorType;
+  if (!VISITOR_TYPES.includes(visitor_type)) {
+    return send(res, 422, { error: 'Choose a visitor type first.' });
+  }
+  const tickets = Number(body.number_of_passes);
+  if (!Number.isInteger(tickets) || tickets < 1 || tickets > PASS_LIMITS[visitor_type]) {
+    return send(res, 422, { error: 'Choose how many tickets first.' });
+  }
+
+  const env = supabaseEnv('promo');
+  if (!env) {
+    return send(res, 503, { error: PROMO_MESSAGES.unavailable });
+  }
+
+  const priced = priceBooking(visitor_type, tickets);
+  const outcome = await previewPromo(env, code, visitor_type, priced.subtotal);
+  if (!outcome.ok) {
+    return send(res, 422, {
+      error: PROMO_MESSAGES[outcome.reason],
+      reason: outcome.reason,
+      code,
+    });
+  }
+
+  return send(res, 200, {
+    ok: true,
+    code: outcome.code,
+    discount_type: outcome.discount_type,
+    discount_value: outcome.discount_value,
+    // Everything the summary needs, and nothing about the promotion's
+    // configuration beyond what this booking is worth.
+    subtotal: priced.subtotal,
+    discount_amount: outcome.discount_amount,
+    discounted_subtotal: priced.subtotal - outcome.discount_amount,
+    convenience_fee: priced.convenience_fee,
+    total_amount:
+      priced.subtotal - outcome.discount_amount + priced.convenience_fee,
+  });
+}
+
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
@@ -414,6 +497,15 @@ export default async function handler(
   const body = jsonBody(req);
   if (!body) {
     return send(res, 400, { error: 'Request body must be JSON.' });
+  }
+
+  /* THE APPLY BUTTON, on this route rather than its own.
+     The Vercel plan allows twelve serverless functions and the project uses
+     twelve, so a thirteenth file in api/ fails the deploy outright. A promo
+     code only exists in the context of a booking, so quoting one belongs to
+     the booking route. It CONSUMES NOTHING: see previewPromo. */
+  if (req.query?.action === 'promo') {
+    return promoPreview(res, body);
   }
 
   // Honeypot: bots fill every field; humans never see this one. Pretend
@@ -458,6 +550,41 @@ export default async function handler(
        `validateAttendees`, and `passes_booking_sequence_idx` stops a retry
        inserting the same attendee twice. Neither blocks a real second
        booking. */
+    /* THE DISCOUNT IS DECIDED HERE, from the database, and never from the
+       request. The browser sends a CODE and nothing else: no amount, no
+       subtotal, no total. Whatever it believed the booking cost is not
+       consulted, so DevTools, an edited fetch, a replayed request and ten
+       tabs at once all arrive at the same place, which is this function
+       asking Postgres to reserve a use and being told what it is worth.
+
+       Reserved BEFORE the insert, because a booking written against a code
+       that turns out to be exhausted would have to be unpicked afterwards.
+       If the insert then fails, the use is handed back below. */
+    const requested = normalisePromo(body.promo_code);
+    if (requested) {
+      const outcome = await reservePromo(
+        env,
+        requested,
+        payload.visitor_type,
+        payload.subtotal
+      );
+      if (!outcome.ok) {
+        // The booking is refused rather than quietly priced at full price: a
+        // visitor who typed a code and was charged as though they had not
+        // would have no way of knowing why.
+        return send(res, 422, {
+          error: PROMO_MESSAGES[outcome.reason],
+          promo: { code: requested, reason: outcome.reason },
+        });
+      }
+      payload.promo_code = outcome.code;
+      payload.discount_amount = outcome.discount_amount;
+      /* THE FEE IS UNTOUCHED. The discount comes off the tickets and only the
+         tickets, so the total falls by exactly the discount. */
+      payload.total_amount =
+        payload.subtotal - outcome.discount_amount + payload.convenience_fee;
+    }
+
     // `attendees` is not a column: it is the list that becomes the passes.
     // PostgREST rejects the whole insert on an unknown key, so it is peeled
     // off here rather than left to fail the booking at the database.
@@ -472,6 +599,8 @@ export default async function handler(
       console.error(
         `[register] stage=insert supabase_status=${insertResponse.status}`
       );
+      // The use was reserved a moment ago and nothing was booked with it.
+      if (payload.promo_code) await releasePromo(env, payload.promo_code);
       return send(res, 502, {
         error: 'The registration could not be saved. Please try again.',
       });
@@ -481,6 +610,7 @@ export default async function handler(
     const registrationId = rows[0]?.id ?? null;
     if (!registrationId) {
       console.error('[register] stage=insert no id returned');
+      if (payload.promo_code) await releasePromo(env, payload.promo_code);
       return send(res, 502, {
         error: 'The registration could not be saved. Please try again.',
       });
@@ -498,6 +628,8 @@ export default async function handler(
       }).catch(() => {
         console.error('[register] stage=cleanup rollback delete failed');
       });
+      // The booking was rolled back, so its reservation goes back too.
+      if (payload.promo_code) await releasePromo(env, payload.promo_code);
       return send(res, 502, {
         error:
           'The registration could not be completed. Nothing was booked; please try again.',
@@ -510,6 +642,10 @@ export default async function handler(
       booking_reference: payload.booking_reference,
       pricing: {
         subtotal: payload.subtotal,
+        // Zero when no code was used, so the confirmation page never has to
+        // ask whether there was one.
+        discount_amount: payload.discount_amount,
+        promo_code: payload.promo_code,
         convenience_fee: payload.convenience_fee,
         total_amount: payload.total_amount,
       },

@@ -217,7 +217,29 @@ export function Band({
       }
       {...rest}
     >
-      <div className="mx-auto max-w-6xl px-6 md:px-10">{children}</div>
+      {/* THE ITALIAN WASH.
+          Two pastels from the district's own pair, thrown across opposite
+          corners at low strength: the plaster of a street where the light
+          comes off one wall and the shade off the other. It is GROUND and
+          only ground, so `--foreground`, every control and every rule are
+          untouched and the contrast the chapter was measured at still holds.
+
+          A raised band takes both, a plain one takes the warmer alone, so a
+          long page alternates without either reading as a stripe.
+
+          Two radial gradients on one absolutely positioned layer: no extra
+          element per section, nothing animated, nothing that costs a frame. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage:
+            tone === 'raised'
+              ? 'radial-gradient(70% 90% at 8% 0%, hsl(var(--wash-one) / 0.55), transparent 68%), radial-gradient(60% 80% at 96% 100%, hsl(var(--wash-two) / 0.42), transparent 66%)'
+              : 'radial-gradient(65% 80% at 92% 4%, hsl(var(--wash-one) / 0.34), transparent 70%)',
+        }}
+      />
+      <div className="relative mx-auto max-w-6xl px-6 md:px-10">{children}</div>
     </section>
   );
 }

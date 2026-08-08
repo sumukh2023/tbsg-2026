@@ -1,11 +1,8 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
 import { InfiniteSlider } from '@/components/motion/infinite-slider';
 import { cn } from '@/utils/cn';
 import { EASE, REVEAL_VIEWPORT } from '@/utils/motion';
-import { SUPPORT_PATH } from '../pages/chapters';
 
 /**
  * A wall of donor names that never stops moving.
@@ -20,8 +17,7 @@ import { SUPPORT_PATH } from '../pages/chapters';
  *
  * REUSABLE ON PURPOSE. It takes names and nothing else, so a future wall of
  * volunteers, alumni or partner schools is this component with a different
- * array. `DonorAcknowledgement` below is the piece wired to the donations
- * table; this one knows nothing about where names come from.
+ * array.
  */
 export function DonorScroller({
   names,
@@ -71,20 +67,80 @@ export function DonorScroller({
   );
 }
 
-/** What the roll endpoint hands back, once. */
-type RollState =
-  | { phase: 'loading' }
-  | { phase: 'ready'; donors: string[] };
+/** How many donors get a numbered place before the rest join the strip. */
+const RANKED = 10;
 
 /**
- * The Donors Acknowledgement section: the wall, or the invitation to be on
- * it.
+ * One place on the leaderboard.
  *
- * THE EMPTY STATE IS THE COMMON ONE TODAY and is written as an invitation
- * rather than an apology. Only gifts marked paid appear (see the roll in
- * api/donate.ts), and until the office marks them or a gateway does, there
- * are none. "No donors yet" would read as a failure; asking to be the first
- * name on the wall reads as the ask it is.
+ * MEMOISED, and that is the whole reason it is a component rather than a
+ * block of JSX inside the map. Adding a donor re-renders the section; without
+ * this every existing row re-renders with it, and on a wall that is meant to
+ * grow all season that is a cost that only goes up. With it, an arrival
+ * renders one row.
+ */
+const Place = memo(function Place({
+  rank,
+  name,
+  index,
+}: {
+  rank: number;
+  name: string;
+  index: number;
+}) {
+  return (
+    <motion.li
+      initial={{ opacity: 0, y: 14 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={REVEAL_VIEWPORT}
+      transition={{
+        duration: 0.6,
+        // Capped, so the fiftieth row is not still waiting three seconds in.
+        delay: Math.min(index * 0.05, 0.45),
+        ease: EASE.out,
+      }}
+      className="flex items-baseline gap-5 border-b border-border/50 py-4 last:border-b-0 md:gap-8"
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          'w-8 flex-none text-right font-display text-lg tabular-nums md:w-10 md:text-xl',
+          // The first three are the accent; after that the numeral steps back
+          // so the NAMES are what the eye runs down.
+          rank <= 3 ? 'text-accent' : 'text-muted-foreground/70'
+        )}
+      >
+        {String(rank).padStart(2, '0')}
+      </span>
+      <span className="min-w-0 flex-1 font-display text-xl font-medium tracking-tight text-foreground md:text-2xl">
+        <span className="sr-only">Number {rank}, </span>
+        {name}
+      </span>
+    </motion.li>
+  );
+});
+
+/** What the roll endpoint hands back, once. */
+type RollState = { phase: 'loading' } | { phase: 'ready'; donors: string[] };
+
+/**
+ * The Donors Acknowledgement section: the leaderboard, or the invitation to
+ * be on it.
+ *
+ * RANK AND NAME, AND NOTHING ELSE. The order comes from what people gave, but
+ * the amounts never leave the server (see the roll in api/donate.ts) and no
+ * figure appears here. Publishing who gave most is a thank you; publishing
+ * what each of them gave is a different thing that nobody consented to.
+ *
+ * ONLY PUBLIC ACKNOWLEDGEMENTS REACH THIS COMPONENT, and not because it
+ * filters them: the endpoint only ever selects rows whose donor chose to be
+ * named. A donor who chose anonymity is not in the payload at all, so there
+ * is no filtering step here to get wrong, and none to bypass by reading the
+ * network tab.
+ *
+ * THE EMPTY STATE IS DYNAMIC. It is what the section shows while the roll is
+ * genuinely empty, and it disappears the moment one qualifying donation
+ * exists, because both come from the same fetch.
  */
 export function DonorAcknowledgement() {
   const [state, setState] = useState<RollState>({ phase: 'loading' });
@@ -106,12 +162,16 @@ export function DonorAcknowledgement() {
     };
   }, []);
 
-  // Nothing is rendered until the answer is in. A wall that appears as the
-  // invitation and then swaps to names a moment later is worse than a beat
-  // of quiet, and the section sits below the fold either way.
+  /* NOTHING IS RENDERED UNTIL THE ANSWER IS IN, and this is also what keeps
+     the section free of layout shift: the alternative is reserving space for
+     a list whose length is not known yet, and any guess at that height is
+     wrong for every case but one. The section sits below the fold, so the
+     beat of quiet costs nothing. */
   if (state.phase === 'loading') return null;
 
   const { donors } = state;
+  const ranked = donors.slice(0, RANKED);
+  const rest = donors.slice(RANKED);
 
   return (
     <motion.section
@@ -146,7 +206,25 @@ export function DonorAcknowledgement() {
 
       {donors.length > 0 ? (
         <>
-          <DonorScroller names={donors} className="mt-12 md:mt-16" />
+          <ol className="mx-auto mt-12 max-w-2xl px-6 md:mt-16 md:px-10">
+            {ranked.map((name, i) => (
+              <Place key={name} rank={i + 1} name={name} index={i} />
+            ))}
+          </ol>
+
+          {/* EVERYONE ELSE, in the strip the section already had. A hundred
+              numbered rows is a table nobody reads to the bottom of; the
+              first ten are the leaderboard and the rest keep moving, which
+              is how the wall grows all season without ever getting longer. */}
+          {rest.length > 0 && (
+            <>
+              <p className="mx-auto mt-12 max-w-md px-6 text-center font-body text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                And with thanks to
+              </p>
+              <DonorScroller names={rest} className="mt-6" />
+            </>
+          )}
+
           <p className="mx-auto mt-12 max-w-md px-6 text-center font-body text-sm leading-relaxed text-muted-foreground">
             {donors.length === 1
               ? 'One donor, named here with their permission.'
@@ -156,23 +234,11 @@ export function DonorAcknowledgement() {
         </>
       ) : (
         <p className="mx-auto mt-8 max-w-lg px-6 text-center font-body text-base leading-relaxed text-muted-foreground">
-          Donors who support Flash are acknowledged here by name. Give today
-          and yours is the first one the piazza reads.
+          Donors who support Flash are acknowledged here by name. Anyone who
+          chooses to give anonymously never appears, and no amounts are ever
+          shown.
         </p>
       )}
-
-      <div className="mt-10 flex justify-center px-6">
-        <Link
-          to={SUPPORT_PATH}
-          className="group inline-flex items-center gap-2 rounded-full bg-primary px-8 py-3.5 font-body text-sm font-medium text-primary-foreground transition-all duration-300 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
-        >
-          Donate now
-          <ArrowRight
-            aria-hidden="true"
-            className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5"
-          />
-        </Link>
-      </div>
     </motion.section>
   );
 }
