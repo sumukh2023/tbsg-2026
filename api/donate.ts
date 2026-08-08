@@ -128,11 +128,29 @@ function validate(body: Record<string, unknown>): Payload | string {
  * same subject, so the roll lives on the same function.
  *
  * WHAT IT WILL AND WILL NOT SAY. Only gifts whose donor asked to be named
- * (`recognition_preference = 'public'`) and whose money has actually arrived
- * (`payment_status = 'paid'`). An intent is not a gift, and thanking someone
- * publicly for one that has not been captured is a claim about them that is
- * not true yet. Corporate donors are named by their organisation where they
- * gave one, which is the name they gave it under.
+ * (`recognition_preference = 'public'`), and only those whose payment has not
+ * gone wrong.
+ *
+ * THE PAYMENT FILTER USED TO BE `= 'paid'` AND THAT MADE THE WALL
+ * UNREACHABLE. The reasoning was sound in the abstract: an intent is not a
+ * gift, and thanking somebody for money that has not arrived is a claim that
+ * is not true yet. But there is no payment gateway on this site, and the
+ * handler below hard-codes `payment_status = 'pending'` on every insert, so
+ * no row could ever become 'paid' except by hand in the Supabase console.
+ * The wall showed "waiting for its first name" to a table with donors in it,
+ * which is a worse falsehood than the one the filter was avoiding, and it
+ * would have stayed that way through the whole campaign.
+ *
+ * So the filter is an ALLOW-LIST of states a donor can legitimately be named
+ * in: 'pending', which is what the school records when someone commits to
+ * give and settles offline, and 'paid'. 'failed' and 'refunded' are excluded
+ * because those people are not donors. An allow-list rather than
+ * `not.in.(failed,refunded)` on purpose: a status added to the column later
+ * has to be considered before it can reach a public page, rather than
+ * appearing there by default.
+ *
+ * Corporate donors are named by their organisation where they gave one,
+ * which is the name they gave it under.
  *
  * NOTHING ELSE LEAVES THE FUNCTION. Not the email address, the phone number,
  * the amount or the donor type. A wall of names is a wall of names; the
@@ -162,7 +180,7 @@ async function roll(res: VercelResponse): Promise<void> {
   const response = await fetch(
     `${env.url}/rest/v1/donations` +
       `?select=full_name,organisation,donor_type,amount,created_at` +
-      `&recognition_preference=eq.public&payment_status=eq.paid` +
+      `&recognition_preference=eq.public&payment_status=in.(pending,paid)` +
       `&order=amount.desc,created_at.asc&limit=500`,
     { headers: env.headers }
   );

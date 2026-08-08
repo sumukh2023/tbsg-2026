@@ -118,7 +118,13 @@ export function PromoField({
                     if (value.trim() && !busy) onApply();
                   }
                 }}
-                placeholder="FLASH26"
+                /* NO PLACEHOLDER. It used to read FLASH26, which was meant
+                   as a hint at the shape of a code and was taken for a value
+                   already in the box: people pressed Apply expecting it to
+                   be applied, and anyone who did type a code was working over
+                   the top of what looked like existing text. The label above
+                   already says what the field is, so the hint was buying
+                   nothing and costing that. */
                 className={cn(
                   'min-w-0 flex-1 rounded-xl border bg-background/70 px-4 py-3 font-body text-sm uppercase tracking-[0.08em] text-foreground placeholder:tracking-normal placeholder:text-muted-foreground/60 focus:outline-none',
                   state.phase === 'error'

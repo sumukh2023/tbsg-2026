@@ -89,8 +89,11 @@ const donation = (patch) => {
 
 donation({ full_name: 'Meera Rajagopal' });
 donation({ full_name: 'Ravi Shankar', recognition_preference: 'anonymous' });
-donation({ full_name: 'Not Paid Yet', payment_status: 'pending' });
+// Pending is the state EVERY donation is written in, since there is no
+// gateway; it belongs on the wall. Failed and refunded do not.
+donation({ full_name: 'Settling Offline', payment_status: 'pending' });
 donation({ full_name: 'Payment Failed', payment_status: 'failed' });
+donation({ full_name: 'Money Returned', payment_status: 'refunded' });
 donation({
   full_name: 'Lakshmi Iyer',
   donor_type: 'corporate',
@@ -123,19 +126,23 @@ console.log('\nAnd nobody else');
   const { payload } = await call('GET');
   const joined = JSON.stringify(payload);
   check('an anonymous donor is NOT on it', !joined.includes('Ravi Shankar'));
-  check('an unpaid intent is NOT on it', !joined.includes('Not Paid Yet'));
   check('a failed payment is NOT on it', !joined.includes('Payment Failed'));
+  check('nor a refunded one', !joined.includes('Money Returned'));
+  /* PENDING IS ON IT, and that is the fix rather than a slip. Every donation
+     this site records is pending, because there is no gateway to move it on;
+     requiring 'paid' meant the wall could never show anybody. */
+  check('a gift still settling offline IS on it', joined.includes('Settling Offline'));
   check(
     'the same donor appears once, however they spelled it',
     payload.donors.filter((n) => n.toLowerCase().replace(/\s+/g, ' ').trim() === 'meera rajagopal')
       .length === 1,
     JSON.stringify(payload.donors)
   );
-  /* THREE, from eight rows. Meera gave three times and is named once;
-     Lakshmi gave as Sundaram Textiles; Anil gave as himself. The other four
-     rows are an anonymous donor, an unpaid intent and a failed payment, and
-     none of them belongs on a public wall. */
-  check('three names from eight rows', payload.donors.length === 3, JSON.stringify(payload.donors));
+  /* FOUR, from nine rows. Meera gave three times and is named once; Lakshmi
+     gave as Sundaram Textiles; Anil gave as himself; one gift is still
+     settling offline. The three excluded are an anonymous donor, a failed
+     payment and a refund. */
+  check('four names from nine rows', payload.donors.length === 4, JSON.stringify(payload.donors));
 }
 
 console.log('\nThe roll is a wall of names and NOTHING else');
@@ -185,10 +192,13 @@ console.log('\nRecording a donation still works, and is still not public');
   const stored = db.donations.at(-1);
   check('as pending, never as paid', stored.payment_status === 'pending', stored.payment_status);
 
+  /* AND IT REACHES THE WALL IMMEDIATELY, which is the behaviour the office
+     needs: they record a gift and it is acknowledged, without anybody having
+     to go into Supabase and flip a column by hand. */
   const roll = await call('GET');
   check(
-    'so a brand new gift is NOT on the wall yet',
-    !roll.payload.donors.includes('New Donor'),
+    'and it is on the wall straight away',
+    roll.payload.donors.includes('New Donor'),
     JSON.stringify(roll.payload.donors)
   );
 }
@@ -198,6 +208,84 @@ console.log('\nAnything other than GET or POST is refused');
   const { status, headers } = await call('DELETE', {});
   check('answers 405', status === 405, `got ${status}`);
   check('and advertises both verbs', headers.Allow === 'GET, POST', headers.Allow);
+}
+
+console.log('\nA donation recorded by the LIVE FORM reaches the wall');
+{
+  /* THE BUG THIS EXISTS FOR. The roll used to require payment_status =
+     'paid'. api/donate.ts hard-codes 'pending' on every insert and there is
+     no payment gateway, so no row could ever qualify: the wall said "waiting
+     for its first name" to a table with donors in it, and would have said it
+     all season. This fixture is exactly what the form writes. */
+  db.donations = [
+    {
+      id: randomUUID(),
+      full_name: 'Freshly Given',
+      email: 'fresh@example.com',
+      phone: '9886012345',
+      donor_type: 'individual',
+      organisation: null,
+      amount: 5000,
+      recognition_preference: 'public',
+      // Not 'paid'. This is what the handler writes, every time.
+      payment_status: 'pending',
+      terms_accepted: true,
+      created_at: new Date().toISOString(),
+    },
+  ];
+  const { status, payload } = await call('GET');
+  check('answers 200', status === 200, `got ${status}`);
+  check(
+    'a public PENDING donation is on the wall',
+    payload.donors.includes('Freshly Given'),
+    JSON.stringify(payload.donors)
+  );
+}
+
+console.log('\nBut a payment that went wrong is still not a donor');
+for (const state of ['failed', 'refunded']) {
+  db.donations = [
+    {
+      id: randomUUID(),
+      full_name: `Should Not Appear ${state}`,
+      email: 'x@example.com',
+      phone: '9886012345',
+      donor_type: 'individual',
+      organisation: null,
+      amount: 5000,
+      recognition_preference: 'public',
+      payment_status: state,
+      terms_accepted: true,
+      created_at: new Date().toISOString(),
+    },
+  ];
+  const { payload } = await call('GET');
+  check(`${state} is excluded`, payload.donors.length === 0, JSON.stringify(payload.donors));
+}
+
+console.log('\nAnd anonymity still wins over everything');
+{
+  db.donations = [
+    {
+      id: randomUUID(),
+      full_name: 'Private Person',
+      email: 'x@example.com',
+      phone: '9886012345',
+      donor_type: 'individual',
+      organisation: null,
+      amount: 1000000,
+      recognition_preference: 'anonymous',
+      payment_status: 'pending',
+      terms_accepted: true,
+      created_at: new Date().toISOString(),
+    },
+  ];
+  const { payload } = await call('GET');
+  check(
+    'an anonymous donor never appears, whatever they gave',
+    payload.donors.length === 0,
+    JSON.stringify(payload.donors)
+  );
 }
 
 pg.close?.();

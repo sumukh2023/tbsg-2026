@@ -657,6 +657,14 @@ looked well-evidenced, passed every gate, and still broke Safari everywhere.
 ## Secrets / security rules
 
 - NEVER expose `SUPABASE_SERVICE_ROLE_KEY` to the browser. Server-side only.
+- **The wall shows `payment_status in ('pending','paid')`, NOT `paid` alone.**
+  It required `paid` for one day and the wall was unreachable: `api/donate.ts`
+  hard-codes `pending` on every insert and there is no gateway, so no row
+  could ever qualify and the page told a table full of donors it was waiting
+  for its first name. Pending is what the office records when a gift settles
+  offline. `failed` and `refunded` stay out. It is an ALLOW-LIST rather than
+  `not.in.(...)`, so a status added to the column later has to be considered
+  before it can reach a public page.
 - **The donor wall is a LEADERBOARD, ranked by total given, and the totals
   never leave the server.** Ordering by what people gave is what makes it a
   leaderboard; publishing the figures would be a different thing nobody
