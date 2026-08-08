@@ -549,15 +549,20 @@ looked well-evidenced, passed every gate, and still broke Safari everywhere.
    NOT declare `position` — it overrides Tailwind's layered `fixed` (bit us
    twice: live control anchored bottom-left; panel rendered in-flow at page
    bottom). Callers control positioning.
-3. **Sandbox Chromium (`/opt/pw-browsers/chromium`) has no H.264** — videos
+3. **Tailwind scans COMMENTS as content.** `duration-[900ms]` warns on every
+   build because the `duration` namespace covers transition-duration and
+   animation-duration both. Naming the property (`[transition-duration:900ms]`)
+   fixes the class, but a comment that quotes the old class warns just as
+   loudly, so the explanation has to describe it without writing it.
+4. **Sandbox Chromium (`/opt/pw-browsers/chromium`) has no H.264** — videos
    verify via the webm fallback; an mp4-only source shows NETWORK_NO_SOURCE.
    Fake camera: launch args `--use-fake-ui-for-media-stream
    --use-fake-device-for-media-stream` + context `permissions: ['camera']`.
-4. Image/video CDNs (Unsplash etc.) are unreachable from the container —
+5. Image/video CDNs (Unsplash etc.) are unreachable from the container —
    material-based art direction (marble/grain SVG) instead; assets go in `public/`.
-5. `published_at` NULL → 1970 dates: schema trigger + client falls back to
+6. `published_at` NULL → 1970 dates: schema trigger + client falls back to
    `created_at` + nullsLast ordering.
-6. **FIXED (2 Aug 2026).** Voci's staggered 12-col grid used to overflow the
+7. **FIXED (2 Aug 2026).** Voci's staggered 12-col grid used to overflow the
    DOCUMENT between 1024 and ~1098px: eleven 96px gutters is 1056px of gap
    alone, more than the page had, so the tracks collapsed and the offset quote
    was clipped off the right edge. `lg:gap-24` is now `lg:gap-x-12 lg:gap-y-24`
@@ -567,7 +572,7 @@ looked well-evidenced, passed every gate, and still broke Safari everywhere.
    row only from `xl` where a quarter of the row can hold the address.
    Root-level horizontal overflow is worth hunting on sight — WebKit degrades
    scrolling far more than Blink when the document scrolls sideways.
-7. **Safari 27 (iPadOS) can refuse to LOAD media until the page has seen a
+8. **Safari 27 (iPadOS) can refuse to LOAD media until the page has seen a
    real gesture.** Signature: `networkState` 0 EMPTY, `currentSrc` empty, and
    **no MediaError** — it never tried, so nothing failed — plus `play()`
    rejected `NotAllowedError` on a muted inline video. Same network, same
@@ -578,7 +583,7 @@ looked well-evidenced, passed every gate, and still broke Safari everywhere.
    tap does. `onFirstGesture` in `ScrollHero.tsx` waits for the first tap and
    releases every film on the page at once. Diagnose with `/diag.html`
    (`public/diag.html`, delete when no longer needed).
-8. **DO NOT "optimise" the scrub seek guard against `fastSeek` keyframe
+9. **DO NOT "optimise" the scrub seek guard against `fastSeek` keyframe
    snapping. It was tried on 2 Aug 2026 and it broke Safari badly on Mac,
    iPhone and iPad; reverted in full the same day.** The reasoning looked
    sound and the measurements were real: `fastSeek` may land only on a
@@ -598,10 +603,10 @@ looked well-evidenced, passed every gate, and still broke Safari everywhere.
    Safari device before it goes anywhere near `main`; the container cannot
    install WebKit (Playwright's download is blocked by the egress policy), so
    a Chromium measurement is not evidence about Safari.
-9. Committer identity must be `Claude <noreply@anthropic.com>`; commits are
+10. Committer identity must be `Claude <noreply@anthropic.com>`; commits are
    SSH-signed (`commit.gpgsign=true` already configured in the cloud clone).
    Commit trailer: `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
-10. **THE E2E STUB HAS NO CONSTRAINTS, so a green suite is not a green
+11. **THE E2E STUB HAS NO CONSTRAINTS, so a green suite is not a green
     database.** `scripts/pgrest-stub.mjs` accepts any row. The individual-
     passes overhaul moved the student roll onto the attendees and left
     `registrations.usn/class/section` null for students; `registrations_student_details`
@@ -611,7 +616,7 @@ looked well-evidenced, passed every gate, and still broke Safari everywhere.
     then `supabase/schema.sql` + every file in `supabase/migrations/`), or add
     an assertion for the shape the schema demands (there is now one in
     `scripts/e2e-register.mjs`).
-11. **A print sheet must never be sized to the page.** `width: 210mm;
+12. **A print sheet must never be sized to the page.** `width: 210mm;
     min-height: 297mm` is exactly one A4 page and therefore exactly at the
     fragmentation limit; anything that shrinks the page box (the dialog's
     margin dropdown, headers and footers, US Letter paper) spills a blank
@@ -620,7 +625,7 @@ looked well-evidenced, passed every gate, and still broke Safari everywhere.
     PDF and prints wrong on paper: reproduce it with `width`/`height` on
     `page.pdf()` and no `@page` rule instead. Sheets are content-sized
     (~222mm) in `src/festival/getpasses/printPass.ts`.
-12. **`snap-center` needs half a plate of padding at each end.** Without it
+13. **`snap-center` needs half a plate of padding at each end.** Without it
     the first plate cannot be centred, so the first snap position is short by
     `(viewport - plate) / 2` and the opening advance travels less than one
     stride: the carousel appears to jolt on exactly the first transition.
@@ -654,9 +659,37 @@ looked well-evidenced, passed every gate, and still broke Safari everywhere.
   lives at `POST /api/register?action=promo` rather than in its own file
   because the Vercel plan allows twelve functions and the project uses twelve.
 
+## One person, one identity (9 Aug 2026)
+
+- Booking more than once is allowed. Booking as TWO PEOPLE is not: an email
+  address and a mobile number are treated as one identity, and `register`
+  refuses a booking whose email is on file against a different number, or
+  whose number is on file against a different address
+  (`conflictingIdentity`).
+- **The reason is retrieval, not tidiness for its own sake.** `/api/retrieve`
+  matches on the email AND the number together, so a second record under
+  half-changed details is passes the visitor can never find again.
+- Checked BEFORE the promo code is reserved, so a refused booking never spends
+  one of a limited promotion's uses.
+- A failed lookup **allows** the booking and logs. This is a consistency
+  guarantee; losing a real visitor to a read timeout would be the worse trade.
+- The refusal names the field (`{ error, field: 'email' | 'phone' }`) and
+  `GetPassesPage` puts the message on that input and returns to step one,
+  because both fields live four steps back from where the refusal happens.
+- **Fixtures must give each buyer their own email AND number.** `e2e-promo`
+  reused one number across buyers and started failing the moment this landed,
+  correctly.
+
 ## Secrets / security rules
 
 - NEVER expose `SUPABASE_SERVICE_ROLE_KEY` to the browser. Server-side only.
+- **The roll is barely cached: `max-age=0, s-maxage=30`, no
+  stale-while-revalidate.** It was `max-age=60, s-maxage=300,
+  stale-while-revalidate=86400`, which is the right shape for a page that
+  changes on a schedule and the wrong one for this: the office edits the
+  table and immediately looks at the page to check, and emptying the table
+  left donors on the wall for minutes. Serving a knowingly stale wall is the
+  failure being avoided, so there is no SWR window.
 - **The wall shows `payment_status in ('pending','paid')`, NOT `paid` alone.**
   It required `paid` for one day and the wall was unreachable: `api/donate.ts`
   hard-codes `pending` on every insert and there is no gateway, so no row

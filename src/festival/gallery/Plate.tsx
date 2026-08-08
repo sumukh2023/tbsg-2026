@@ -52,7 +52,16 @@ export function Plate({
           decoding="async"
           fetchPriority={priority ? 'high' : 'auto'}
           sizes={sizes}
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-[900ms] ease-out will-change-transform group-hover:scale-[1.045]"
+          /* The duration names its CSS property outright rather than going
+             through Tailwind's `duration` scale with an arbitrary value. That
+             scale covers transition-duration and animation-duration both, so
+             an arbitrary value on it is ambiguous and warns on every build.
+
+             The warning is also why this comment describes the old class
+             instead of quoting it: Tailwind scans source files as content, so
+             a comment containing the ambiguous class warns exactly as loudly
+             as the class did. */
+          className="absolute inset-0 h-full w-full object-cover transition-transform [transition-duration:900ms] ease-out will-change-transform group-hover:scale-[1.045]"
         />
       ) : (
         <div

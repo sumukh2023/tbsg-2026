@@ -421,6 +421,71 @@ export type MintedPass = {
 };
 
 /**
+ * Has this person booked before under different details?
+ *
+ * MULTIPLE BOOKINGS ARE FINE. What is not fine is one person arriving as two:
+ * a parent who books in August on one mobile number and again in October on
+ * another has two records that nothing joins up, and retrieval only ever
+ * finds one of them, because it matches on the email AND the number together.
+ * They would be told, truthfully and uselessly, that their other passes do
+ * not exist.
+ *
+ * So an email address and a mobile number are ONE identity. Either may be
+ * used to find the history, and if the other disagrees with what is on file
+ * the booking is refused with an explanation rather than quietly filed under
+ * a second identity.
+ *
+ * Returns the sentence to refuse with and the field to put it on, or null
+ * when the details are consistent, which includes never having booked.
+ */
+async function conflictingIdentity(
+  env: { url: string; headers: Record<string, string> },
+  email: string,
+  phone: string
+): Promise<{ error: string; field: 'email' | 'phone' } | null> {
+  /* ONE QUERY, matching EITHER identifier. Two would be two round trips on
+     the hot path of a booking, and the answer needs both sides anyway: it is
+     the disagreement between them that matters. */
+  const url =
+    `${env.url}/rest/v1/registrations?select=email,phone` +
+    `&or=(email.eq.${encodeURIComponent(email)},phone.eq.${encodeURIComponent(phone)})` +
+    `&limit=50`;
+  let rows: Array<{ email: string; phone: string }> = [];
+  try {
+    const response = await fetch(url, { headers: env.headers });
+    if (!response.ok) throw new Error(String(response.status));
+    rows = (await response.json()) as typeof rows;
+  } catch {
+    /* A LOOKUP FAILURE MUST NOT BLOCK A BOOKING. This check keeps one
+       person's records together, which is a tidiness guarantee; refusing a
+       real booking because a read timed out would trade a tidy database for
+       a lost visitor. Logged, then waved through. */
+    console.error('[register] stage=identity lookup failed, allowing booking');
+    return null;
+  }
+
+  const knownEmail = rows.find((r) => r.email === email);
+  if (knownEmail && knownEmail.phone !== phone) {
+    return {
+      field: 'phone',
+      error:
+        'You have booked with us before using this email address, but with a different mobile number. Please enter the number from your earlier booking so every pass stays together. If your number has changed, write to bfcommunication@brigadeschools.edu.in and we will update it.',
+    };
+  }
+
+  const knownPhone = rows.find((r) => r.phone === phone);
+  if (knownPhone && knownPhone.email !== email) {
+    return {
+      field: 'email',
+      error:
+        'You have booked with us before using this mobile number, but with a different email address. Please enter the address from your earlier booking so every pass stays together. If your address has changed, write to bfcommunication@brigadeschools.edu.in and we will update it.',
+    };
+  }
+
+  return null;
+}
+
+/**
  * POST /api/register?action=promo — what a code would be worth.
  *
  * Answers with the DISCOUNT ONLY, never with a total. The browser shows the
@@ -533,6 +598,15 @@ export default async function handler(
       error:
         'The registration desk is not open yet. Please try again later or write to bfcommunication@brigadeschools.edu.in.',
     });
+  }
+
+  /* CHECKED BEFORE THE PROMO IS RESERVED, and that order matters. Reserving
+     first would spend one of a limited promotion's uses on a booking that is
+     about to be refused, and `release_promo_use` would have to unpick it. A
+     refusal that never touches the promotion cannot get that wrong. */
+  const conflict = await conflictingIdentity(env, payload.email, payload.phone);
+  if (conflict) {
+    return send(res, 422, { error: conflict.error, field: conflict.field });
   }
 
   try {

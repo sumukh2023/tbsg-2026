@@ -995,6 +995,16 @@ export default function GetPassesPage() {
             ? 'The registration service is unavailable right now. Please try again shortly.'
             : 'The registration could not be processed. Please review your details and retry.'),
       });
+      /* A REFUSAL THAT NAMES A FIELD GOES BACK TO THAT FIELD.
+         The identity check refuses when an email address arrives with a
+         different mobile number from the one it booked under before, and
+         both of those live on step ONE. Leaving the message on the
+         confirmation step would be telling somebody to correct something
+         they cannot see, four steps away, with no indication of where. */
+      if (data?.field === 'email' || data?.field === 'phone') {
+        setErrors((current) => ({ ...current, [data.field]: data.error }));
+        goTo(0);
+      }
       return;
     }
     setSubmit({

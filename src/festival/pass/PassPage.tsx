@@ -149,7 +149,7 @@ function RetrieveForm({ onFound }: { onFound: (bookings: Booking[]) => void }) {
     // server's question, and answering it here would tell an enumerator
     // which of the three fields they got wrong.
     if (fullName.trim().length < 2) {
-      next.fullName = 'Please enter the name you registered with.';
+      next.fullName = 'Please enter the full name you registered with.';
     }
     setFieldErrors(next);
     if (next.email || next.phone || next.fullName) return;
@@ -228,7 +228,7 @@ function RetrieveForm({ onFound }: { onFound: (bookings: Booking[]) => void }) {
         />
         <FloatingInput
           id="retrieve-name"
-          label="Name"
+          label="Full name"
           value={fullName}
           onChange={(v) => {
             setFullName(v);

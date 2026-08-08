@@ -77,8 +77,13 @@ const booking = (extra = {}) => {
   n += 1;
   return {
     full_name: `Buyer ${n}`,
+    /* A DISTINCT EMAIL AND A DISTINCT NUMBER PER BOOKING. The two are one
+       identity now (see conflictingIdentity in api/register.ts), so a fixture
+       that varied the address while reusing one number was a different person
+       claiming somebody else's number and is correctly refused. Every booking
+       here is meant to be a different buyer, so both fields move. */
     email: `buyer${n}@example.com`,
-    phone: '9886012345',
+    phone: `98860${String(20000 + n).slice(0, 5)}`,
     visitor_type: 'other',
     visitor_detail: 'Guest',
     number_of_passes: 5,

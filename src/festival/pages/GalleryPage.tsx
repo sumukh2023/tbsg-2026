@@ -368,7 +368,7 @@ function FilmCard({ film, index }: { film: Film; index: number }) {
               loading="lazy"
               decoding="async"
               onError={() => setFailed(true)}
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.05]"
+              className="absolute inset-0 h-full w-full object-cover transition-transform [transition-duration:900ms] ease-out group-hover:scale-[1.05]"
             />
           )}
 

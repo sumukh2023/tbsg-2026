@@ -237,13 +237,22 @@ async function roll(res: VercelResponse): Promise<void> {
     donors.push(name);
   }
 
-  // A minute of browser cache and five at the edge: the wall changes when a
-  // gift is marked paid, which is not something that happens between one
-  // page view and the next.
-  res.setHeader(
-    'Cache-Control',
-    'public, max-age=60, s-maxage=300, stale-while-revalidate=86400'
-  );
+  /* BARELY CACHED, and that is deliberate after getting it wrong.
+     This header used to read `max-age=60, s-maxage=300,
+     stale-while-revalidate=86400`, which is a sensible shape for a page that
+     changes on a schedule and the wrong shape for this one. The wall changes
+     when the office adds or removes a donation, and they then look at the
+     page to check: a browser holding it for a minute, an edge holding it for
+     five and a stale-while-revalidate window of a DAY meant the page they
+     looked at was not the page the table described. Emptying the table left
+     donors on the wall.
+
+     Thirty seconds at the edge is enough to absorb a burst without ever
+     being long enough to argue with. `max-age=0` keeps the browser out of it
+     entirely, so a reload is always a real answer, and there is no
+     stale-while-revalidate: serving a known-stale wall is the failure this
+     is avoiding. The response is a short list of names. */
+  res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=30');
   return send(res, 200, { donors });
 }
 

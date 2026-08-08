@@ -135,6 +135,59 @@ console.log('\nDuplicate USNs WITHIN one booking are still refused');
   check('a single student is fine', status===201, `${status} ${payload?.error ?? ''}`);
 }
 
+/* ------------------------------------------------------------------ *
+ * ONE PERSON, ONE IDENTITY.
+ *
+ * Booking more than once is allowed and tested above. What is refused is the
+ * same email arriving with a different mobile number, or the same number with
+ * a different address, because retrieval matches on the two TOGETHER: a
+ * second record under half-changed details is passes the visitor can never
+ * find again.
+ * ------------------------------------------------------------------ */
+console.log('\nAn email address and a mobile number are one identity');
+{
+  const guest = (patch) => ({
+    full_name: 'Regular Booker', visitor_type: 'other', visitor_detail: 'Guest',
+    number_of_passes: 1, terms_accepted: true,
+    attendees: [{ attendee_name: 'Regular Booker' }], ...patch,
+  });
+
+  const first = await post(guest({ email: 'regular@example.com', phone: '9886011001' }));
+  check('the first booking is accepted', first.status === 201, `got ${first.status}`);
+
+  const again = await post(guest({
+    email: 'regular@example.com', phone: '9886011001', number_of_passes: 2,
+    attendees: [{ attendee_name: 'Regular Booker' }, { attendee_name: 'A Friend' }],
+  }));
+  check('booking AGAIN on the same details is still fine', again.status === 201,
+    `got ${again.status} ${again.payload?.error ?? ''}`);
+
+  const newPhone = await post(guest({ email: 'regular@example.com', phone: '9886019999' }));
+  check('the same email with a NEW number is refused', newPhone.status === 422,
+    `got ${newPhone.status}`);
+  check('  and says they have booked before',
+    /booked with us before/.test(newPhone.payload?.error ?? ''), newPhone.payload?.error);
+  check('  and names the field to correct', newPhone.payload?.field === 'phone',
+    String(newPhone.payload?.field));
+
+  const newEmail = await post(guest({ email: 'someone.else@example.com', phone: '9886011001' }));
+  check('the same number with a NEW email is refused', newEmail.status === 422,
+    `got ${newEmail.status}`);
+  check('  and names the other field', newEmail.payload?.field === 'email',
+    String(newEmail.payload?.field));
+
+  const before = db.registrations.length;
+  await post(guest({ email: 'regular@example.com', phone: '9886019999' }));
+  check('a refused booking writes nothing', db.registrations.length === before);
+
+  const stranger = await post(guest({
+    full_name: 'Nobody Known', email: 'stranger@example.com', phone: '9886012222',
+    attendees: [{ attendee_name: 'Nobody Known' }],
+  }));
+  check('somebody who has never booked is unaffected', stranger.status === 201,
+    `got ${stranger.status} ${stranger.payload?.error ?? ''}`);
+}
+
 pg.close?.();
 console.log(fail===0?'\nAll checks passed.':`\n${fail} failing.`);
 process.exit(fail?1:0);
